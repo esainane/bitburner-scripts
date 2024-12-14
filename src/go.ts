@@ -135,7 +135,7 @@ async function find_runners(ns: NS, servers: Array<Server>) {
   const available_runners: Array<Runner> = [];
   let total_available_threads = 0;
 
-  const ram_per_thread = ns.getScriptRam('grow1.ts', 
+  const ram_per_thread = ns.getScriptRam('worker/grow1.ts',
   'home');
 
   for (const s of servers) {
@@ -234,10 +234,10 @@ export async function main(ns: NS): Promise<void> {
       // As grow significantly increases security and is difficult to recover from if something goes wrong,
       // it gets top priority on unfragmented allocations. Hack follows, and then the weakens. It's possible
       // that the weakens should be prioritized above the hack.
-      allocate_threads(best.grow_threads, 'grow1.ts', best.server.hostname, best.grow_delay);
-      allocate_threads(best.hack_threads, 'hack1.ts', best.server.hostname, best.hack_delay);
-      allocate_threads(best.weaken_2nd_threads, 'weak1.ts', best.server.hostname, best.weaken_2nd_delay);
-      allocate_threads(best.weaken_1st_threads, 'weak1.ts', best.server.hostname, best.weaken_1st_delay);
+      allocate_threads(best.grow_threads, 'worker/grow1.ts', best.server.hostname, best.grow_delay);
+      allocate_threads(best.hack_threads, 'worker/hack1.ts', best.server.hostname, best.hack_delay);
+      allocate_threads(best.weaken_2nd_threads, 'worker/weak1.ts', best.server.hostname, best.weaken_2nd_delay);
+      allocate_threads(best.weaken_1st_threads, 'worker/weak1.ts', best.server.hostname, best.weaken_1st_delay);
 
       // Wait until this block finishes, then see if state has changed/needs recalculating.
       // Otherwise, just run it again.

@@ -33,7 +33,7 @@ async function find_runners(ns: NS, servers: Array<Server>) {
   const available_runners: Array<Runner> = [];
   let total_available_threads = 0;
 
-  const ram_per_thread = ns.getScriptRam('grow1.ts', 
+  const ram_per_thread = ns.getScriptRam('worker/grow1.ts',
   'home');
 
   for (const s of servers) {
