@@ -1,3 +1,4 @@
+import { NS } from '@ns'
 export async function main(ns: NS): Promise<void> {
   // Greedy algorithm go!
   // Work out the step with the greatest cost efficiency available, and make it, if possible.

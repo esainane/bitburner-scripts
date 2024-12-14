@@ -1,3 +1,4 @@
+import { NS } from '@ns'
 export async function main(ns: NS): Promise<void> {
   // Copy script to all available servers
   // Traverse the network

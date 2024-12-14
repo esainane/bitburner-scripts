@@ -1,3 +1,4 @@
+import { NS } from '@ns'
 
 function pascals_triangle(row: number, column: number) {
   // (row n, column k) is (row n, column (k - 1)) * (n + 1 - k) / k

@@ -1,4 +1,4 @@
-
+import { NS } from '@ns'
 type CCTSolver =
   (data: any) => string | number | any[];
 

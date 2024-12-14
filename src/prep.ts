@@ -1,3 +1,4 @@
+import { NS } from '@ns'
 
 const exclude_runners: Set<string> = new Set([]);//"home"]); 
 // Tolerance for script drift in ms

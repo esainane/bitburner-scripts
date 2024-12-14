@@ -1,4 +1,4 @@
-
+import { NS } from '@ns'
 async function find_servers(ns: NS) {
   // Traverse the network
   const seen: Set<string> = new Set();
