@@ -12,7 +12,7 @@
     "noImplicitThis": true,
     "esModuleInterop": true,
     "inlineSourceMap": true,
-    "sourceRoot": "http://localhost:8000/sources/",
+    "sourceRoot": "http://localhost:8186/sources/",
     "strict": true,
     "rootDir": "src/",
     "outDir": "dist/",

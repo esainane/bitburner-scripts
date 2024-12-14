@@ -10,7 +10,7 @@
             "timeout": 15000,
             "webRoot": "${workspaceRoot}/src",
             "sourceMapPathOverrides": {
-                "http://localhost:8000/sources/*": "${workspaceRoot}/src/*"
+                "http://localhost:8186/sources/*": "${workspaceRoot}/src/*"
             }
         },
     ]
