@@ -1,4 +1,5 @@
 import { NS } from '@ns'
+import { find_servers } from 'lib/find-servers';
 type CCTSolver =
   (data: any) => string | number | any[];
 
@@ -161,31 +162,6 @@ async function attempt_cct(ns: NS, filename: string, host: string | undefined) {
   }
 }
 
-
-async function find_servers(ns: NS) {
-  // Traverse the network
-  const seen: Set<string> = new Set();
-  const home: Server = ns.getServer('home')
-  const to_visit: Array<Server> = [home];
-  while (to_visit.length > 0) {
-    const s: Server = to_visit.pop()!;
-    if (seen.has(s.hostname)) {
-      continue;
-    }
-    seen.add(s.hostname);
-    for (const adj_name of ns.scan(s.hostname)) {
-      if (seen.has(adj_name)) {
-        continue;
-      }
-      to_visit.push(ns.getServer(adj_name));
-    }
-  }
-
-  // Work out which servers we can use to run scripts on
-  const servers: Array<Server> = [...seen.values()].map(ns.getServer);
-  return servers;
-}
-
 async function find_all_ccts(ns: NS) {
   const servers = (await find_servers(ns));
 
@@ -205,7 +181,7 @@ async function find_all_ccts(ns: NS) {
 
 
 export async function main(ns: NS): Promise<void> {
-  if (ns.args.length > 1 && !String(ns.args[0]).startsWith('-')) { 
+  if (ns.args.length > 1 && !String(ns.args[0]).startsWith('-')) {
     const filename = String(ns.args[0]);
     const host = String(ns.args[1]);
     await attempt_cct(ns, filename, host);

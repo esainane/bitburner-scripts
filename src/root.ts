@@ -1,25 +1,7 @@
 import { NS } from '@ns'
+import { find_servers } from 'lib/find-servers';
+
 export async function main(ns: NS): Promise<void> {
-  // Traverse the network
-  const seen: Set<string> = new Set();
-  const home: Server = ns.getServer('home')
-  const to_visit: Array<Server> = [home];
-  while (to_visit.length > 0) {
-    const s: Server = to_visit.pop()!;
-    if (seen.has(s.hostname)) {
-      continue;
-    }
-    seen.add(s.hostname);
-    for (const adj_name of ns.scan(s.hostname)) {
-      if (seen.has(adj_name)) {
-        continue;
-      }
-      to_visit.push(ns.getServer(adj_name));
-    }
-  }
-
-  // Sort the result
-
   interface PortCracker {
     prog_name: string;
     func: (host: string) => void;
@@ -36,7 +18,8 @@ export async function main(ns: NS): Promise<void> {
 
   ns.tprint(`${portsOpenable.length} ports openable`);
 
-  const servers: Array<Server> = [...seen.values()].map(ns.getServer);
+  const servers: Array<Server> = await find_servers(ns);
+
   for (const s of servers) {
     if (s.hasAdminRights && s.backdoorInstalled) {
       continue;

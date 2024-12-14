@@ -1,26 +1,8 @@
 import { NS } from '@ns'
+import { find_servers } from 'lib/find-servers';
 export async function main(ns: NS): Promise<void> {
   // Copy script to all available servers
-  // Traverse the network
-  const seen: Set<string> = new Set();
-  const home: Server = ns.getServer('home')
-  const to_visit: Array<Server> = [home];
-  while (to_visit.length > 0) {
-    const s: Server = to_visit.pop()!;
-    if (seen.has(s.hostname)) {
-      continue;
-    }
-    seen.add(s.hostname);
-    for (const adj_name of ns.scan(s.hostname)) {
-      if (seen.has(adj_name)) {
-        continue;
-      }
-      to_visit.push(ns.getServer(adj_name));
-    }
-  }
-
-  // Filter the result
-  const servers: Array<Server> = [...seen.values()].map(ns.getServer).filter(s => s.hasAdminRights);
+  const servers: Array<Server> = (await find_servers(ns)).filter(s => s.hasAdminRights);
 
   // Copy script to all
   const script = String(ns.args[0]);

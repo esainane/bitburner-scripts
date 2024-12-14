@@ -1,5 +1,6 @@
 import { NS } from '@ns'
-const exclude_runners: Set<string> = new Set(["home"]); 
+import { find_servers } from 'lib/find-servers';
+const exclude_runners: Set<string> = new Set(["home"]);
 
 // Tolerance for script drift in ms
 const tolerance = 1000;
@@ -98,30 +99,6 @@ async function plan_schedule(ns: NS, server: Server, threads_available: number) 
   }
 
   return best;
-}
-
-async function find_servers(ns: NS) {
-  // Traverse the network
-  const seen: Set<string> = new Set();
-  const home: Server = ns.getServer('home')
-  const to_visit: Array<Server> = [home];
-  while (to_visit.length > 0) {
-    const s: Server = to_visit.pop()!;
-    if (seen.has(s.hostname)) {
-      continue;
-    }
-    seen.add(s.hostname);
-    for (const adj_name of ns.scan(s.hostname)) {
-      if (seen.has(adj_name)) {
-        continue;
-      }
-      to_visit.push(ns.getServer(adj_name));
-    }
-  }
-
-  // Work out which servers we can use to run scripts on
-  const servers: Array<Server> = [...seen.values()].map(ns.getServer);
-  return servers;
 }
 
 interface Runner {server:Server, threads:number}
