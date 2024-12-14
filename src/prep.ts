@@ -14,7 +14,7 @@ async function find_servers(ns: NS) {
       continue;
     }
     seen.add(s.hostname);
-    for (let adj_name of ns.scan(s.hostname)) {
+    for (const adj_name of ns.scan(s.hostname)) {
       if (seen.has(adj_name)) {
         continue;
       }
@@ -27,12 +27,7 @@ async function find_servers(ns: NS) {
   return servers;
 }
 
-interface Runner {server:Server, threads:number};
-
-interface RunnersData {
-  available_runners: Array<Runner>;
-  available_threads: number;
-}
+interface Runner {server:Server, threads:number}
 
 async function find_runners(ns: NS, servers: Array<Server>) {
   const available_runners: Array<Runner> = [];
@@ -41,7 +36,7 @@ async function find_runners(ns: NS, servers: Array<Server>) {
   const ram_per_thread = ns.getScriptRam('grow1.ts', 
   'home');
 
-  for (let s of servers) {
+  for (const s of servers) {
     if (!s.hasAdminRights) {
       continue;
     }
@@ -92,9 +87,9 @@ async function calc_max_prep(ns: NS, target: string, available_threads: number) 
   return {grow_duration, grow_threads: 0, weaken_1st_threads: available_threads, weaken_duration, weaken_2nd_threads: 0, wanted};
 }
 
-export async function main(ns: NS) {
+export async function main(ns: NS): Promise<void> {
   while (true) {
-    let { available_runners, total_available_threads } = await find_runners(ns, await find_servers(ns));
+    const { available_runners, total_available_threads } = await find_runners(ns, await find_servers(ns));
     const cores = 1;
     const target = String(ns.args[0]);
 

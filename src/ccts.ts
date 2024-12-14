@@ -16,7 +16,7 @@ function algo_stock_2(data: any) {
     return 0;
   }
   let last: number = prices[0];
-  for (let current of prices.slice(1)) {
+  for (const current of prices.slice(1)) {
     if (current > last) {
       profit += current - last;
     }
@@ -33,7 +33,7 @@ function algo_stock_3(data: any) {
     return 0;
   }
   let last: number = prices[0];
-  for (let current of prices.slice(1)) {
+  for (const current of prices.slice(1)) {
     if (current > last) {
       profit += current - last;
     }
@@ -48,8 +48,8 @@ function caesar_cipher_1(data: any) {
   let cipher = '';
   const base = 'A'.charCodeAt(0);
   const upper = 'Z'.charCodeAt(0);
-  for (let char of plaintext) {
-    let val = char.charCodeAt(0);
+  for (const char of plaintext) {
+    const val = char.charCodeAt(0);
     if (base <= val && val <= upper) {
       cipher += String.fromCharCode(((val - left_shift - base + 26) % 26) + base);
     } else {
@@ -173,7 +173,7 @@ async function find_servers(ns: NS) {
       continue;
     }
     seen.add(s.hostname);
-    for (let adj_name of ns.scan(s.hostname)) {
+    for (const adj_name of ns.scan(s.hostname)) {
       if (seen.has(adj_name)) {
         continue;
       }
@@ -190,9 +190,9 @@ async function find_all_ccts(ns: NS) {
   const servers = (await find_servers(ns));
 
   const all_ccts = new Array<[string, string]>();
-  for (let s of servers) {
+  for (const s of servers) {
     const files: Array<string> = ns.ls(s.hostname);
-    for (let f of files) {
+    for (const f of files) {
       if (!f.endsWith('.cct')) {
         continue;
       }
@@ -204,14 +204,14 @@ async function find_all_ccts(ns: NS) {
 }
 
 
-export async function main(ns: NS) {
+export async function main(ns: NS): Promise<void> {
   if (ns.args.length > 1 && !String(ns.args[0]).startsWith('-')) { 
     const filename = String(ns.args[0]);
     const host = String(ns.args[1]);
     await attempt_cct(ns, filename, host);
   } else {
     const all_ccts = await find_all_ccts(ns);
-    for (let [filename, host] of all_ccts) {
+    for (const [filename, host] of all_ccts) {
       await attempt_cct(ns, filename, host);
     }
   }

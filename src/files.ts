@@ -10,7 +10,7 @@ async function find_servers(ns: NS) {
       continue;
     }
     seen.add(s.hostname);
-    for (let adj_name of ns.scan(s.hostname)) {
+    for (const adj_name of ns.scan(s.hostname)) {
       if (seen.has(adj_name)) {
         continue;
       }
@@ -24,14 +24,14 @@ async function find_servers(ns: NS) {
 }
 
 
-export async function main(ns: NS) {
+export async function main(ns: NS): Promise<void> {
   const servers = (await find_servers(ns)).filter((d: Server) => !d.purchasedByPlayer && d.hostname !== 'home' && d.hostname !== 'darkweb');
   
   const ignore_files = new Set<string>(ns.ls('home'));
   const all_files = new Map<string, string[]>([]);
-  for (let s of servers) {
+  for (const s of servers) {
     const files: Array<string> = ns.ls(s.hostname);
-    for (let f of files) {
+    for (const f of files) {
       if (all_files.has(f)) {
         all_files.get(f)!.push(s.hostname);
       } else {
@@ -40,7 +40,7 @@ export async function main(ns: NS) {
     }
   }
 
-  for (let [f, servers] of [...all_files.entries()].filter(([d, v]) => !d.endsWith('.lit') && !ignore_files.has(d))) {
+  for (const [f, servers] of [...all_files.entries()].filter(([d, v]) => !d.endsWith('.lit') && !ignore_files.has(d))) {
     ns.tprint(f, ' @ ', servers);
   }
 }

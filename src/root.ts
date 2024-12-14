@@ -1,10 +1,4 @@
-/** @param {NS} ns */
-interface ServerData {
-  name: String;
-  backdoored: boolean;
-  hack_difficulty: number;
-}
-export async function main(ns: NS) {
+export async function main(ns: NS): Promise<void> {
   // Traverse the network
   const seen: Set<string> = new Set();
   const home: Server = ns.getServer('home')
@@ -15,7 +9,7 @@ export async function main(ns: NS) {
       continue;
     }
     seen.add(s.hostname);
-    for (let adj_name of ns.scan(s.hostname)) {
+    for (const adj_name of ns.scan(s.hostname)) {
       if (seen.has(adj_name)) {
         continue;
       }
@@ -29,7 +23,7 @@ export async function main(ns: NS) {
     prog_name: string;
     func: (host: string) => void;
     is_open: (s: Server) => boolean;
-  };
+  }
 
   const portsOpenable: Array<PortCracker> = [
     { prog_name: "BruteSSH.exe", func: ns.brutessh, is_open: (s: Server) => s.sshPortOpen },
@@ -42,7 +36,7 @@ export async function main(ns: NS) {
   ns.tprint(`${portsOpenable.length} ports openable`);
 
   const servers: Array<Server> = [...seen.values()].map(ns.getServer);
-  for (let s of servers) {
+  for (const s of servers) {
     if (s.hasAdminRights && s.backdoorInstalled) {
       continue;
     }
@@ -50,7 +44,7 @@ export async function main(ns: NS) {
       if ((s.numOpenPortsRequired ?? 0) > portsOpenable.length) {
         continue;
       }
-      for (let port of portsOpenable) {
+      for (const port of portsOpenable) {
         if (port.is_open(s)) {
           continue;
         }
@@ -74,7 +68,7 @@ export async function main(ns: NS) {
   const currencyFormat = Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format;
 
   // Display the result
-  for (let s of servers) {
+  for (const s of servers) {
     ns.tprintf(
       `%${longest_hostname_length}s [%s%s] {%s} %4d %6.3f\\%6.3f %21s/%21s\n`,
       s.hostname,

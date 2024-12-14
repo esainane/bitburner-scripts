@@ -1,10 +1,4 @@
-/** @param {NS} ns */
-interface ServerData {
-  name: String;
-  backdoored: boolean;
-  hack_difficulty: number;
-}
-export async function main(ns: NS) {
+export async function main(ns: NS): Promise<void> {
   // Traverse the network
   const seen: Set<string> = new Set();
   const home: Server = ns.getServer('home')
@@ -15,7 +9,7 @@ export async function main(ns: NS) {
       continue;
     }
     seen.add(s.hostname);
-    for (let adj_name of ns.scan(s.hostname)) {
+    for (const adj_name of ns.scan(s.hostname)) {
       if (seen.has(adj_name)) {
         continue;
       }
@@ -38,7 +32,7 @@ export async function main(ns: NS) {
   const currencyFormat = Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format;
 
   // Display the result
-  for (let s of servers) {
+  for (const s of servers) {
     ns.tprintf(
       `%${longest_hostname_length}s [%6d/%6d] [%s%s] {%s} %4d %6.3f\\%6.3f %21s/%21s\n`,
       s.hostname,

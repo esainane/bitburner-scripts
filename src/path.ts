@@ -1,4 +1,4 @@
-export async function main(ns: NS) {
+export async function main(ns: NS): Promise<void> {
   const target = String(ns.args[0]);
   // Traverse the network
   const seen: Set<string> = new Set();
@@ -6,7 +6,7 @@ export async function main(ns: NS) {
   interface ServerData {
     server: Server;
     path: Array<string>;
-  };
+  }
   const to_visit: Array<ServerData> = [{server: home, path: []}];
   while (to_visit.length > 0) {
     const {server, path} = to_visit.pop()!;
@@ -14,7 +14,7 @@ export async function main(ns: NS) {
       continue;
     }
     seen.add(server.hostname);
-    for (let adj_name of ns.scan(server.hostname)) {
+    for (const adj_name of ns.scan(server.hostname)) {
       if (adj_name == target) {
         ns.tprint([...path, server.hostname, adj_name].join(' -> '));
         return;

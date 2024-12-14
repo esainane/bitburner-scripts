@@ -9,7 +9,7 @@ async function find_servers(ns: NS) {
       continue;
     }
     seen.add(s.hostname);
-    for (let adj_name of ns.scan(s.hostname)) {
+    for (const adj_name of ns.scan(s.hostname)) {
       if (seen.has(adj_name)) {
         continue;
       }
@@ -22,12 +22,12 @@ async function find_servers(ns: NS) {
 }
 
 function killall(ns: NS, servers: Array<Server>, script: string) {
-  for (let s of servers) {
+  for (const s of servers) {
     ns.scriptKill(script, s.hostname);
   }
 }
 
-export async function main(ns: NS) {
+export async function main(ns: NS): Promise<void> {
   const servers = await find_servers(ns);
   if (ns.args.length > 0) {
     killall(ns, servers, String(ns.args[0]));

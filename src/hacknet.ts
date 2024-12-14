@@ -1,4 +1,4 @@
-export async function main(ns: NS) {
+export async function main(ns: NS): Promise<void> {
   // Greedy algorithm go!
   // Work out the step with the greatest cost efficiency available, and make it, if possible.
   // If the best move cannot be afforded yet, sleep and retry later.
@@ -6,7 +6,7 @@ export async function main(ns: NS) {
     cb: () => void;
     cost: number;
     money_gain_delta: number;
-  };
+  }
   while (true) {
     const nodes = ns.hacknet.numNodes();
     let best: Action | null = null;
