@@ -1,27 +1,9 @@
 import { NS } from '@ns'
 
+import { find_servers } from 'lib/find-servers'
+
 export async function main(ns: NS): Promise<void> {
-  // Traverse the network
-  const seen: Set<string> = new Set();
-  const home: Server = ns.getServer('home')
-  const to_visit: Array<Server> = [home];
-  while (to_visit.length > 0) {
-    const s: Server = to_visit.pop()!;
-    if (seen.has(s.hostname)) {
-      continue;
-    }
-    seen.add(s.hostname);
-    for (const adj_name of ns.scan(s.hostname)) {
-      if (seen.has(adj_name)) {
-        continue;
-      }
-      to_visit.push(ns.getServer(adj_name));
-    }
-  }
-
-  // Sort the result
-
-  const servers: Array<Server> = [...seen.values()].map(ns.getServer);
+  const servers = await find_servers(ns);
   servers.sort((l, r) => {
     if (l.requiredHackingSkill != r.requiredHackingSkill) {
       return (l.requiredHackingSkill ?? 0) - (r.requiredHackingSkill ?? 0);
