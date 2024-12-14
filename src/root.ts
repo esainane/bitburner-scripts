@@ -1,4 +1,4 @@
-import { NS } from '@ns'
+import { NS, Server } from '@ns'
 import { find_servers } from 'lib/find-servers';
 
 export async function main(ns: NS): Promise<void> {
@@ -18,7 +18,7 @@ export async function main(ns: NS): Promise<void> {
 
   ns.tprint(`${portsOpenable.length} ports openable`);
 
-  const servers: Array<string> = (await find_servers(ns)).map(ns.getServer);
+  const servers: Array<Server> = (await find_servers(ns)).map(ns.getServer);
 
   for (const s of servers) {
     if (s.hasAdminRights && s.backdoorInstalled) {

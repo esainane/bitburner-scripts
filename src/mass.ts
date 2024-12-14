@@ -1,7 +1,7 @@
 import { NS } from '@ns'
 import { find_servers } from 'lib/find-servers';
 export async function main(ns: NS): Promise<void> {
-  const servers: Array<Server> = (await find_servers(ns));
+  const servers: Array<string> = (await find_servers(ns));
 
   // Copy script to all servers
   const script = String(ns.args[0]);

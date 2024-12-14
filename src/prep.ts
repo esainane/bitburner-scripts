@@ -1,4 +1,4 @@
-import { NS } from '@ns'
+import { NS, ScriptArg } from '@ns'
 import { find_servers } from 'lib/find-servers';
 
 const exclude_runners: Set<string> = new Set([]);//"home"]);
@@ -15,7 +15,7 @@ async function find_runners(ns: NS, servers: Array<string>) {
   'home');
 
   for (const s of servers) {
-    if (!s.hasAdminRights) {
+    if (!ns.hasRootAccess(s)) {
       continue;
     }
     if (exclude_runners.has(s)) {

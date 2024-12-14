@@ -8,6 +8,7 @@ export async function main(ns: NS): Promise<void> {
     cost: number;
     money_gain_delta: number;
   }
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const nodes = ns.hacknet.numNodes();
     let best: Action | null = null;

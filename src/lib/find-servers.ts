@@ -7,11 +7,11 @@ export async function find_servers(ns: NS): Promise<Array<string>> {
   while (to_visit.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const s: string = to_visit.pop()!;
-    if (seen.has(s.hostname)) {
+    if (seen.has(s)) {
       continue;
     }
-    seen.add(s.hostname);
-    for (const adj_name of ns.scan(s.hostname)) {
+    seen.add(s);
+    for (const adj_name of ns.scan(s)) {
       if (seen.has(adj_name)) {
         continue;
       }
@@ -19,6 +19,6 @@ export async function find_servers(ns: NS): Promise<Array<string>> {
     }
   }
 
-  const servers: Array<Server> = [...seen.values()];
+  const servers: Array<string> = [...seen.values()];
   return servers;
 }

@@ -1,4 +1,4 @@
-import { NS } from '@ns'
+import { NS, ScriptArg } from '@ns'
 import { find_servers } from 'lib/find-servers';
 const exclude_runners: Set<string> = new Set(["home"]);
 
@@ -116,13 +116,13 @@ async function find_runners(ns: NS, servers: Array<string>): Promise<RunnersData
   'home');
 
   for (const s of servers) {
-    if (!s.hasAdminRights) {
+    if (!ns.hasRootAccess(s)) {
       continue;
     }
     if (exclude_runners.has(s)) {
       continue;
     }
-    const server_available_threads = Math.floor((s.maxRam - s.ramUsed) / ram_per_thread);
+    const server_available_threads = Math.floor((ns.getServerMaxRam(s) - ns.getServerUsedRam(s)) / ram_per_thread);
     if (server_available_threads < 1) {
       continue;
     }
@@ -134,12 +134,12 @@ async function find_runners(ns: NS, servers: Array<string>): Promise<RunnersData
     l.threads - r.threads
   );
 
-  return {available_runners, total_available_threads};
+  return {available_runners, available_threads: total_available_threads};
 }
 
 async function find_best_plan(ns: NS, servers: Array<string>, available_threads: number): Promise<PlanData | null> {
   // Work out which server is the best to target
-  let best;
+  let best = null;
   for (const s of servers) {
     const candidate = await plan_schedule(ns, s, available_threads);
     if (!candidate) {
@@ -162,7 +162,7 @@ export async function main(ns: NS): Promise<void> {
   while (true) {
     const servers = await find_servers(ns);
     const runners = await find_runners(ns, servers);
-    const best = await find_best_plan(ns, ns.args.length > 0 ? [String(ns.args[0])] : servers, runners.total_available_threads / splits);
+    const best = await find_best_plan(ns, ns.args.length > 0 ? [String(ns.args[0])] : servers, runners.available_threads / splits);
     if (!best) {
       ns.tprint("Could not devise any feasible plan!");
       return;
@@ -173,11 +173,11 @@ export async function main(ns: NS): Promise<void> {
     ns.tprint(` After ${best.weaken_1st_delay}ms, start a weaken with ${best.weaken_1st_threads} threads`);
     ns.tprint(` After ${best.grow_delay}ms, start a grow with ${best.grow_threads} threads`);
     ns.tprint(` After ${best.weaken_2nd_delay}ms, start a weaken with ${best.weaken_2nd_threads} threads`);
-    ns.tprint(` Then repeat the process after ${best.execution_duration}ms. This earns ${best.success_payout} ${best.success_rate * 100}% of the time, and uses ${best.hack_threads + best.weaken_1st_threads + best.weaken_2nd_threads + best.grow_threads} out of ${runners.total_available_threads} available threads.`);
+    ns.tprint(` Then repeat the process after ${best.execution_duration}ms. This earns ${best.success_payout} ${best.success_rate * 100}% of the time, and uses ${best.hack_threads + best.weaken_1st_threads + best.weaken_2nd_threads + best.grow_threads} out of ${runners.available_threads} available threads.`);
 
     const plan_hacking_level = ns.getPlayer().skills.hacking;
     do {
-      const { available_runners, total_available_threads } = await find_runners(ns, await find_servers(ns));
+      const { available_runners, available_threads: total_available_threads } = await find_runners(ns, await find_servers(ns));
       let current_runner: Runner | undefined;
       let current_runner_threads_used = 0;
       const allocate_threads = (amount: number, script: string, ...args: ScriptArg[]) => {

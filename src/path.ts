@@ -1,4 +1,4 @@
-import { NS } from '@ns'
+import { NS, Server } from '@ns'
 export async function main(ns: NS): Promise<void> {
   const target = String(ns.args[0]);
   // Traverse the network
