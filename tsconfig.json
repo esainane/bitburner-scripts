@@ -1,9 +1,6 @@
 {
-  "include": [
-    "NetscriptDefinitions.d.ts",
-    "global.d.ts",
-    "src/**/*",
-  ],
+  "include": ["NetscriptDefinitions.d.ts", "src/**/*"],
+  "exclude": ["src/lib/react.ts"],
   "compilerOptions": {
     "module": "esnext",
     "target": "esnext",
@@ -12,18 +9,17 @@
     "noImplicitThis": true,
     "esModuleInterop": true,
     "inlineSourceMap": true,
-    "sourceRoot": "http://localhost:8186/sources/",
+    "inlineSources": true,
     "strict": true,
     "rootDir": "src/",
     "outDir": "dist/",
     "baseUrl": "src/",
+    "allowJs": true,
+    "jsx": "react",
     "paths": {
-      "/*": [
-        "*"
-      ],
-      "@ns": [
-        "../NetscriptDefinitions.d.ts"
-      ]
+      "/*": ["*"],
+      "@ns": ["../NetscriptDefinitions.d.ts"],
+      "@react": ["lib/react.ts"]
     }
   }
 }
