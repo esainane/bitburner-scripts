@@ -6,6 +6,9 @@
 	],
 	"settings": {
 		"typescript.validate.enable": false,
-		"javascript.validate.enable": false
+		"javascript.validate.enable": false,
+		"bitburner.fileWatcher.enable": true,
+		"bitburner.showPushSuccessNotification": true,
+		"bitburner.showFileWatcherEnabledNotification": true,
 	}
 }
