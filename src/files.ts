@@ -2,17 +2,17 @@ import { NS } from '@ns'
 import { find_servers } from 'lib/find-servers';
 
 export async function main(ns: NS): Promise<void> {
-  const servers = (await find_servers(ns)).filter((d: Server) => !d.purchasedByPlayer && d.hostname !== 'home' && d.hostname !== 'darkweb');
+  const servers = (await find_servers(ns)).filter((d: string) => d !== 'home' && d !== 'darkweb');
 
   const ignore_files = new Set<string>(ns.ls('home'));
   const all_files = new Map<string, string[]>([]);
   for (const s of servers) {
-    const files: Array<string> = ns.ls(s.hostname);
+    const files: Array<string> = ns.ls(s);
     for (const f of files) {
       if (all_files.has(f)) {
-        all_files.get(f)!.push(s.hostname);
+        all_files.get(f)!.push(s);
       } else {
-        all_files.set(f, [s.hostname]);
+        all_files.set(f, [s]);
       }
     }
   }

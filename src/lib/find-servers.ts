@@ -1,12 +1,12 @@
 import { NS } from '@ns'
 
-export async function find_servers(ns: NS): Promise<Array<Server>> {
+export async function find_servers(ns: NS): Promise<Array<string>> {
   // Traverse the network
   const seen: Set<string> = new Set();
-  const home: Server = ns.getServer('home')
-  const to_visit: Array<Server> = [home];
+  const to_visit: Array<string> = ['home'];
   while (to_visit.length > 0) {
-    const s: Server = to_visit.pop()!;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const s: string = to_visit.pop()!;
     if (seen.has(s.hostname)) {
       continue;
     }
@@ -15,10 +15,10 @@ export async function find_servers(ns: NS): Promise<Array<Server>> {
       if (seen.has(adj_name)) {
         continue;
       }
-      to_visit.push(ns.getServer(adj_name));
+      to_visit.push(adj_name);
     }
   }
 
-  const servers: Array<Server> = [...seen.values()].map(ns.getServer);
+  const servers: Array<Server> = [...seen.values()];
   return servers;
 }

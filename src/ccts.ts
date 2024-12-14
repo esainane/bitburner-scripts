@@ -167,12 +167,12 @@ async function find_all_ccts(ns: NS) {
 
   const all_ccts = new Array<[string, string]>();
   for (const s of servers) {
-    const files: Array<string> = ns.ls(s.hostname);
+    const files: Array<string> = ns.ls(s);
     for (const f of files) {
       if (!f.endsWith('.cct')) {
         continue;
       }
-      all_ccts.push([f, s.hostname]);
+      all_ccts.push([f, s]);
     }
   }
 

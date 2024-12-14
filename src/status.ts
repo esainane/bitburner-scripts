@@ -3,7 +3,7 @@ import { NS } from '@ns'
 import { find_servers } from 'lib/find-servers'
 
 export async function main(ns: NS): Promise<void> {
-  const servers = await find_servers(ns);
+  const servers = (await find_servers(ns)).map(ns.getServer);
   servers.sort((l, r) => {
     if (l.requiredHackingSkill != r.requiredHackingSkill) {
       return (l.requiredHackingSkill ?? 0) - (r.requiredHackingSkill ?? 0);

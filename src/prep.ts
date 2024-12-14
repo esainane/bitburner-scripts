@@ -5,9 +5,9 @@ const exclude_runners: Set<string> = new Set([]);//"home"]);
 // Tolerance for script drift in ms
 const tolerance = 1000;
 
-interface Runner {server:Server, threads:number}
+interface Runner { server: string, threads: number }
 
-async function find_runners(ns: NS, servers: Array<Server>) {
+async function find_runners(ns: NS, servers: Array<string>) {
   const available_runners: Array<Runner> = [];
   let total_available_threads = 0;
 
@@ -18,10 +18,10 @@ async function find_runners(ns: NS, servers: Array<Server>) {
     if (!s.hasAdminRights) {
       continue;
     }
-    if (exclude_runners.has(s.hostname)) {
+    if (exclude_runners.has(s)) {
       continue;
     }
-    const server_available_threads = Math.floor((s.maxRam - s.ramUsed) / ram_per_thread);
+    const server_available_threads = Math.floor((ns.getServerMaxRam(s) - ns.getServerUsedRam(s)) / ram_per_thread);
     if (server_available_threads < 1) {
       continue;
     }
@@ -66,6 +66,7 @@ async function calc_max_prep(ns: NS, target: string, available_threads: number) 
 }
 
 export async function main(ns: NS): Promise<void> {
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { available_runners, total_available_threads } = await find_runners(ns, await find_servers(ns));
     const target = String(ns.args[0]);
@@ -110,26 +111,28 @@ export async function main(ns: NS): Promise<void> {
           if (!current_runner) {
             ns.tprint("Failed to allocate threads, this shouldn't happen!");
             ns.exit();
+            // Silence warnings
+            return;
           }
         }
         const to_use = Math.min(amount, current_runner.threads - current_runner_threads_used);
         if (to_use < 1) {
           ns.tprint(
             "Attempting to use less than one thread on a runner, this shouldn't happen! Amount: ", amount,
-            ", current runner: ", current_runner.server.hostname, ", threads:", current_runner.threads, ", current runner used:", current_runner_threads_used
+            ", current runner: ", current_runner.server, ", threads:", current_runner.threads, ", current runner used:", current_runner_threads_used
           );
           ns.exit();
         }
-        if (!ns.fileExists(script, current_runner.server.hostname)) {
-          ns.scp(script, current_runner.server.hostname, 'home');
+        if (!ns.fileExists(script, current_runner.server)) {
+          ns.scp(script, current_runner.server, 'home');
         }
-        ns.tprint('exec(', script, ', ', current_runner.server.hostname, ', ', to_use, ', ', args.join(', '), '; using ', to_use, ' with ', current_runner_threads_used, '/', current_runner.threads, ' used');
-        ns.exec(script, current_runner.server.hostname, to_use, ...args);
+        ns.tprint('exec(', script, ', ', current_runner.server, ', ', to_use, ', ', args.join(', '), '; using ', to_use, ' with ', current_runner_threads_used, '/', current_runner.threads, ' used');
+        ns.exec(script, current_runner.server, to_use, ...args);
         amount -= to_use;
         current_runner_threads_used += to_use;
       }
     };
-    // This assumes threads can be broked up aacross multiple instances. I don't think this is the case,
+    // This assumes threads can be broken up aacross multiple instances. I don't think this is the case,
     // as the increase in security from one hack/grow will reduce the effect of those which follow.
     // As grow significantly increases security and is difficult to recover from if something goes wrong,
     // it gets top priority on unfragmented allocations. Hack follows, and then the weakens. It's possible

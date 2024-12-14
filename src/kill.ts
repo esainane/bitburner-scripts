@@ -1,9 +1,9 @@
 import { NS } from '@ns'
 import { find_servers } from 'lib/find-servers';
 
-function killall(ns: NS, servers: Array<Server>, script: string) {
+function killall(ns: NS, servers: Array<string>, script: string) {
   for (const s of servers) {
-    ns.scriptKill(script, s.hostname);
+    ns.scriptKill(script, s);
   }
 }
 

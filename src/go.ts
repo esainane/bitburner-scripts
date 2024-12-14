@@ -19,24 +19,24 @@ interface PlanData {
   execution_duration: number;
   success_payout: number;
   success_rate: number;
-  server: Server;
+  server: string;
 }
 
-async function plan_schedule(ns: NS, server: Server, threads_available: number) {
+async function plan_schedule(ns: NS, server: string, threads_available: number): Promise<PlanData | null> {
   const cores = 1;
   // Analyze a server's hack intervals, effects, and create a timetable to the configured tolerance
-  const hack_stolen_per_thread = ns.hackAnalyze(server.hostname);
+  const hack_stolen_per_thread = ns.hackAnalyze(server);
   // Approximate based on current value - need formulas API for proper calculations here
-  const success_rate = ns.hackAnalyzeChance(server.hostname);
+  const success_rate = ns.hackAnalyzeChance(server);
   //
-  const hack_duration = ns.getHackTime(server.hostname);
+  const hack_duration = ns.getHackTime(server);
 
   const weaken_security_decrease_per_thread = ns.weakenAnalyze(1, cores);
-  const weaken_duration = ns.getWeakenTime(server.hostname);
+  const weaken_duration = ns.getWeakenTime(server);
 
   // Varies: Increases with security level, decreases with player hacking level
   // Need formulas API to determine duration at always-fully-weakened levels
-  const grow_duration = ns.getGrowTime(server.hostname);
+  const grow_duration = ns.getGrowTime(server);
 
   // Given a server which is fully weakened and fully grown...
   // Calculate the required thread counts to perform one HWGW cycle, leaving the server fully weakened and grown
@@ -56,7 +56,7 @@ async function plan_schedule(ns: NS, server: Server, threads_available: number) 
     }
     const growth_required = 1/(1-hack_stolen);
     //ns.tprint("For: ", server, " want to see ", growth_required, " growth");
-    const grow_threads = Math.ceil(ns.growthAnalyze(server.hostname, growth_required, cores));
+    const grow_threads = Math.ceil(ns.growthAnalyze(server, growth_required, cores));
     // Calculate the security increase caused by this much growth
     // We avoid passing the server hostname so this isn't capped by being already fully grown right now
     const growth_security_increase = ns.growthAnalyzeSecurity(grow_threads, undefined, cores);
@@ -87,7 +87,7 @@ async function plan_schedule(ns: NS, server: Server, threads_available: number) 
 
     const execution_duration = -reservation_start;
 
-    const success_payout = (server.moneyMax ?? 0) * hack_stolen;
+    const success_payout = (ns.getServerMaxMoney(server) ?? 0) * hack_stolen;
 
     best = {
       hack_threads, weaken_1st_threads, grow_threads, weaken_2nd_threads,
@@ -101,14 +101,14 @@ async function plan_schedule(ns: NS, server: Server, threads_available: number) 
   return best;
 }
 
-interface Runner {server:Server, threads:number}
+interface Runner { server: string, threads: number }
 
 interface RunnersData {
   available_runners: Array<Runner>;
   available_threads: number;
 }
 
-async function find_runners(ns: NS, servers: Array<Server>) {
+async function find_runners(ns: NS, servers: Array<string>): Promise<RunnersData> {
   const available_runners: Array<Runner> = [];
   let total_available_threads = 0;
 
@@ -119,7 +119,7 @@ async function find_runners(ns: NS, servers: Array<Server>) {
     if (!s.hasAdminRights) {
       continue;
     }
-    if (exclude_runners.has(s.hostname)) {
+    if (exclude_runners.has(s)) {
       continue;
     }
     const server_available_threads = Math.floor((s.maxRam - s.ramUsed) / ram_per_thread);
@@ -137,7 +137,7 @@ async function find_runners(ns: NS, servers: Array<Server>) {
   return {available_runners, total_available_threads};
 }
 
-async function find_best_plan(ns: NS, servers: Array<Server>, available_threads: number) {
+async function find_best_plan(ns: NS, servers: Array<string>, available_threads: number): Promise<PlanData | null> {
   // Work out which server is the best to target
   let best;
   for (const s of servers) {
@@ -158,16 +158,17 @@ async function find_best_plan(ns: NS, servers: Array<Server>, available_threads:
 }
 
 export async function main(ns: NS): Promise<void> {
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const servers = await find_servers(ns);
     const runners = await find_runners(ns, servers);
-    const best = await find_best_plan(ns, ns.args.length > 0 ? [ns.getServer(String(ns.args[0]))] : servers, runners.total_available_threads / splits);
+    const best = await find_best_plan(ns, ns.args.length > 0 ? [String(ns.args[0])] : servers, runners.total_available_threads / splits);
     if (!best) {
       ns.tprint("Could not devise any feasible plan!");
       return;
     }
     // Report result
-    ns.tprint(`Want to, against ${best.server.hostname}:`)
+    ns.tprint(`Want to, against ${best.server}:`)
     ns.tprint(` After ${best.hack_delay}ms, start a hack with ${best.hack_threads} threads`);
     ns.tprint(` After ${best.weaken_1st_delay}ms, start a weaken with ${best.weaken_1st_threads} threads`);
     ns.tprint(` After ${best.grow_delay}ms, start a grow with ${best.grow_threads} threads`);
@@ -193,15 +194,15 @@ export async function main(ns: NS): Promise<void> {
           if (to_use < 1) {
             ns.tprint(
               "Attempting to use less than one thread on a runner, this shouldn't happen! Amount: ", amount,
-              ", current runner: ", current_runner.server.hostname, ", threads:", current_runner.threads, ", current runner used:", current_runner_threads_used
+              ", current runner: ", current_runner.server, ", threads:", current_runner.threads, ", current runner used:", current_runner_threads_used
             );
             ns.exit();
           }
-          if (!ns.fileExists(script, current_runner.server.hostname)) {
-            ns.scp(script, current_runner.server.hostname, 'home');
+          if (!ns.fileExists(script, current_runner.server)) {
+            ns.scp(script, current_runner.server, 'home');
           }
-          ns.tprint('exec(', script, ', ', current_runner.server.hostname, ', ', to_use, ', ', args.join(', '), '; using ', to_use, ' with ', current_runner_threads_used, '/', current_runner.threads, ' used');
-          ns.exec(script, current_runner.server.hostname, to_use, ...args);
+          ns.tprint('exec(', script, ', ', current_runner.server, ', ', to_use, ', ', args.join(', '), '; using ', to_use, ' with ', current_runner_threads_used, '/', current_runner.threads, ' used');
+          ns.exec(script, current_runner.server, to_use, ...args);
           amount -= to_use;
           current_runner_threads_used += to_use;
         }
@@ -211,10 +212,10 @@ export async function main(ns: NS): Promise<void> {
       // As grow significantly increases security and is difficult to recover from if something goes wrong,
       // it gets top priority on unfragmented allocations. Hack follows, and then the weakens. It's possible
       // that the weakens should be prioritized above the hack.
-      allocate_threads(best.grow_threads, 'worker/grow1.ts', best.server.hostname, best.grow_delay);
-      allocate_threads(best.hack_threads, 'worker/hack1.ts', best.server.hostname, best.hack_delay);
-      allocate_threads(best.weaken_2nd_threads, 'worker/weak1.ts', best.server.hostname, best.weaken_2nd_delay);
-      allocate_threads(best.weaken_1st_threads, 'worker/weak1.ts', best.server.hostname, best.weaken_1st_delay);
+      allocate_threads(best.grow_threads, 'worker/grow1.ts', best.server, best.grow_delay);
+      allocate_threads(best.hack_threads, 'worker/hack1.ts', best.server, best.hack_delay);
+      allocate_threads(best.weaken_2nd_threads, 'worker/weak1.ts', best.server, best.weaken_2nd_delay);
+      allocate_threads(best.weaken_1st_threads, 'worker/weak1.ts', best.server, best.weaken_1st_delay);
 
       // Wait until this block finishes, then see if state has changed/needs recalculating.
       // Otherwise, just run it again.
