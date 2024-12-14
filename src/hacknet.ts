@@ -54,7 +54,6 @@ export async function main(ns: NS): Promise<void> {
     }
     if (!best) {
       ns.tprint("All hacknet node upgrades purchased, exiting script.");
-          ns.scp(script, current_runner.server.hostname, 'home');
     }
     await ns.sleep(3000);
   }
