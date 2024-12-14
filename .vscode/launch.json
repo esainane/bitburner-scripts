@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Attach to Bitburner Render Process",
+            "address": "127.0.0.1",
+            "port": 9222,
+            "request": "attach",
+            "type": "chrome",
+            "timeout": 15000,
+            "webRoot": "${workspaceRoot}/src",
+            "sourceMapPathOverrides": {
+                "http://localhost:8000/sources/*": "${workspaceRoot}/src/*"
+            }
+        },
+    ]
+}

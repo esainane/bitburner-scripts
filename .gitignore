@@ -1,2 +1,6 @@
 *~
 *scratch*
+
+node_modules/
+dist/
+NetscriptDefinitions.d.ts
