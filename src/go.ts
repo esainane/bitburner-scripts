@@ -4,6 +4,8 @@ const exclude_runners: Set<string> = new Set(["home"]);
 
 // Tolerance for script drift in ms
 const tolerance = 1000;
+// Steal no more than this much money per hack
+const hack_limit = 0.3;
 
 const splits = 20;
 
@@ -49,7 +51,7 @@ async function plan_schedule(ns: NS, server: string, threads_available: number):
     // Calculate the growth threads needed to fully replenish the server
     const hack_stolen = hack_threads * hack_stolen_per_thread;
     // Check that we've left something we can grow back
-    if (hack_stolen > 0.3) {
+    if (hack_stolen > hack_limit) {
       // Infeasible in practice, here be lumpy numbers
       hack_threads -= 1;
       break;
