@@ -7,7 +7,7 @@ export function autocomplete(data : AutocompleteData, args : string[]) : string[
 }
 
 type CCTSolver =
-  (data: any) => string | number | any[];
+  (data: unknown) => string | number | unknown[];
 
 const known_ccts = new Map<string, CCTSolver>([
   ["Algorithmic Stock Trader II", algo_stock_2],
@@ -15,7 +15,10 @@ const known_ccts = new Map<string, CCTSolver>([
   ["Unique Paths in a Grid I", unique_grid_paths_1]
 ])
 
-function algo_stock_2(data: any) {
+function algo_stock_2(data: unknown) {
+  if (!Array.isArray(data)) {
+    throw new Error('Expected array of prices, received ' + JSON.stringify(data));
+  }
   const prices: number[] = data;
   // Determine maximum potential profit from holding up to one share at a time
   let profit = 0;
@@ -32,7 +35,10 @@ function algo_stock_2(data: any) {
   return profit;
 }
 
-function algo_stock_3(data: any) {
+function algo_stock_3(data: unknown) {
+  if (!Array.isArray(data)) {
+    throw new Error('Expected array of prices, received ' + JSON.stringify(data));
+  }
   const prices: number[] = data;
   // Determine maximum potential profit from holding up to one share at a time for up to two runs
   let profit = 0;
@@ -49,9 +55,12 @@ function algo_stock_3(data: any) {
   return profit;
 }
 
-function caesar_cipher_1(data: any) {
+function caesar_cipher_1(data: unknown) {
+  if (!Array.isArray(data) || data.length !== 2 || typeof data[0] !== 'string' || typeof data[1] !== 'number') {
+    throw new Error('Expected [string, number], received ' + JSON.stringify(data));
+  }
   // First element is plaintext, second element is left shift value.
-  const [plaintext, left_shift]: [string, number] = data;
+  const [plaintext, left_shift]: [string, number] = data as [string, number];
   let cipher = '';
   const base = 'A'.charCodeAt(0);
   const upper = 'Z'.charCodeAt(0);
@@ -106,7 +115,7 @@ function pascals_triangle(row: number, column: number) {
   return acc
 }
 
-function unique_grid_paths_1(data: any) {
+function unique_grid_paths_1(data: unknown) {
   /*
   You are in a grid with 2 rows and 9 columns, and you are positioned in the top-left corner of that grid.
   You are trying to reach the bottom-right corner of the grid, but you can only move down or right on each step.
@@ -123,7 +132,10 @@ function unique_grid_paths_1(data: any) {
   01 04 10 20 35 56
   01 05 15 35 70 126
   */
-  const [w, h]: [number, number] = data;
+  if (!Array.isArray(data) || data.length !== 2 || typeof data[0] !== 'number' || typeof data[1] !== 'number') {
+    throw new Error('Expected [number, number], received ' + JSON.stringify(data));
+  }
+  const [w, h]: [number, number] = data as [number, number];
   const long = Math.max(w, h) - 1;
   const short = Math.min(w, h) - 1;
   const ways = pascals_triangle(long + short, short);
