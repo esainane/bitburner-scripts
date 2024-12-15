@@ -204,7 +204,10 @@ export async function main(ns: NS): Promise<void> {
             ns.scp(script, current_runner.server, 'home');
           }
           ns.tprint('exec(', script, ', ', current_runner.server, ', ', to_use, ', ', args.join(', '), '; using ', to_use, ' with ', current_runner_threads_used, '/', current_runner.threads, ' used');
-          ns.exec(script, current_runner.server, to_use, ...args);
+          ns.exec(script, current_runner.server, {
+            temporary: true,
+            threads: to_use
+          }, ...args);
           amount -= to_use;
           current_runner_threads_used += to_use;
         }
