@@ -1,4 +1,10 @@
-import { NS, Server } from '@ns'
+import { AutocompleteData, NS, Server } from '@ns'
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
+  return [...data.servers];
+}
+
 export async function main(ns: NS): Promise<void> {
   const target = String(ns.args[0]);
   // Traverse the network

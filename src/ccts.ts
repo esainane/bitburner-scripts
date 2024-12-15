@@ -1,5 +1,11 @@
-import { NS } from '@ns'
+import { AutocompleteData, NS } from '@ns'
 import { find_servers } from 'lib/find-servers';
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
+  return [...data.scripts.filter(s => s.endsWith('.cct')), '--desc', '--desc-unknown', '--live', '--force'];
+}
+
 type CCTSolver =
   (data: any) => string | number | any[];
 

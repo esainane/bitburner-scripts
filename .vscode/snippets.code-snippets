@@ -16,7 +16,7 @@
       "body": [
         "// eslint-disable-next-line @typescript-eslint/no-unused-vars",
         "export function autocomplete(data : AutocompleteData, args : string[]) : string[] {",
-        "\treturn [...data.servers]",
+        "\treturn [...data.servers];",
         "}"
       ],
       "description": "autocomplete"

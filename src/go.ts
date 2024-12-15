@@ -1,5 +1,10 @@
-import { NS, ScriptArg } from '@ns'
+import { AutocompleteData, NS, ScriptArg } from '@ns'
 import { find_servers } from 'lib/find-servers';
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
+  return [...data.servers];
+}
 
 // go.ts: Bitburner game autohack script
 // This finds all NPC servers and maximises the value extracted from them

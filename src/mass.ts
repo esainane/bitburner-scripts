@@ -1,5 +1,11 @@
-import { NS } from '@ns'
+import { AutocompleteData, NS } from '@ns'
 import { find_servers } from 'lib/find-servers';
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
+  return [...data.scripts];
+}
+
 export async function main(ns: NS): Promise<void> {
   const servers: Array<string> = (await find_servers(ns));
 
