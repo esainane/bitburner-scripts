@@ -1,12 +1,17 @@
 import { NS, ScriptArg } from '@ns'
 import { find_servers } from 'lib/find-servers';
-const exclude_runners: Set<string> = new Set(["home"]);
 
+// go.ts: Bitburner game autohack script
+// This finds all NPC servers and maximises the value extracted from them
+// given available runners and the player's hacking skill level.
+
+// Servers which should not be used as runners
+const exclude_runners: Set<string> = new Set(["home"]);
 // Tolerance for script drift in ms
 const tolerance = 1000;
 // Steal no more than this much money per hack
 const hack_limit = 0.3;
-
+// How many times we should divide the available threads
 const splits = 20;
 
 interface PlanData {
