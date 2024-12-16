@@ -2,6 +2,7 @@ import { AutocompleteData, NS, Player } from '@ns'
 import { find_servers } from 'lib/find-servers';
 import { PriorityQueue } from 'lib/priority-queue';
 import { ThreadAllocator } from 'lib/thread-allocator';
+import { find_runners, RunnersData } from '/lib/find-runners';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
@@ -117,37 +118,6 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
   return best;
 }
 
-interface Runner { server: string, threads: number }
-
-interface RunnersData {
-  available_runners: Array<Runner>;
-  available_threads: number;
-}
-
-async function find_runners(ns: NS, servers: Array<string>, script = 'worker/grow1.ts'): Promise<RunnersData> {
-  const available_runners: Array<Runner> = [];
-  let total_available_threads = 0;
-
-  const ram_per_thread = ns.getScriptRam(script, 'home');
-
-  for (const s of servers) {
-    if (!ns.hasRootAccess(s)) {
-      continue;
-    }
-    if (exclude_runners.has(s)) {
-      continue;
-    }
-    const server_available_threads = Math.floor((ns.getServerMaxRam(s) - ns.getServerUsedRam(s)) / ram_per_thread);
-    if (server_available_threads < 1) {
-      continue;
-    }
-    available_runners.push({server: s, threads: server_available_threads});
-    total_available_threads += server_available_threads;
-  }
-
-  return {available_runners, available_threads: total_available_threads};
-}
-
 const plan_fitness = (p: PlanData) => p.success_payout * p.success_rate / p.execution_duration;
 
 function same_basis(a: Player, b: Player): boolean {
@@ -246,7 +216,7 @@ export async function main(ns: NS): Promise<void> {
     // Find the best plan for each target NPC server
     const servers: Array<string> = ns.args.length > 0 ? [String(ns.args[0])] : await find_servers(ns);
     // TODO: Use thread allocator to find available runners
-    const runners: RunnersData = await find_runners(ns, servers);
+    const runners: RunnersData = await find_runners(ns, servers, 'worker/grow1.ts');
     const plans: Array<CycleData> = servers.map(s => find_best_split(ns, s, runners.available_threads / splits)).filter(d=> d != null).sort(sorter);
     if (!plans.length) {
       ns.tprint("Could not devise any feasible plan!");

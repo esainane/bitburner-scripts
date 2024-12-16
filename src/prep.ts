@@ -1,5 +1,6 @@
 import { AutocompleteData, NS, ScriptArg } from '@ns'
 import { find_servers } from 'lib/find-servers';
+import { find_runners } from 'lib/find-runners';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
@@ -11,35 +12,6 @@ const exclude_runners: Set<string> = new Set([]);//"home"]);
 const tolerance = 1000;
 
 interface Runner { server: string, threads: number }
-
-async function find_runners(ns: NS, servers: Array<string>) {
-  const available_runners: Array<Runner> = [];
-  let total_available_threads = 0;
-
-  const ram_per_thread = ns.getScriptRam('worker/grow1.ts',
-  'home');
-
-  for (const s of servers) {
-    if (!ns.hasRootAccess(s)) {
-      continue;
-    }
-    if (exclude_runners.has(s)) {
-      continue;
-    }
-    const server_available_threads = Math.floor((ns.getServerMaxRam(s) - ns.getServerUsedRam(s)) / ram_per_thread);
-    if (server_available_threads < 1) {
-      continue;
-    }
-    available_runners.push({server: s, threads: server_available_threads});
-    total_available_threads += server_available_threads;
-  }
-
-  available_runners.sort((l, r) =>
-    l.threads - r.threads
-  );
-
-  return {available_runners, total_available_threads};
-}
 
 async function calc_max_prep(ns: NS, target: string, available_threads: number) {
   let cap = Infinity;
@@ -73,10 +45,10 @@ async function calc_max_prep(ns: NS, target: string, available_threads: number) 
 export async function main(ns: NS): Promise<void> {
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const { available_runners, total_available_threads } = await find_runners(ns, await find_servers(ns));
+    const { available_runners, available_threads } = await find_runners(ns, await find_servers(ns), 'worker/grow1.ts', exclude_runners);
     const target = String(ns.args[0]);
 
-    const {grow_duration, grow_threads, weaken_1st_threads, weaken_duration, weaken_2nd_threads, wanted} = await calc_max_prep(ns, target, total_available_threads);
+    const {grow_duration, grow_threads, weaken_1st_threads, weaken_duration, weaken_2nd_threads, wanted} = await calc_max_prep(ns, target, available_threads);
 
     const weaken_1st_start = -weaken_duration - 3 * tolerance;
     const grow_start = -grow_duration - 2 * tolerance;
