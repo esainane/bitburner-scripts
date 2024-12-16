@@ -1,5 +1,6 @@
 import { NS, Server } from '@ns'
 import { find_servers } from 'lib/find-servers';
+import { currency_format } from 'lib/format-money';
 
 export async function main(ns: NS): Promise<void> {
   interface PortCracker {
@@ -49,8 +50,6 @@ export async function main(ns: NS): Promise<void> {
 
   const longest_hostname_length: number = Math.max(...servers.map(s => s.hostname.length));
 
-  const currencyFormat = Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format;
-
   // Display the result
   for (const s of servers) {
     ns.tprintf(
@@ -61,8 +60,8 @@ export async function main(ns: NS): Promise<void> {
       s.requiredHackingSkill,
       s.hackDifficulty,
       s.minDifficulty,
-      currencyFormat(s.moneyAvailable ?? 0),
-      currencyFormat(s.moneyMax ?? 0),
+      currency_format(s.moneyAvailable ?? 0),
+      currency_format(s.moneyMax ?? 0),
     );
   }
 }
