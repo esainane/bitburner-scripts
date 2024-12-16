@@ -1,4 +1,4 @@
-import { AutocompleteData, NS, RunOptions, ScriptArg } from '@ns'
+import { AutocompleteData, NS, Player, RunOptions, ScriptArg } from '@ns'
 import { find_servers } from 'lib/find-servers';
 import { PriorityQueue } from 'lib/priority-queue';
 import { HWGWBlock } from 'lib/hwgw-block';
@@ -155,6 +155,21 @@ async function find_runners(ns: NS, servers: Array<string>, script = 'worker/gro
 
 const plan_fitness = (p: PlanData) => p.success_payout * p.success_rate / p.execution_duration;
 
+function same_basis(a: Player, b: Player): boolean {
+  // Not just hacking skill; these can change from simple IPvGO bonuses
+  return a.skills.hacking === b.skills.hacking &&
+    a.mults.hacking === b.mults.hacking &&
+    a.mults.hacking_chance === b.mults.hacking_chance &&
+    a.mults.hacking_grow === b.mults.hacking_grow &&
+    // Hacking money multiplier does affect the % hacked, so must be the same
+    a.mults.hacking_money === b.mults.hacking_money &&
+    a.mults.hacking_speed === b.mults.hacking_speed;
+}
+
+function format_player_basis(a: Player): string {
+  return `H: ${a.skills.hacking} HM: ${a.mults.hacking} HC: ${a.mults.hacking_chance} HG: ${a.mults.hacking_grow} H$: ${a.mults.hacking_money} HS: ${a.mults.hacking_speed}`;
+}
+
 function find_best_split(ns: NS, server: string, available_threads: number): CycleData | null {
   // Fail fast: If we can't hack less than the maximum proportion of the server's money, we can't do anything
   const hack_stolen_per_thread = ns.hackAnalyze(server);
@@ -218,7 +233,7 @@ export async function main(ns: NS): Promise<void> {
     }
 
     // Save the player's stats at this point, we'll need to replan if this changes
-    const plan_hacking_level = ns.getPlayer().skills.hacking;
+    const plan_basis = ns.getPlayer();
     // Store a distinct queue for blocks. If we change plans, this will be discarded
     const blockQueue = new PriorityQueue<ScheduledTask>((a, b) => a.startTime - b.startTime);
 
@@ -298,8 +313,8 @@ export async function main(ns: NS): Promise<void> {
 
       // Sleep until the next queued task, but no more than 500ms
       await ns.sleep(Math.max(1, Math.min(next - Date.now(), 500)));
-    } while (plan_hacking_level == ns.getPlayer().skills.hacking);
+    } while (same_basis(plan_basis, ns.getPlayer()));
 
-    ns.tprint(`Player skill level changed (${plan_hacking_level} -> ${ns.getPlayer().skills.hacking}), recalculating autohack...`);
+    ns.tprint(`Effective Player stats changed (${format_player_basis(plan_basis)} -> ${format_player_basis(ns.getPlayer())}), recalculating autohack...`);
   }
 }
