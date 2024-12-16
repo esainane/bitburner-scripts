@@ -1,8 +1,9 @@
-import { AutocompleteData, NS, Player } from '@ns'
+import { AutocompleteData, NS, Player, ProcessInfo } from '@ns'
 import { find_servers } from 'lib/find-servers';
 import { PriorityQueue } from 'lib/priority-queue';
 import { ThreadAllocator } from 'lib/thread-allocator';
-import { find_runners, RunnersData } from '/lib/find-runners';
+import { find_runners, RunnersData } from 'lib/find-runners';
+import { calc_max_prep } from 'lib/prep-plan';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
@@ -21,8 +22,6 @@ const avoid_runners: Set<string> = new Set(["home"]);
 const gap = 1000;
 // Steal no more than this much money per hack
 const hack_limit = 0.3;
-// How many times we should divide the available threads
-const splits = 20;
 
 interface PlanData {
   hack_threads: number;
@@ -214,16 +213,31 @@ export async function main(ns: NS): Promise<void> {
   // eslint-disable-next-line no-constant-condition
   while (true) {
     // Find the best plan for each target NPC server
-    const servers: Array<string> = ns.args.length > 0 ? [String(ns.args[0])] : await find_servers(ns);
-    // TODO: Use thread allocator to find available runners
-    const runners: RunnersData = await find_runners(ns, servers, 'worker/grow1.js');
-    const plans: Array<CycleData> = servers.map(s => find_best_split(ns, s, runners.available_threads / splits)).filter(d=> d != null).sort(sorter);
+    const all_servers: Array<string> = ns.args.length > 0 ? [String(ns.args[0])] : await find_servers(ns);
+    const runners: RunnersData = await find_runners(
+      ns, all_servers, 'worker/grow1.js', exclude_runners,
+      (process: ProcessInfo) => ['worker/grow1.js', 'worker/hack1.js', 'worker/weaken1.js'].indexOf(process.filename) !== -1
+    );
+    const all_available_threads = runners.available_threads;
+    let available_threads = all_available_threads;
+
+    const targeted_servers: Array<string> = (ns.args.length > 0 ? [String(ns.args[0])] : all_servers).filter(s => ns.getServerRequiredHackingLevel(s) <= ns.getPlayer().skills.hacking);
+    // Split up all servers into those which are normalized and those which are not
+    const unprepared_servers: Array<string> = targeted_servers.filter(s => !is_server_normalized(ns, s)).sort((l, r) => ns.getServerRequiredHackingLevel(l) - ns.getServerRequiredHackingLevel(r));
+    const servers: Array<string> = targeted_servers.filter(s => is_server_normalized(ns, s));
+
+    // Find plans for all normalized targeted servers
+    const plans: Array<CycleData> = servers.map(s => find_best_split(ns, s, all_available_threads)).filter(d=> d != null).sort(sorter);
     if (!plans.length) {
       ns.tprint("Could not devise any feasible plan!");
-      return;
+      if (!unprepared_servers.length) {
+        ns.tprint("Nothing we can do.");
+        return;
+      }
+      // ...but we might be able to normalize some to make feasible plans later
     }
     // Report result
-    ns.tprint(`Top 3 plans, for ${runners.available_threads} available threads:`);
+    ns.tprint(`Top 3 plans, for ${all_available_threads} available threads:`);
     for (const plan of plans.slice(0, 3)) {
       ns.tprint(`${plan.server}: ${Math.floor(1000 * plan.success_payout * plan.success_rate / plan.execution_duration)} EV $/sec (H: ${plan.hack_threads}, W1: ${plan.weaken_1st_threads}, G: ${plan.grow_threads}, W2: ${plan.weaken_2nd_threads}; T: ${plan.hack_threads + plan.weaken_1st_threads + plan.grow_threads + plan.weaken_2nd_threads}) over ${Math.floor(plan.execution_duration)}ms in ${plan.blocks} blocks (${Math.floor(plan.success_rate * 100)}% success each block)`);
     }
@@ -233,20 +247,106 @@ export async function main(ns: NS): Promise<void> {
     // Store a distinct queue for blocks. If we change plans, this will be discarded
     const blockQueue = new PriorityQueue<ScheduledTask>((a, b) => a.startTime - b.startTime);
 
+    // NB: Keikaku means plan
+    let keikaku_doori = true;
+
+    // Are there targetable servers which are not normalized?
+    // If so, reserve some of our allocated threads to prepare them for normalization
+    let normalization_reserved = 0;
+    if (unprepared_servers.length) {
+      // First, if there are no viable plans, allocate all threads to normalization
+      if (!plans.length) {
+        normalization_reserved = all_available_threads;
+      } else {
+        // Otherwise:
+        // If letting the best plan run would leave us with less than 10% of all available threads,
+        // reserve them all
+        // If letting the best two plans run would leave us with less than 20% of all available threads,
+        // let the best plan have what it needs and take the rest
+        // Otherwise, take what's left after the two most lucrative plans
+        const best_plan = plans[0];
+        const best_threads = best_plan.hack_threads + best_plan.weaken_1st_threads + best_plan.grow_threads + best_plan.weaken_2nd_threads;
+        if (best_threads > 0.9 * all_available_threads) {
+          normalization_reserved = all_available_threads;
+        } else if (plans.length == 1) {
+          normalization_reserved = all_available_threads - best_threads;
+        } else {
+          const second_best_plan = plans[1];
+          const second_best_threads = second_best_plan.hack_threads + second_best_plan.weaken_1st_threads + second_best_plan.grow_threads + second_best_plan.weaken_2nd_threads;
+          if (best_threads + second_best_threads > 0.8 * all_available_threads) {
+            normalization_reserved = all_available_threads - best_threads;
+          } else {
+            normalization_reserved = all_available_threads - best_threads - second_best_threads;
+          }
+        }
+      }
+      let normalization_used = 0;
+      // Schedule the normalization procecss
+      const schedule_normalize = async () => {
+        const allocator = new ThreadAllocator(ns, exclude_runners, avoid_runners).allocateThreads;
+        let trying_later = false;
+        for (const server of unprepared_servers) {
+          if (is_server_normalized(ns, server)) {
+            // We have a newly normalized server
+            unprepared_servers.splice(unprepared_servers.indexOf(server), 1);
+            next_normalized.set(server, Date.now());
+            block_finishes.set(server, Date.now());
+            // Create a plan for it
+            const plan = find_best_split(ns, server, normalization_reserved);
+            // If it's better than any of the selected plans, trigger a recalculation
+            if (plan && (!plans.length || plan_fitness(plan) > plan_fitness(plans[plans.length - 1]))) {
+              keikaku_doori = false;
+              return;
+            }
+            continue;
+          }
+          // Otherwise, we have a server which needs normalizing
+          const prep_plan = await calc_max_prep(ns, server, normalization_reserved - normalization_used);
+          const prep_duration = Math.min(prep_plan.weaken_duration + 3 * gap, prep_plan.grow_duration + 2 * gap);
+          const [unallocable_w1, pids_w1] = await allocator('worker/weaken1.js', prep_plan.weaken_1st_threads, true, server, prep_duration - prep_plan.weaken_duration - 3 * gap);
+          const [unallocable_g, pids_g] = await allocator('worker/grow1.js', prep_plan.grow_threads, false, server, prep_duration - prep_plan.grow_duration - 2 * gap);
+          const [unallocable_w2, pids_w2] = await allocator('worker/weaken1.js', prep_plan.weaken_2nd_threads, true, server, prep_duration - prep_plan.weaken_duration - 1 * gap);
+          // If allocation failed, kill anything which was allocated and try again later
+          if ([unallocable_w1, unallocable_g, unallocable_w2].some(d => d > 0)) {
+            ns.tprint("Could not allocate all threads for normalization block, aborting block.");
+            for (const pid of [...pids_w1, ...pids_g, ...pids_w2]) {
+              ns.kill(pid);
+            }
+            if (!trying_later) {
+              trying_later = true;
+              blockQueue.push({ callback: schedule_normalize, startTime: Date.now() + 1000 });
+            }
+            break;
+          } else {
+            // OK
+            normalization_used += prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads;
+            // Once this is done and the relevant threads are available again, check back in and see if more
+            // normalization needs to happen
+            blockQueue.push({ callback: schedule_normalize, startTime: Date.now() + prep_duration });
+            if (normalization_reserved - normalization_used <= 0) {
+              // No more resources available for normalization at this time
+              break;
+            }
+          }
+        }
+      }
+      blockQueue.push({ callback: schedule_normalize, startTime: Date.now() });
+    }
+    available_threads -= normalization_reserved;
+
     // Work out how many threads will be used for each server, allocating threads to each plan in order of expected
     // revenue per second decreasing, continuing if there are threads left over until we either run out of allocatable
     // threads or targetable NPC servers
 
     const selected_plans = [];
-    let remaining_threads = runners.available_threads;
     for (const plan of plans) {
       const threads_required = plan.hack_threads + plan.weaken_1st_threads + plan.grow_threads + plan.weaken_2nd_threads;
-      if (threads_required < remaining_threads) {
+      if (threads_required < available_threads) {
         // Maybe a less lucrative plan can still use these threads
         continue;
       }
       selected_plans.push(plan);
-      remaining_threads -= threads_required;
+      available_threads -= threads_required;
     }
 
     // For each selected server, make sure there is an entry for when the blocks finish
@@ -256,9 +356,6 @@ export async function main(ns: NS): Promise<void> {
         block_finishes.set(plan.server, 0);
       }
     }
-
-    // NB: Keikaku means plan
-    let keikaku_doori = true;
 
     // Queue up HWGW blocks for each selected plan
     for (const plan of selected_plans) {
@@ -277,11 +374,12 @@ export async function main(ns: NS): Promise<void> {
             keikaku_doori = false;
             return;
           }
+          const now = Date.now();
           // Good to go, allocate threads for this block
-          const [unallocable_h, pids_h] = await allocator('worker/hack1.js', plan.hack_threads, true, plan.server, plan.hack_delay);
-          const [unallocable_w1, pids_w1] = await allocator('worker/weaken1.js', plan.weaken_1st_threads, true, plan.server, plan.weaken_1st_delay);
-          const [unallocable_g, pids_g] = await allocator('worker/grow1.js', plan.grow_threads, true, plan.server, plan.grow_delay);
-          const [unallocable_w2, pids_w2] = await allocator('worker/weaken1.js', plan.weaken_2nd_threads, true, plan.server, plan.weaken_2nd_delay);
+          const [unallocable_h, pids_h] = await allocator('worker/hack1.js', plan.hack_threads, true, plan.server, block_start - now + plan.hack_delay);
+          const [unallocable_w1, pids_w1] = await allocator('worker/weaken1.js', plan.weaken_1st_threads, true, plan.server, block_start - now + plan.weaken_1st_delay);
+          const [unallocable_g, pids_g] = await allocator('worker/grow1.js', plan.grow_threads, true, plan.server, block_start - now + plan.grow_delay);
+          const [unallocable_w2, pids_w2] = await allocator('worker/weaken1.js', plan.weaken_2nd_threads, true, plan.server, block_start - now + plan.weaken_2nd_delay);
           // Check we actually allocated everything.
           if ([unallocable_h, unallocable_w1, unallocable_g, unallocable_w2].some(d => d > 0)) {
             ns.tprint("Could not allocate all threads for HWGW block, aborting block.");
@@ -294,6 +392,7 @@ export async function main(ns: NS): Promise<void> {
           }
           // ...and schedule the next block
           block_start += plan.execution_duration
+          next_normalized.set(plan.server, block_start);
           blockQueue.push({ callback: schedule_block, startTime: block_start });
         }
         // Start the first block at this block offset. It will schedule another exactly one cycle later, and so on.

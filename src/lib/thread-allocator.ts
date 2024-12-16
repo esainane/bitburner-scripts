@@ -21,6 +21,10 @@ export class ThreadAllocator {
     [ this.available_runners, this.available_threads ] = [ available_runners, available_threads ];
   }
 
+  public availableRunners(): Array<Runner> {
+    return this.available_runners;
+  }
+
   public availableThreads(): number {
     return this.available_threads;
   }
