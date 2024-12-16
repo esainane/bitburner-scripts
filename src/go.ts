@@ -1,5 +1,8 @@
-import { AutocompleteData, NS, ScriptArg } from '@ns'
+import { AutocompleteData, NS, RunOptions, ScriptArg } from '@ns'
 import { find_servers } from 'lib/find-servers';
+import { PriorityQueue } from 'lib/priority-queue';
+import { HWGWBlock } from 'lib/hwgw-block';
+import { ThreadAllocator } from 'lib/thread-allocator';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
@@ -12,6 +15,8 @@ export function autocomplete(data : AutocompleteData, args : string[]) : string[
 
 // Servers which should not be used as runners
 const exclude_runners: Set<string> = new Set(["home"]);
+// Servers which can be used as runners if and only if there are no non-avoid options
+const avoid_runners: Set<string> = new Set(["home"]);
 // Tolerance for script drift in ms
 const tolerance = 1000;
 // Steal no more than this much money per hack
@@ -34,7 +39,11 @@ interface PlanData {
   server: string;
 }
 
-async function plan_schedule(ns: NS, server: string, threads_available: number): Promise<PlanData | null> {
+interface CycleData extends PlanData {
+  blocks: number;
+}
+
+function plan_schedule(ns: NS, server: string, threads_available: number): PlanData | null {
   const cores = 1;
   // Analyze a server's hack intervals, effects, and create a timetable to the configured tolerance
   const hack_stolen_per_thread = ns.hackAnalyze(server);
@@ -120,12 +129,11 @@ interface RunnersData {
   available_threads: number;
 }
 
-async function find_runners(ns: NS, servers: Array<string>): Promise<RunnersData> {
+async function find_runners(ns: NS, servers: Array<string>, script = 'worker/grow1.ts'): Promise<RunnersData> {
   const available_runners: Array<Runner> = [];
   let total_available_threads = 0;
 
-  const ram_per_thread = ns.getScriptRam('worker/grow1.ts',
-  'home');
+  const ram_per_thread = ns.getScriptRam(script, 'home');
 
   for (const s of servers) {
     if (!ns.hasRootAccess(s)) {
@@ -142,100 +150,112 @@ async function find_runners(ns: NS, servers: Array<string>): Promise<RunnersData
     total_available_threads += server_available_threads;
   }
 
-  available_runners.sort((l, r) =>
-    l.threads - r.threads
-  );
-
   return {available_runners, available_threads: total_available_threads};
 }
 
-async function find_best_plan(ns: NS, servers: Array<string>, available_threads: number): Promise<PlanData | null> {
-  // Work out which server is the best to target
-  let best = null;
-  for (const s of servers) {
-    const candidate = await plan_schedule(ns, s, available_threads);
+const plan_fitness = (p: PlanData) => p.success_payout * p.success_rate / p.execution_duration;
+
+function find_best_split(ns: NS, server: string, available_threads: number): CycleData | null {
+  // Fail fast: If we can't hack less than the maximum proportion of the server's money, we can't do anything
+  const hack_stolen_per_thread = ns.hackAnalyze(server);
+  if (hack_stolen_per_thread > hack_limit) {
+    return null;
+  }
+  // FIXME: These are dependent on current security levels, which might not be the weakest (they'll be pending a corrective weaken about 50% of the time)
+  const weak_time = ns.getWeakenTime(server);
+  const grow_time = ns.getGrowTime(server);
+  const hack_time = ns.getHackTime(server);
+  const cycle_time = Math.max(hack_time + 4 * tolerance, weak_time + 3 * tolerance, grow_time + 2 * tolerance);
+  const max_blocks = Math.floor(cycle_time / (4 * tolerance));
+  let best: CycleData | null = null;
+  for (let blocks = max_blocks; blocks > 0; --blocks) {
+    const block_threads = Math.floor(available_threads / blocks);
+    const candidate = plan_schedule(ns, server, block_threads);
     if (!candidate) {
       continue;
     }
     if (!best) {
-      best = candidate;
+      best = { blocks, ...candidate };
       continue;
     }
-    const fitness = (p: PlanData) => p.success_payout * p.success_rate / p.execution_duration;
-    if (fitness(best) < fitness(candidate)) {
-      best = candidate;
+    if (plan_fitness(best) < plan_fitness(candidate)) {
+      best = { blocks, ...candidate };
     }
   }
   return best;
 }
 
+interface ScheduledTask {
+  callback: () => Promise<void>;
+  startTime: number;
+}
+
 export async function main(ns: NS): Promise<void> {
+  const taskQueue = new PriorityQueue<ScheduledTask>((a, b) => a.startTime - b.startTime);
+  const enqueue = (callback: () => Promise<void>, startTime: number) => taskQueue.push({ callback, startTime });
+  const sorter = (a: PlanData, b: PlanData) => plan_fitness(a) - plan_fitness(b);
+
+  const block_finishes: Map<string, Date> = new Map();
+
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const servers = await find_servers(ns);
-    const runners = await find_runners(ns, servers);
-    const best = await find_best_plan(ns, ns.args.length > 0 ? [String(ns.args[0])] : servers, runners.available_threads / splits);
-    if (!best) {
+    const servers: Array<string> = ns.args.length > 0 ? [String(ns.args[0])] : await find_servers(ns);
+    const runners: RunnersData = await find_runners(ns, servers);
+    // Find the best plan for each target NPC server
+    const plans: Array<CycleData> = servers.map(s => find_best_split(ns, s, runners.available_threads / splits)).filter(d=> d != null).sort(sorter);
+    if (!plans.length) {
       ns.tprint("Could not devise any feasible plan!");
       return;
     }
     // Report result
-    ns.tprint(`Want to, against ${best.server}:`)
-    ns.tprint(` After ${best.hack_delay}ms, start a hack with ${best.hack_threads} threads`);
-    ns.tprint(` After ${best.weaken_1st_delay}ms, start a weaken with ${best.weaken_1st_threads} threads`);
-    ns.tprint(` After ${best.grow_delay}ms, start a grow with ${best.grow_threads} threads`);
-    ns.tprint(` After ${best.weaken_2nd_delay}ms, start a weaken with ${best.weaken_2nd_threads} threads`);
-    ns.tprint(` Then repeat the process after ${best.execution_duration}ms. This earns ${best.success_payout} ${best.success_rate * 100}% of the time, and uses ${best.hack_threads + best.weaken_1st_threads + best.weaken_2nd_threads + best.grow_threads} out of ${runners.available_threads} available threads.`);
+    ns.tprint(`Top 3 plans, for ${runners.available_threads} available threads:`);
+    for (const plan of plans.slice(0, 3)) {
+      ns.tprint(`${plan.server}: ${Math.floor(1000 * plan.success_payout * plan.success_rate / plan.execution_duration)} EV $/sec (H: ${plan.hack_threads}, W1: ${plan.weaken_1st_threads}, G: ${plan.grow_threads}, W2: ${plan.weaken_2nd_threads}; T: ${plan.hack_threads + plan.weaken_1st_threads + plan.grow_threads + plan.weaken_2nd_threads}) over ${Math.floor(plan.execution_duration)}ms in ${plan.blocks} blocks (${Math.floor(plan.success_rate * 100)}% success each block)`);
+    }
+
+    ns.alert();
 
     const plan_hacking_level = ns.getPlayer().skills.hacking;
+
+    const next = new HWGWBlock(
+      ns, best.server,
+      new Date(Date.now() + best.execution_duration),
+      enqueue,
+      best.weaken_1st_threads, best.hack_threads, best.weaken_2nd_threads, best.grow_threads,
+      new ThreadAllocator(ns, exclude_runners, avoid_runners).allocateThreads
+    );
+
+    taskQueue.push({ script: 'worker/grow1.ts', server: best.server, threads: best.grow_threads, startTime: Date.now() + best.grow_delay, args: [best.server, best.grow_delay] });
+    taskQueue.push({ script: 'worker/hack1.ts', server: best.server, threads: best.hack_threads, startTime: Date.now() + best.hack_delay, args: [best.server, best.hack_delay] });
+    taskQueue.push({ script: 'worker/weak1.ts', server: best.server, threads: best.weaken_2nd_threads, startTime: Date.now() + best.weaken_2nd_delay, args: [best.server, best.weaken_2nd_delay] });
+    taskQueue.push({ script: 'worker/weak1.ts', server: best.server, threads: best.weaken_1st_threads, startTime: Date.now() + best.weaken_1st_delay, args: [best.server, best.weaken_1st_delay] });
+
     do {
-      const { available_runners, available_threads: total_available_threads } = await find_runners(ns, await find_servers(ns));
-      let current_runner: Runner | undefined;
-      let current_runner_threads_used = 0;
-      const allocate_threads = (amount: number, script: string, ...args: ScriptArg[]) => {
-        while (amount > 0) {
-          if (!current_runner || current_runner.threads - current_runner_threads_used < 1) {
-            current_runner = available_runners.pop();
-            current_runner_threads_used = 0;
-            if (!current_runner) {
-              ns.tprint("Failed to allocate threads, this shouldn't happen!");
-              ns.exit();
-            }
-          }
-          const to_use = Math.min(amount, current_runner.threads - current_runner_threads_used);
-          if (to_use < 1) {
-            ns.tprint(
-              "Attempting to use less than one thread on a runner, this shouldn't happen! Amount: ", amount,
-              ", current runner: ", current_runner.server, ", threads:", current_runner.threads, ", current runner used:", current_runner_threads_used
-            );
-            ns.exit();
-          }
-          if (!ns.fileExists(script, current_runner.server)) {
-            ns.scp(script, current_runner.server, 'home');
-          }
-          ns.tprint('exec(', script, ', ', current_runner.server, ', ', to_use, ', ', args.join(', '), '; using ', to_use, ' with ', current_runner_threads_used, '/', current_runner.threads, ' used');
-          ns.exec(script, current_runner.server, {
-            temporary: true,
-            threads: to_use
-          }, ...args);
-          amount -= to_use;
-          current_runner_threads_used += to_use;
+      const now = Date.now();
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      while (taskQueue.size() > 0 && taskQueue.peek()!.startTime <= now) {
+        const task = taskQueue.pop();
+        if (!task) continue;
+
+        const { script, server, threads, args } = task;
+        const currentRunner = runners.available_runners.find(r => r.threads >= threads);
+        if (!currentRunner) {
+          ns.tprint("Failed to allocate threads, this shouldn't happen!");
+          ns.exit();
         }
-      };
-      // This assumes threads can be broked up aacross multiple instances. I don't think this is the case,
-      // as the increase in security from one hack/grow will reduce the effect of those which follow.
-      // As grow significantly increases security and is difficult to recover from if something goes wrong,
-      // it gets top priority on unfragmented allocations. Hack follows, and then the weakens. It's possible
-      // that the weakens should be prioritized above the hack.
-      allocate_threads(best.grow_threads, 'worker/grow1.ts', best.server, best.grow_delay);
-      allocate_threads(best.hack_threads, 'worker/hack1.ts', best.server, best.hack_delay);
-      allocate_threads(best.weaken_2nd_threads, 'worker/weak1.ts', best.server, best.weaken_2nd_delay);
-      allocate_threads(best.weaken_1st_threads, 'worker/weak1.ts', best.server, best.weaken_1st_delay);
 
-      // Wait until this block finishes, then see if state has changed/needs recalculating.
-      // Otherwise, just run it again.
-      await ns.sleep(best.execution_duration / splits);
+        const actualTime = ns.getHackTime(server);
+        if (actualTime <= task.startTime - now) {
+          if (!ns.fileExists(script, currentRunner.server)) {
+            ns.scp(script, currentRunner.server, 'home');
+          }
+          ns.exec(script, currentRunner.server, threads, ...args);
+        } else {
+          taskQueue.push({ ...task, startTime: now + actualTime });
+        }
+      }
 
+      await ns.sleep(100);
     } while (plan_hacking_level == ns.getPlayer().skills.hacking);
 
     ns.tprint(`Player skill level changed (${plan_hacking_level} -> ${ns.getPlayer().skills.hacking}), recalculating autohack...`);
