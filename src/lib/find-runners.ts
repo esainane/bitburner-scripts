@@ -1,10 +1,25 @@
 import { NS, ProcessInfo } from '@ns'
 
-export interface Runner { server: string, threads: number }
+export interface Runner {
+  server: string;
+  threads: number;
+  max_ram: number;
+  used_ram: number;
+}
 
 export interface RunnersData {
   available_runners: Array<Runner>;
   available_threads: number;
+}
+
+export function recalculate_threads(ns: NS, runners: Array<Runner>, script: string): number {
+  let sum = 0;
+  for (const r of runners) {
+    const amount = Math.floor((r.max_ram - r.used_ram) / ns.getScriptRam(script, 'home'));
+    sum += amount;
+    r.threads = amount;
+  }
+  return sum;
 }
 
 export async function find_runners(ns: NS, servers: Array<string>, script: string, exclude_runners: Set<string> = new Set(), ignore_scripts: null | ((process: ProcessInfo) => boolean) = null): Promise<RunnersData> {
@@ -28,11 +43,12 @@ export async function find_runners(ns: NS, servers: Array<string>, script: strin
         }
       }
     }
-    const server_available_threads = Math.floor((ns.getServerMaxRam(s) - ns.getServerUsedRam(s) + ignored_used_ram) / ram_per_thread);
+    const [ max_ram, used_ram ] = [ ns.getServerMaxRam(s), ns.getServerUsedRam(s) ];
+    const server_available_threads = Math.floor((max_ram - used_ram + ignored_used_ram) / ram_per_thread);
     if (server_available_threads < 1) {
       continue;
     }
-    available_runners.push({server: s, threads: server_available_threads});
+    available_runners.push({server: s, threads: server_available_threads, max_ram, used_ram });
     total_available_threads += server_available_threads;
   }
 

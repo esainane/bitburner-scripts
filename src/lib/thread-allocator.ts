@@ -1,6 +1,6 @@
 import { NS, RunOptions, ScriptArg } from '@ns'
 import { find_servers } from './find-servers';
-import { find_runners } from './find-runners';
+import { find_runners, recalculate_threads, Runner } from './find-runners';
 
 export class ThreadAllocator {
   constructor(private ns: NS, private exclude_runners: Set<string>, private avoid_runners: Set<string>) {
@@ -8,19 +8,41 @@ export class ThreadAllocator {
 
     this.exclude_runners = exclude_runners;
     this.avoid_runners = avoid_runners;
+
+    this.refresh();
+  }
+
+  private available_runners: Array<Runner> = [];
+  private available_threads = 0;
+
+  public async refresh() {
+    const servers = await find_servers(this.ns);
+    const { available_runners, available_threads } = await find_runners(this.ns, servers, 'worker/grow1.ts', this.exclude_runners);
+    [ this.available_runners, this.available_threads ] = [ available_runners, available_threads ];
+  }
+
+  public availableThreads(): number {
+    return this.available_threads;
   }
 
   private async exec(script: string, hostname: string, threads_or_options: number | RunOptions, ...args: ScriptArg[]): Promise<number> {
     if (!this.ns.fileExists(script, hostname)) {
       this.ns.scp(script, hostname, 'home');
     }
+    const threads: number = (typeof(threads_or_options) === 'number') ? threads_or_options : threads_or_options.threads ?? 1;
+    this.available_threads -= threads;
+    const runner = this.available_runners.find(r => r.server === hostname);
+    if (runner) {
+      runner.threads -= threads;
+      runner.used_ram += threads * this.ns.getScriptRam(script, 'home');
+    }
     return this.ns.exec(script, hostname, threads_or_options, ...args);
   }
 
   private async _allocateThreads(script: string, threads: number, cumulative = false, maximize_if_fragmented = false, allow_avoided_servers = false, ...args: ScriptArg[]): Promise<[number, number[]]> {
-    const servers = await find_servers(this.ns);
-    let { available_runners, available_threads } = await find_runners(this.ns, servers, script);
     // If we're not allowed to use avoided servers, remove them from the list
+    let available_runners = this.available_runners;
+    let available_threads = recalculate_threads(this.ns, available_runners, script);
     if (!allow_avoided_servers) {
       available_runners = available_runners.filter(r => !this.avoid_runners.has(r.server));
       available_threads = available_runners.reduce((acc, r) => acc + r.threads, 0);
