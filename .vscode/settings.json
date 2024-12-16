@@ -22,4 +22,5 @@
             "snippet": "ns-template"
         },
     ],
+    "editor.tabSize": 2,
 }
