@@ -1,7 +1,6 @@
-import { AutocompleteData, NS, Player, RunOptions, ScriptArg } from '@ns'
+import { AutocompleteData, NS, Player } from '@ns'
 import { find_servers } from 'lib/find-servers';
 import { PriorityQueue } from 'lib/priority-queue';
-import { HWGWBlock } from 'lib/hwgw-block';
 import { ThreadAllocator } from 'lib/thread-allocator';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -43,7 +42,7 @@ interface CycleData extends PlanData {
   blocks: number;
 }
 
-function plan_schedule(ns: NS, server: string, threads_available: number): PlanData | null {
+function plan_schedule(ns: NS, server: string, cycle_time: number, threads_available: number): PlanData | null {
   const cores = 1;
   // Analyze a server's hack intervals, effects, and create a timetable to the configured tolerance
   const hack_stolen_per_thread = ns.hackAnalyze(server);
@@ -90,23 +89,19 @@ function plan_schedule(ns: NS, server: string, threads_available: number): PlanD
       hack_threads -= 1;
       break;
     }
+    // Relaive to the end of the HWGW block
     const hack_start = -hack_duration - 4 * gap;
     const weaken_1st_start = -weaken_duration - 3 * gap;
     const grow_start = -grow_duration - 2 * gap;
     const weaken_2nd_start = -weaken_duration - 1 * gap;
-    // Naive block-out calculation
-    const reservation_start = Math.min(
-      hack_start,
-      weaken_1st_start,
-      grow_start,
-      weaken_2nd_start, // never this, but included for clarity
-    );
-    const hack_delay = hack_start - reservation_start;
-    const weaken_1st_delay = weaken_1st_start - reservation_start;
-    const grow_delay = grow_start - reservation_start;
-    const weaken_2nd_delay = weaken_2nd_start - reservation_start;
 
-    const execution_duration = -reservation_start;
+    // Relative to the start of the HWGW *launch*
+    const hack_delay = hack_start + cycle_time;
+    const weaken_1st_delay = weaken_1st_start + cycle_time;
+    const grow_delay = grow_start + cycle_time;
+    const weaken_2nd_delay = weaken_2nd_start + cycle_time;
+
+    const execution_duration = cycle_time;
 
     const success_payout = (ns.getServerMaxMoney(server) ?? 0) * hack_stolen;
 
@@ -170,22 +165,54 @@ function format_player_basis(a: Player): string {
   return `H: ${a.skills.hacking} HM: ${a.mults.hacking} HC: ${a.mults.hacking_chance} HG: ${a.mults.hacking_grow} H$: ${a.mults.hacking_money} HS: ${a.mults.hacking_speed}`;
 }
 
+function is_server_normalized(ns: NS, server: string): boolean {
+  return ns.getServerMoneyAvailable(server) === ns.getServerMaxMoney(server) &&
+    ns.getServerSecurityLevel(server) === ns.getServerMinSecurityLevel(server);
+}
+
 function find_best_split(ns: NS, server: string, available_threads: number): CycleData | null {
+  // Fail fast: If we can't actually hack the server, we can't do anything
+  if (ns.getServerRequiredHackingLevel(server) > ns.getHackingLevel()) {
+    return null;
+  }
   // Fail fast: If we can't hack less than the maximum proportion of the server's money, we can't do anything
   const hack_stolen_per_thread = ns.hackAnalyze(server);
   if (hack_stolen_per_thread > hack_limit) {
     return null;
   }
-  // FIXME: These are dependent on current security levels, which might not be the weakest (they'll be pending a corrective weaken about 50% of the time)
+  // Fail fast: If the NPC isn't normalized, we can't do anything (yet)
+  if (!is_server_normalized(ns, server)) {
+    return null;
+  }
+  // XXX: These all depend on the server being normalized at the time of calculation
   const weak_time = ns.getWeakenTime(server);
   const grow_time = ns.getGrowTime(server);
   const hack_time = ns.getHackTime(server);
-  const cycle_time = Math.max(hack_time + 4 * gap, weak_time + 3 * gap, grow_time + 2 * gap);
+  const base_cycle_time = Math.max(hack_time + 4 * gap, weak_time + 3 * gap, grow_time + 2 * gap);
+  // Artifically pad the cycle time so that blocks starting every 4 seconds won't end up between a security increasing
+  // task finishing and the weaken which normalizes it
+  // Without padding, this means: 0 < (base_cycle % 2) < 1
+  // With padding, we want to aim for 0 + tolerace < (base_cycle % 2) < 1 - tolerance
+  // Tolerance is 25% of the gap. Check with HWGWBlock to make sure tolerance > precision, with some margin
+  const tolerance = gap / 4;
+  const base_cycle_time_offset = base_cycle_time % 2;
+  let cycle_padding = 0;
+  if (base_cycle_time_offset < tolerance) {
+    cycle_padding += tolerance - base_cycle_time_offset;
+  } else if (base_cycle_time_offset > 1 - tolerance) {
+    cycle_padding += 2 - base_cycle_time_offset + tolerance;
+  }
+  const cycle_time = base_cycle_time + cycle_padding;
+
+  // Now that we know how long a cycle is, determine the maximum number of times it can be split into 4s wide
+  // reservation blocks
   const max_blocks = Math.floor(cycle_time / (4 * gap));
+  // Then optimize the number of blocks for the optimal payoff
+  // Thread numbers can be quite chunky, so often we will want to have fewer blocks with more threads
   let best: CycleData | null = null;
   for (let blocks = max_blocks; blocks > 0; --blocks) {
     const block_threads = Math.floor(available_threads / blocks);
-    const candidate = plan_schedule(ns, server, block_threads);
+    const candidate = plan_schedule(ns, server, cycle_time, block_threads);
     if (!candidate) {
       continue;
     }
@@ -206,14 +233,13 @@ interface ScheduledTask {
 }
 
 export async function main(ns: NS): Promise<void> {
-  const taskQueue = new PriorityQueue<ScheduledTask>((a, b) => a.startTime - b.startTime);
-  const enqueue = (callback: () => Promise<void>, startTime: number) => taskQueue.push({ callback, startTime });
   const sorter = (a: PlanData, b: PlanData) => plan_fitness(a) - plan_fitness(b);
 
   // Keep persistent track of when the last running block on each server finishes.
   const block_finishes: Map<string, number> = new Map();
-  // Keep persistent track of active blocks
-  const running: Array<HWGWBlock> = [];
+  // Also keep track of when the next normalized section is for analysis
+  const next_normalized: Map<string, number> = new Map();
+  const dirty = new Set<string>();
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -261,6 +287,9 @@ export async function main(ns: NS): Promise<void> {
       }
     }
 
+    // NB: Keikaku means plan
+    let keikaku_doori = true;
+
     // Queue up HWGW blocks for each selected plan
     for (const plan of selected_plans) {
       // Start from when the last block finished, or when a block started no would finish, whatever is later
@@ -270,13 +299,29 @@ export async function main(ns: NS): Promise<void> {
         let block_start = server_next_slot_start + block_offset * 4 * gap;
         const schedule_block = async () => {
           // Schedule tasks for the current one...
-          running.push(new HWGWBlock(
-            ns, plan.server,
-            block_start,
-            enqueue,
-            plan.hack_threads, plan.weaken_1st_threads, plan.grow_threads, plan.weaken_2nd_threads,
-            new ThreadAllocator(ns, exclude_runners, avoid_runners).allocateThreads
-          ));
+          const allocator = new ThreadAllocator(ns, exclude_runners, avoid_runners).allocateThreads;
+          if (!is_server_normalized(ns, plan.server)) {
+            // Something has not gone according to plan
+            ns.tprint(`Server ${plan.server} is not normalized, something did not go according to plan. Restarting planner`);
+            dirty.add(plan.server);
+            keikaku_doori = false;
+            return;
+          }
+          // Good to go, allocate threads for this block
+          const [unallocable_h, pids_h] = await allocator('worker/hack1.ts', plan.hack_threads, true, plan.server, plan.hack_delay);
+          const [unallocable_w1, pids_w1] = await allocator('worker/weaken1.ts', plan.weaken_1st_threads, true, plan.server, plan.weaken_1st_delay);
+          const [unallocable_g, pids_g] = await allocator('worker/grow1.ts', plan.grow_threads, true, plan.server, plan.grow_delay);
+          const [unallocable_w2, pids_w2] = await allocator('worker/weaken1.ts', plan.weaken_2nd_threads, true, plan.server, plan.weaken_2nd_delay);
+          // Check we actually allocated everything.
+          if ([unallocable_h, unallocable_w1, unallocable_g, unallocable_w2].some(d => d > 0)) {
+            ns.tprint("Could not allocate all threads for HWGW block, aborting block.");
+            for (const pid of [...pids_h, ...pids_w1, ...pids_g, ...pids_w2]) {
+              ns.kill(pid);
+            }
+          } else {
+            // OK
+            block_finishes.set(plan.server, Date.now() + plan.execution_duration);
+          }
           // ...and schedule the next block
           block_start += plan.execution_duration
           blockQueue.push({ callback: schedule_block, startTime: block_start });
@@ -293,7 +338,6 @@ export async function main(ns: NS): Promise<void> {
       const later = now + 500;
 
       // Find any servers who can have a new HWGW block assigned
-      // This may immediately schedule tasks
       while (blockQueue.peek()?.startTime ?? later <= now) {
         const task = blockQueue.pop();
         if (!task) continue;
@@ -301,19 +345,11 @@ export async function main(ns: NS): Promise<void> {
         task.callback();
       }
 
-      // Run any scheduled tasks
-      while (taskQueue.peek()?.startTime ?? later <= now) {
-        const task = taskQueue.pop();
-        if (!task) continue;
-
-        task.callback();
-      }
-
-      const next = Math.min(taskQueue.peek()?.startTime ?? later, blockQueue.peek()?.startTime ?? later);
+      const next = blockQueue.peek()?.startTime ?? later;
 
       // Sleep until the next queued task, but no more than 500ms
       await ns.sleep(Math.max(1, Math.min(next - Date.now(), 500)));
-    } while (same_basis(plan_basis, ns.getPlayer()));
+    } while (keikaku_doori && same_basis(plan_basis, ns.getPlayer()));
 
     ns.tprint(`Effective Player stats changed (${format_player_basis(plan_basis)} -> ${format_player_basis(ns.getPlayer())}), recalculating autohack...`);
   }

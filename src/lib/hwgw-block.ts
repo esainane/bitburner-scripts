@@ -1,5 +1,10 @@
 import { NS, ScriptArg } from '@ns'
 
+// This was written before I realized ns.hack, ns.weaken, ns.grow all took a parameter to wait beforehand
+// It might still be useful if I later want to optimize very long delays for hack and weaken where ns.share
+// can be run in the meantime... but given that everything is nicely aligned now, that too might be easier to
+// simply extend the existing functions to handle.
+
 /**
  * HWGWBlock: Core class for managing a block of hack, weaken, grow, weaken.
  *
@@ -51,8 +56,8 @@ export class HWGWBlock {
     /// between hack and weaken, weaken and grow, grow and the second weaken; between the last weaken of this block and the hack of the next block
     private gap: number = 1000,
     /// How much we can tolerate activity end time drift before we abort the block, in either direction
-    /// Default is 45% of the gap
-    private precision: number = 9 * gap / 20,
+    /// Default is 20% of the gap
+    private precision: number = gap / 5,
     /// Function to retrieve current time. Mockable for testing.
     private now: () => number = () => Date.now(),
   ) {
