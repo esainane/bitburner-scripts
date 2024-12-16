@@ -18,7 +18,7 @@ const exclude_runners: Set<string> = new Set(["home"]);
 // Servers which can be used as runners if and only if there are no non-avoid options
 const avoid_runners: Set<string> = new Set(["home"]);
 // Tolerance for script drift in ms
-const tolerance = 1000;
+const gap = 1000;
 // Steal no more than this much money per hack
 const hack_limit = 0.3;
 // How many times we should divide the available threads
@@ -90,10 +90,10 @@ function plan_schedule(ns: NS, server: string, threads_available: number): PlanD
       hack_threads -= 1;
       break;
     }
-    const hack_start = -hack_duration - 4 * tolerance;
-    const weaken_1st_start = -weaken_duration - 3 * tolerance;
-    const grow_start = -grow_duration - 2 * tolerance;
-    const weaken_2nd_start = -weaken_duration - 1 * tolerance;
+    const hack_start = -hack_duration - 4 * gap;
+    const weaken_1st_start = -weaken_duration - 3 * gap;
+    const grow_start = -grow_duration - 2 * gap;
+    const weaken_2nd_start = -weaken_duration - 1 * gap;
     // Naive block-out calculation
     const reservation_start = Math.min(
       hack_start,
@@ -165,8 +165,8 @@ function find_best_split(ns: NS, server: string, available_threads: number): Cyc
   const weak_time = ns.getWeakenTime(server);
   const grow_time = ns.getGrowTime(server);
   const hack_time = ns.getHackTime(server);
-  const cycle_time = Math.max(hack_time + 4 * tolerance, weak_time + 3 * tolerance, grow_time + 2 * tolerance);
-  const max_blocks = Math.floor(cycle_time / (4 * tolerance));
+  const cycle_time = Math.max(hack_time + 4 * gap, weak_time + 3 * gap, grow_time + 2 * gap);
+  const max_blocks = Math.floor(cycle_time / (4 * gap));
   let best: CycleData | null = null;
   for (let blocks = max_blocks; blocks > 0; --blocks) {
     const block_threads = Math.floor(available_threads / blocks);
@@ -195,13 +195,17 @@ export async function main(ns: NS): Promise<void> {
   const enqueue = (callback: () => Promise<void>, startTime: number) => taskQueue.push({ callback, startTime });
   const sorter = (a: PlanData, b: PlanData) => plan_fitness(a) - plan_fitness(b);
 
-  const block_finishes: Map<string, Date> = new Map();
+  // Keep persistent track of when the last running block on each server finishes.
+  const block_finishes: Map<string, number> = new Map();
+  // Keep persistent track of active blocks
+  const running: Array<HWGWBlock> = [];
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const servers: Array<string> = ns.args.length > 0 ? [String(ns.args[0])] : await find_servers(ns);
-    const runners: RunnersData = await find_runners(ns, servers);
     // Find the best plan for each target NPC server
+    const servers: Array<string> = ns.args.length > 0 ? [String(ns.args[0])] : await find_servers(ns);
+    // TODO: Use thread allocator to find available runners
+    const runners: RunnersData = await find_runners(ns, servers);
     const plans: Array<CycleData> = servers.map(s => find_best_split(ns, s, runners.available_threads / splits)).filter(d=> d != null).sort(sorter);
     if (!plans.length) {
       ns.tprint("Could not devise any feasible plan!");
@@ -213,49 +217,87 @@ export async function main(ns: NS): Promise<void> {
       ns.tprint(`${plan.server}: ${Math.floor(1000 * plan.success_payout * plan.success_rate / plan.execution_duration)} EV $/sec (H: ${plan.hack_threads}, W1: ${plan.weaken_1st_threads}, G: ${plan.grow_threads}, W2: ${plan.weaken_2nd_threads}; T: ${plan.hack_threads + plan.weaken_1st_threads + plan.grow_threads + plan.weaken_2nd_threads}) over ${Math.floor(plan.execution_duration)}ms in ${plan.blocks} blocks (${Math.floor(plan.success_rate * 100)}% success each block)`);
     }
 
-    ns.alert();
-
+    // Save the player's stats at this point, we'll need to replan if this changes
     const plan_hacking_level = ns.getPlayer().skills.hacking;
+    // Store a distinct queue for blocks. If we change plans, this will be discarded
+    const blockQueue = new PriorityQueue<ScheduledTask>((a, b) => a.startTime - b.startTime);
 
-    const next = new HWGWBlock(
-      ns, best.server,
-      new Date(Date.now() + best.execution_duration),
-      enqueue,
-      best.weaken_1st_threads, best.hack_threads, best.weaken_2nd_threads, best.grow_threads,
-      new ThreadAllocator(ns, exclude_runners, avoid_runners).allocateThreads
-    );
+    // Work out how many threads will be used for each server, allocating threads to each plan in order of expected
+    // revenue per second decreasing, continuing if there are threads left over until we either run out of allocatable
+    // threads or targetable NPC servers
 
-    taskQueue.push({ script: 'worker/grow1.ts', server: best.server, threads: best.grow_threads, startTime: Date.now() + best.grow_delay, args: [best.server, best.grow_delay] });
-    taskQueue.push({ script: 'worker/hack1.ts', server: best.server, threads: best.hack_threads, startTime: Date.now() + best.hack_delay, args: [best.server, best.hack_delay] });
-    taskQueue.push({ script: 'worker/weak1.ts', server: best.server, threads: best.weaken_2nd_threads, startTime: Date.now() + best.weaken_2nd_delay, args: [best.server, best.weaken_2nd_delay] });
-    taskQueue.push({ script: 'worker/weak1.ts', server: best.server, threads: best.weaken_1st_threads, startTime: Date.now() + best.weaken_1st_delay, args: [best.server, best.weaken_1st_delay] });
+    const selected_plans = [];
+    let remaining_threads = runners.available_threads;
+    for (const plan of plans) {
+      const threads_required = plan.hack_threads + plan.weaken_1st_threads + plan.grow_threads + plan.weaken_2nd_threads;
+      if (threads_required < remaining_threads) {
+        // Maybe a less lucrative plan can still use these threads
+        continue;
+      }
+      selected_plans.push(plan);
+      remaining_threads -= threads_required;
+    }
+
+    // For each selected server, make sure there is an entry for when the blocks finish
+    // Initialized to 0 for now
+    for (const plan of selected_plans) {
+      if (!block_finishes.has(plan.server)) {
+        block_finishes.set(plan.server, 0);
+      }
+    }
+
+    // Queue up HWGW blocks for each selected plan
+    for (const plan of selected_plans) {
+      // Start from when the last block finished, or when a block started no would finish, whatever is later
+      const now_would_finish = Date.now() + plan.execution_duration;
+      const server_next_slot_start = Math.max(now_would_finish - 4 * gap, block_finishes.get(plan.server) ?? 0);
+      for (const block_offset of Array(plan.blocks).keys()) {
+        let block_start = server_next_slot_start + block_offset * 4 * gap;
+        const schedule_block = async () => {
+          // Schedule tasks for the current one...
+          running.push(new HWGWBlock(
+            ns, plan.server,
+            block_start,
+            enqueue,
+            plan.hack_threads, plan.weaken_1st_threads, plan.grow_threads, plan.weaken_2nd_threads,
+            new ThreadAllocator(ns, exclude_runners, avoid_runners).allocateThreads
+          ));
+          // ...and schedule the next block
+          block_start += plan.execution_duration
+          blockQueue.push({ callback: schedule_block, startTime: block_start });
+        }
+        // Start the first block at this block offset. It will schedule another exactly one cycle later, and so on.
+        // If the player's hacking skill changes, the blockQueue is discarded (unlike the taskQueue) and replaced
+        // with one using the newly optimized set of plans.
+        blockQueue.push({ callback: schedule_block, startTime: block_start });
+      }
+    }
 
     do {
       const now = Date.now();
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      while (taskQueue.size() > 0 && taskQueue.peek()!.startTime <= now) {
+      const later = now + 500;
+
+      // Find any servers who can have a new HWGW block assigned
+      // This may immediately schedule tasks
+      while (blockQueue.peek()?.startTime ?? later <= now) {
+        const task = blockQueue.pop();
+        if (!task) continue;
+
+        task.callback();
+      }
+
+      // Run any scheduled tasks
+      while (taskQueue.peek()?.startTime ?? later <= now) {
         const task = taskQueue.pop();
         if (!task) continue;
 
-        const { script, server, threads, args } = task;
-        const currentRunner = runners.available_runners.find(r => r.threads >= threads);
-        if (!currentRunner) {
-          ns.tprint("Failed to allocate threads, this shouldn't happen!");
-          ns.exit();
-        }
-
-        const actualTime = ns.getHackTime(server);
-        if (actualTime <= task.startTime - now) {
-          if (!ns.fileExists(script, currentRunner.server)) {
-            ns.scp(script, currentRunner.server, 'home');
-          }
-          ns.exec(script, currentRunner.server, threads, ...args);
-        } else {
-          taskQueue.push({ ...task, startTime: now + actualTime });
-        }
+        task.callback();
       }
 
-      await ns.sleep(100);
+      const next = Math.min(taskQueue.peek()?.startTime ?? later, blockQueue.peek()?.startTime ?? later);
+
+      // Sleep until the next queued task, but no more than 500ms
+      await ns.sleep(Math.max(1, Math.min(next - Date.now(), 500)));
     } while (plan_hacking_level == ns.getPlayer().skills.hacking);
 
     ns.tprint(`Player skill level changed (${plan_hacking_level} -> ${ns.getPlayer().skills.hacking}), recalculating autohack...`);
