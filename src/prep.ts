@@ -1,7 +1,6 @@
-import { AutocompleteData, NS, ScriptArg } from '@ns'
-import { find_servers } from 'lib/find-servers';
-import { find_runners } from 'lib/find-runners';
+import { AutocompleteData, NS } from '@ns'
 import { calc_max_prep } from 'lib/prep-plan';
+import { ThreadAllocator } from 'lib/thread-allocator';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
@@ -12,12 +11,11 @@ const exclude_runners: Set<string> = new Set([]);//"home"]);
 // Tolerance for script drift in ms
 const tolerance = 1000;
 
-interface Runner { server: string, threads: number }
-
 export async function main(ns: NS): Promise<void> {
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const { available_runners, available_threads } = await find_runners(ns, await find_servers(ns), 'worker/grow1.ts', exclude_runners);
+    const allocator = new ThreadAllocator(ns, exclude_runners, new Set());
+    const available_threads = allocator.availableThreads();
     const target = String(ns.args[0]);
 
     const {grow_duration, grow_threads, weaken_1st_threads, weaken_duration, weaken_2nd_threads, wanted} = await calc_max_prep(ns, target, available_threads);
@@ -50,43 +48,11 @@ export async function main(ns: NS): Promise<void> {
     }
     ns.tprint(` This process completes after ${execution_duration}ms.`);
 
-    let current_runner: Runner | undefined;
-    let current_runner_threads_used = 0;
-    const allocate_threads = (amount: number, script: string, ...args: ScriptArg[]) => {
-      while (amount > 0) {
-        if (!current_runner || current_runner.threads - current_runner_threads_used < 1) {
-          current_runner = available_runners.pop();
-          current_runner_threads_used = 0;
-          if (!current_runner) {
-            ns.tprint("Failed to allocate threads, this shouldn't happen!");
-            ns.exit();
-            // Silence warnings
-            return;
-          }
-        }
-        const to_use = Math.min(amount, current_runner.threads - current_runner_threads_used);
-        if (to_use < 1) {
-          ns.tprint(
-            "Attempting to use less than one thread on a runner, this shouldn't happen! Amount: ", amount,
-            ", current runner: ", current_runner.server, ", threads:", current_runner.threads, ", current runner used:", current_runner_threads_used
-          );
-          ns.exit();
-        }
-        if (!ns.fileExists(script, current_runner.server)) {
-          ns.scp(script, current_runner.server, 'home');
-        }
-        ns.tprint('exec(', script, ', ', current_runner.server, ', ', to_use, ', ', args.join(', '), '; using ', to_use, ' with ', current_runner_threads_used, '/', current_runner.threads, ' used');
-        ns.exec(script, current_runner.server, to_use, ...args);
-        amount -= to_use;
-        current_runner_threads_used += to_use;
-      }
-    };
     // This assumes threads can be broken up across multiple instances. This is the case for weaken, but not grow.
-    allocate_threads(grow_threads, 'worker/grow1.ts', target, grow_delay);
-    allocate_threads(weaken_2nd_threads, 'worker/weak1.ts', target, weaken_2nd_delay);
-    if (weaken_1st_threads) {
-      allocate_threads(weaken_1st_threads, 'worker/weak1.ts', target, weaken_1st_delay);
-    }
+    await allocator.allocateThreads('worker/weak1.js', weaken_1st_threads, true, target, weaken_1st_delay);
+    await allocator.allocateThreads('worker/grow.js', grow_threads, false, target, grow_delay);
+    await allocator.allocateThreads('worker/weak1.js', weaken_2nd_threads, true, target, weaken_2nd_delay);
+
 
     // Wait until this block finishes, then see if state has changed/needs recalculating.
     // Otherwise, just run it again.

@@ -103,6 +103,10 @@ export class ThreadAllocator {
    * @returns [unallocatable_threads, [pids]]
    */
   public async allocateThreads(script: string, threads: number, cumulative = false, ...args: ScriptArg[]): Promise<[number, number[]]> {
+    if (threads < 1) {
+      // Nothing to do
+      return [0, []];
+    }
     let [remaining, pids] = await this._allocateThreads(script, threads, cumulative, false, false, ...args);
     if (remaining) {
       let new_pids;
