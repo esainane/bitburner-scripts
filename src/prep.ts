@@ -109,15 +109,11 @@ export async function main(ns: NS): Promise<void> {
         current_runner_threads_used += to_use;
       }
     };
-    // This assumes threads can be broken up aacross multiple instances. I don't think this is the case,
-    // as the increase in security from one hack/grow will reduce the effect of those which follow.
-    // As grow significantly increases security and is difficult to recover from if something goes wrong,
-    // it gets top priority on unfragmented allocations. Hack follows, and then the weakens. It's possible
-    // that the weakens should be prioritized above the hack.
-    allocate_threads(grow_threads, 'grow1.ts', target, grow_delay);
-    allocate_threads(weaken_2nd_threads, 'weak1.ts', target, weaken_2nd_delay);
+    // This assumes threads can be broken up across multiple instances. This is the case for weaken, but not grow.
+    allocate_threads(grow_threads, 'worker/grow1.ts', target, grow_delay);
+    allocate_threads(weaken_2nd_threads, 'worker/weak1.ts', target, weaken_2nd_delay);
     if (weaken_1st_threads) {
-      allocate_threads(weaken_1st_threads, 'weak1.ts', target, weaken_1st_delay);
+      allocate_threads(weaken_1st_threads, 'worker/weak1.ts', target, weaken_1st_delay);
     }
 
     // Wait until this block finishes, then see if state has changed/needs recalculating.

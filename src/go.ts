@@ -216,7 +216,7 @@ export async function main(ns: NS): Promise<void> {
     // Find the best plan for each target NPC server
     const servers: Array<string> = ns.args.length > 0 ? [String(ns.args[0])] : await find_servers(ns);
     // TODO: Use thread allocator to find available runners
-    const runners: RunnersData = await find_runners(ns, servers, 'worker/grow1.ts');
+    const runners: RunnersData = await find_runners(ns, servers, 'worker/grow1.js');
     const plans: Array<CycleData> = servers.map(s => find_best_split(ns, s, runners.available_threads / splits)).filter(d=> d != null).sort(sorter);
     if (!plans.length) {
       ns.tprint("Could not devise any feasible plan!");
@@ -278,10 +278,10 @@ export async function main(ns: NS): Promise<void> {
             return;
           }
           // Good to go, allocate threads for this block
-          const [unallocable_h, pids_h] = await allocator('worker/hack1.ts', plan.hack_threads, true, plan.server, plan.hack_delay);
-          const [unallocable_w1, pids_w1] = await allocator('worker/weaken1.ts', plan.weaken_1st_threads, true, plan.server, plan.weaken_1st_delay);
-          const [unallocable_g, pids_g] = await allocator('worker/grow1.ts', plan.grow_threads, true, plan.server, plan.grow_delay);
-          const [unallocable_w2, pids_w2] = await allocator('worker/weaken1.ts', plan.weaken_2nd_threads, true, plan.server, plan.weaken_2nd_delay);
+          const [unallocable_h, pids_h] = await allocator('worker/hack1.js', plan.hack_threads, true, plan.server, plan.hack_delay);
+          const [unallocable_w1, pids_w1] = await allocator('worker/weaken1.js', plan.weaken_1st_threads, true, plan.server, plan.weaken_1st_delay);
+          const [unallocable_g, pids_g] = await allocator('worker/grow1.js', plan.grow_threads, true, plan.server, plan.grow_delay);
+          const [unallocable_w2, pids_w2] = await allocator('worker/weaken1.js', plan.weaken_2nd_threads, true, plan.server, plan.weaken_2nd_delay);
           // Check we actually allocated everything.
           if ([unallocable_h, unallocable_w1, unallocable_g, unallocable_w2].some(d => d > 0)) {
             ns.tprint("Could not allocate all threads for HWGW block, aborting block.");

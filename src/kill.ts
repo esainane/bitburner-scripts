@@ -17,9 +17,11 @@ export async function main(ns: NS): Promise<void> {
   if (ns.args.length > 0) {
     killall(ns, servers, String(ns.args[0]));
   } else {
-    killall(ns, servers, 'grow1.ts');
-    killall(ns, servers, 'weak1.ts');
-    killall(ns, servers, 'hack1.ts');
-    killall(ns, servers, 'go.ts');
+    killall(ns, servers, 'worker/grow1.js');
+    killall(ns, servers, 'worker/weak1.js');
+    killall(ns, servers, 'worker/hack1.js');
+    // Not currently managed by our omniscript
+    // killall(ns, servers, 'worker/share1.js');
+    killall(ns, servers, 'go.js');
   }
 }
