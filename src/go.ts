@@ -221,10 +221,12 @@ export async function main(ns: NS): Promise<void> {
     const all_available_threads = runners.available_threads;
     let available_threads = all_available_threads;
 
-    const targeted_servers: Array<string> = (ns.args.length > 0 ? [String(ns.args[0])] : all_servers).filter(s => ns.getServerRequiredHackingLevel(s) <= ns.getPlayer().skills.hacking);
+    const targeted_servers: Array<string> = (ns.args.length > 0 ? [String(ns.args[0])] : all_servers).filter(s => ns.getServerRequiredHackingLevel(s) <= ns.getPlayer().skills.hacking && ns.getServerMaxMoney(s) > 0);
     // Split up all servers into those which are normalized and those which are not
     const unprepared_servers: Array<string> = targeted_servers.filter(s => !is_server_normalized(ns, s)).sort((l, r) => ns.getServerRequiredHackingLevel(l) - ns.getServerRequiredHackingLevel(r));
     const servers: Array<string> = targeted_servers.filter(s => is_server_normalized(ns, s));
+
+    ns.tprint(`${servers.length}/${targeted_servers.length} servers are normalized and targetable`);
 
     // Find plans for all normalized targeted servers
     const plans: Array<CycleData> = servers.map(s => find_best_split(ns, s, all_available_threads)).filter(d=> d != null).sort(sorter);
