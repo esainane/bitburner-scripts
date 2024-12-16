@@ -1,6 +1,7 @@
 import { AutocompleteData, NS, ScriptArg } from '@ns'
 import { find_servers } from 'lib/find-servers';
 import { find_runners } from 'lib/find-runners';
+import { calc_max_prep } from 'lib/prep-plan';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
@@ -12,35 +13,6 @@ const exclude_runners: Set<string> = new Set([]);//"home"]);
 const tolerance = 1000;
 
 interface Runner { server: string, threads: number }
-
-async function calc_max_prep(ns: NS, target: string, available_threads: number) {
-  let cap = Infinity;
-  const cores = 1;
-  const grow_duration = ns.getGrowTime(target);
-  const weaken_duration = ns.getWeakenTime(target);
-  const starting_security = ns.getServerSecurityLevel(target) - ns.getServerMinSecurityLevel(target);
-  const weaken_security_decrease_per_thread = ns.weakenAnalyze(1, cores);
-  let wanted = 0;
-  while (cap > 0) {
-    // Work out how much is needed to fully weaken the target
-    const weaken_1st_threads = Math.ceil(starting_security / weaken_security_decrease_per_thread);
-    // Work out how much is needed to fully grow the target
-    const growth_required = ns.getServerMaxMoney(target) / ns.getServerMoneyAvailable(target);
-    const grow_threads = Math.min(cap, Math.ceil(ns.growthAnalyze(target, growth_required, cores)));
-    if (wanted == 0) {
-      wanted = grow_threads;
-    }
-    const growth_security_increase = ns.growthAnalyzeSecurity(grow_threads, undefined, cores);
-    // Work out how much is needed to fully weaken the target again
-    const weaken_2nd_threads = Math.ceil(growth_security_increase / weaken_security_decrease_per_thread);
-    if (weaken_1st_threads + grow_threads + weaken_2nd_threads > available_threads) {
-      cap = grow_threads - 1;
-      continue;
-    }
-    return {grow_duration, grow_threads, weaken_1st_threads, weaken_duration, weaken_2nd_threads, wanted};
-  }
-  return {grow_duration, grow_threads: 0, weaken_1st_threads: available_threads, weaken_duration, weaken_2nd_threads: 0, wanted};
-}
 
 export async function main(ns: NS): Promise<void> {
   // eslint-disable-next-line no-constant-condition
