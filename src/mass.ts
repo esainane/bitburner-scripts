@@ -22,7 +22,7 @@ export async function main(ns: NS): Promise<void> {
   }
   // Then the listed scripts
   const scripts = p_args;
-  for (const script in scripts) {
+  for (const script of scripts) {
     if (!ns.fileExists(script)) {
       ns.tprint(`Script not found: ${script}`);
       return;
