@@ -1,6 +1,7 @@
 import { NS, Server } from '@ns'
 import { find_servers } from 'lib/find-servers';
 import { list_servers } from 'lib/list-servers';
+import { colors, format_number } from 'lib/colors';
 
 export async function main(ns: NS): Promise<void> {
   interface PortCracker {
@@ -17,16 +18,19 @@ export async function main(ns: NS): Promise<void> {
     { prog_name: "SQLInject.exe", func: ns.sqlinject, is_open: (s: Server) => s.sqlPortOpen },
   ].filter(p => ns.fileExists(p.prog_name, 'home'));
 
-  ns.tprint(`${portsOpenable.length} ports openable`);
+  ns.tprint(`INFO ${portsOpenable.length} ports openable`);
 
   const servers: Array<Server> = find_servers(ns).map(ns.getServer);
 
+  let unrootable = 0;
+  const modified: Array<string> = [];
   for (const s of servers) {
     if (s.hasAdminRights && s.backdoorInstalled) {
       continue;
     }
     if (!s.hasAdminRights) {
       if ((s.numOpenPortsRequired ?? 0) > portsOpenable.length) {
+        ++unrootable;
         continue;
       }
       for (const port of portsOpenable) {
@@ -36,18 +40,26 @@ export async function main(ns: NS): Promise<void> {
         port.func(s.hostname);
       }
       ns.nuke(s.hostname);
+      modified.push(s.hostname);
     }
     if (!s.backdoorInstalled && s.hasAdminRights) {
       // await ns.singularity.installBackdoor();
     }
   }
-  servers.sort((l, r) => {
+
+  if (!modified.length) {
+    ns.tprint("INFO No servers could be modified", unrootable ? `(${format_number(unrootable)} remain unrootable)` : '');
+    return;
+  }
+
+  const sorter = (l: Server, r: Server) => {
     if (l.requiredHackingSkill != r.requiredHackingSkill) {
       return (l.requiredHackingSkill ?? 0) - (r.requiredHackingSkill ?? 0);
     }
     return 0;
-  });
+  }
 
+  list_servers(ns, modified.map(ns.getServer).sort(sorter));
 
-  list_servers(ns, servers);
+  ns.tprint(`INFO ${format_number(modified.length)} servers were ${colors.combine(colors.bright, colors.fg_yellow)}newly rooted${colors.reset}!`);
 }
