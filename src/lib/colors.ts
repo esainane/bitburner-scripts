@@ -70,6 +70,21 @@ export const colors = {
   }
 };
 
+export function strip_color(s: string): string {
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/\x1b\[\d+(;\d+)*m/g, '');
+}
+
+/**
+ * Pad a string while ignoring color codes for the purpose of length calculation
+ */
+export function color_pad(s: string, length: number, { left = true } = {}): string {
+  const real_length = strip_color(s).length;
+  if (real_length >= length) return s;
+  const pad = ' '.repeat(length - real_length);
+  return left ? pad + s : s + pad;
+}
+
 // A color mapping which satisfies the interface, but only return no-ops
 export const nop_colors = Object.keys(colors).reduce(
   (acc: object, key: string) => Object.assign(acc, { [key]: '' }), {}

@@ -4,6 +4,14 @@ import { list_servers } from 'lib/list-servers';
 import { colors, format_number } from 'lib/colors';
 
 export async function main(ns: NS): Promise<void> {
+  ns.disableLog('ALL');
+  ns.enableLog('nuke');
+  ns.enableLog('brutessh');
+  ns.enableLog('ftpcrack');
+  ns.enableLog('relaysmtp');
+  ns.enableLog('httpworm');
+  ns.enableLog('sqlinject');
+
   interface PortCracker {
     prog_name: string;
     func: (host: string) => void;

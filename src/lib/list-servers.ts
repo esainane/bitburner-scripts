@@ -1,5 +1,6 @@
 import { NS, Server } from '@ns'
 import { currency_format } from 'lib/format-money';
+import { color_pad } from 'lib/colors';
 
 export function list_servers(ns: NS, servers: Array<Server>): void {
   const longest_hostname_length: number = Math.max(...servers.map(s => s.hostname.length));
@@ -7,7 +8,7 @@ export function list_servers(ns: NS, servers: Array<Server>): void {
   // Display the result
   for (const s of servers) {
     ns.tprintf(
-      `%${longest_hostname_length}s [%6d/%6d] [%s%s] {%s} %4d %6.3f\\%6.3f %21s/%21s\n`,
+      `%${longest_hostname_length}s [%7d/%7d] [%s%s] {%s} %4d %6.3f\\%6.3f %8s/%8s\n`,
       s.hostname,
       s.ramUsed, s.maxRam,
       s.hasAdminRights ? 'R' : ' ', s.backdoorInstalled ? 'B' : ' ',
@@ -15,8 +16,8 @@ export function list_servers(ns: NS, servers: Array<Server>): void {
       s.requiredHackingSkill,
       s.hackDifficulty,
       s.minDifficulty,
-      currency_format(s.moneyAvailable ?? 0),
-      currency_format(s.moneyMax ?? 0),
+      color_pad(currency_format(s.moneyAvailable ?? 0), 8),
+      color_pad(currency_format(s.moneyMax ?? 0), 8),
     );
   }
 }

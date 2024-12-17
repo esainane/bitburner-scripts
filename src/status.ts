@@ -5,6 +5,7 @@ import { currency_format } from 'lib/format-money';
 import { list_servers } from 'lib/list-servers';
 
 export async function main(ns: NS): Promise<void> {
+  ns.disableLog('ALL');
   const servers = find_servers(ns).map(ns.getServer);
   servers.sort((l, r) => {
     if (l.requiredHackingSkill != r.requiredHackingSkill) {
