@@ -407,7 +407,7 @@ export async function main(real_ns: NS): Promise<void> {
               keikaku_doori = false;
               return;
             } else {
-              ns.log("INFO Server ", format_servername(server), " is now normalized (no improvement on available plans).");
+              ns.log("INFO Server ", format_servername(server), " is now normalized (no improvement on selected plans).");
             }
             continue;
           }
@@ -515,10 +515,13 @@ export async function main(real_ns: NS): Promise<void> {
 
     // Queue up HWGW blocks for each selected plan
     for (const plan of selected_plans) {
-      // Start from when the last block finished, or when a block started no would finish, whatever is later
-      const now_would_finish = Date.now() + plan.execution_duration;
-      const server_next_slot_start = Math.max(now_would_finish - 4 * gap, block_finishes.get(plan.server) ?? 0);
-      for (const block_offset of Array(plan.blocks).keys()) {
+      // Start from when the last block finished, or when a block started now would finish, whatever is later
+      // This start slot is relative to when the scripts are started/allocated
+      // next_normalized is when the next slot for launching is available
+      // block_finishes is when the last block of task ends finishs
+      const server_next_slot_start = Math.max(now, next_normalized.get(plan.server) ?? now, (block_finishes.get(plan.server) ?? now) - plan.execution_duration);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      for (const block_offset of Array(blocks_per_plan.get(plan.server)!).keys()) {
         let block_start = server_next_slot_start + block_offset * 4 * gap;
         const schedule_block = async () => {
           // Schedule tasks for the current one...
@@ -545,12 +548,17 @@ export async function main(real_ns: NS): Promise<void> {
             }
           } else {
             // OK
+            // Mark that there will be variations in security until the time these tasks finish
             block_finishes.set(plan.server, Date.now() + plan.execution_duration);
           }
-          // ...and schedule the next block
-          block_start += plan.execution_duration
-          next_normalized.set(plan.server, block_start);
+          // ...and schedule the next block when this cycle finishes.
+          // Blocks happening 4*gap after this one will be launched by other iterations of the
+          // outer loop `(for (plan of selected_plans))` up to the number of blocks which have been allocated
+          block_start += plan.execution_duration;
           blockQueue.push({ callback: schedule_block, startTime: block_start });
+          // Indicate that the next block is free at this time, if our next scheduled block does not itself run
+          // (perhaps due to the queue beingdropped needing to recalculate after a skill change)
+          next_normalized.set(plan.server, block_start);
         }
         // Start the first block at this block offset. It will schedule another exactly one cycle later, and so on.
         // If the player's hacking skill changes, the blockQueue is discarded (unlike the taskQueue) and replaced
