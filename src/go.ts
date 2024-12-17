@@ -492,7 +492,7 @@ export async function main(ns: NS): Promise<void> {
 
       // Allocate as many blocks as we can, up to the maximum blocks per cycle or the available threads
       const blocks = Math.min(Math.floor(available_threads / threads_per_block), plan.blocks);
-      ns.tprint(`INFO Plan for ${format_servername(plan.server)} needs ${format_number(threads_per_block)} threads per block, allocating ${format_number(blocks)}/${format_number(plan.blocks)} blocks using ${format_number(threads_per_block * blocks)}/${format_number(available_threads)} threads available.`);
+      ns.tprint(`INFO Plan for ${format_servername(plan.server)} needs ${format_number(threads_per_block)} threads per block, allocating ${format_number(blocks)}/${format_number(plan.blocks)} blocks using ${format_number(threads_per_block * blocks)}/${format_number(available_threads)} threads available for an expected ${currency_format(value_per_thread_per_second(plan) * threads_per_block * blocks)} per second after ${format_duration(plan.execution_duration)}.`);
       available_threads -= threads_per_block * blocks;
       blocks_per_plan.set(plan.server, blocks);
       if (available_threads <= 0) {
