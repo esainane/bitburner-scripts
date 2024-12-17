@@ -11,8 +11,8 @@ const suffixes_colored = make_suffixes(colors);
 function make_suffixes(colors: Colors): Array<string> {
   return [
     '',
-    `${colors.reset}${colors.fg_green}K`,
-    `${colors.fg_cyan}M`,
+    `${colors.fg_cyan}K`,
+    `${colors.reset}${colors.fg_green}M`,
     `${colors.fg_yellow}B`,
     `${colors.fg_magenta}T`,
     `${colors.fg_red}Q`,
