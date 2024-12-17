@@ -181,7 +181,7 @@ async function attempt_cct(ns: NS, filename: string, host: string | undefined) {
 }
 
 async function find_all_ccts(ns: NS) {
-  const servers = (await find_servers(ns));
+  const servers = find_servers(ns);
 
   const all_ccts = new Array<[string, string]>();
   for (const s of servers) {

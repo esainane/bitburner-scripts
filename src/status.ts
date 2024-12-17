@@ -4,7 +4,7 @@ import { find_servers } from 'lib/find-servers'
 import { currency_format } from 'lib/format-money';
 
 export async function main(ns: NS): Promise<void> {
-  const servers = (await find_servers(ns)).map(ns.getServer);
+  const servers = find_servers(ns).map(ns.getServer);
   servers.sort((l, r) => {
     if (l.requiredHackingSkill != r.requiredHackingSkill) {
       return (l.requiredHackingSkill ?? 0) - (r.requiredHackingSkill ?? 0);

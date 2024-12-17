@@ -15,9 +15,9 @@ export class ThreadAllocator {
   private available_runners: Array<Runner> = [];
   private available_threads = 0;
 
-  public async refresh() {
-    const servers = await find_servers(this.ns);
-    const { available_runners, available_threads } = await find_runners(this.ns, servers, 'worker/grow1.ts', this.exclude_runners);
+  public refresh() {
+    const servers = find_servers(this.ns);
+    const { available_runners, available_threads } = find_runners(this.ns, servers, 'worker/grow1.js', this.exclude_runners);
     [ this.available_runners, this.available_threads ] = [ available_runners, available_threads ];
   }
 
@@ -30,8 +30,14 @@ export class ThreadAllocator {
   }
 
   private async exec(script: string, hostname: string, threads_or_options: number | RunOptions, ...args: ScriptArg[]): Promise<number> {
+    // this.ns.tprint('Attempting to exec(', script, ',', hostname, ',', threads_or_options, ',', ...args, ')');
     if (!this.ns.fileExists(script, hostname)) {
-      this.ns.scp(script, hostname, 'home');
+      // this.ns.tprint('Attempting to scp(', script, ',', hostname, ',home)');
+      const copy_ok = this.ns.scp(script, hostname, 'home');
+      if (!copy_ok) {
+        this.ns.tprint('Failed to scp(', script, ',', hostname, ',home)');
+        return 0;
+      }
     }
     const threads: number = (typeof(threads_or_options) === 'number') ? threads_or_options : threads_or_options.threads ?? 1;
     this.available_threads -= threads;
@@ -41,6 +47,15 @@ export class ThreadAllocator {
       runner.used_ram += threads * this.ns.getScriptRam(script, 'home');
     }
     return this.ns.exec(script, hostname, threads_or_options, ...args);
+  }
+
+  public largestContiguousBlock(allow_avoided_servers = false): number {
+    const ret = Math.max(0, ...this.available_runners
+      .filter(allow_avoided_servers ? () => true : d => !this.avoid_runners.has(d.server))
+      .map(d => d.threads)
+    );
+    // this.ns.tprint('Largest contiguous block: ', ret, ' from [', this.available_runners.map(d => d.threads).join(', '), '] (', this.available_threads, ' total)');
+    return ret;
   }
 
   private async _allocateThreads(script: string, threads: number, cumulative = false, maximize_if_fragmented = false, allow_avoided_servers = false, ...args: ScriptArg[]): Promise<[number, number[]]> {
@@ -71,7 +86,7 @@ export class ThreadAllocator {
       for (const runner of available_runners) {
         const to_allocate = Math.min(remaining, runner.threads);
         if (to_allocate < 1) {
-          break;
+          continue;
         }
         pids.push(await this.exec(script, runner.server, { threads: to_allocate, temporary: true }, ...args));
         remaining -= to_allocate;
@@ -79,7 +94,7 @@ export class ThreadAllocator {
           break;
         }
       }
-      return [remaining, pids];
+      return [remaining, pids.filter(d=>d!==0)];
     }
     // Otherwise, find the smallest available server with enough threads
     let current_runner = available_runners.find(r => r.threads >= threads);
@@ -87,17 +102,18 @@ export class ThreadAllocator {
     if (!current_runner) {
       if (!maximize_if_fragmented) {
         // no luck, maybe try again in _allocateThreads
-        return [threads, pids];
+        return [threads, pids.filter(d=>d!==0)];
       }
       // Find the largest contiguous block available, do what we can
       available_runners.sort((l, r) => r.threads - l.threads);
       current_runner = available_runners[0];
     }
     if (current_runner) {
-      pids.push(await this.exec(script, current_runner.server, { threads: current_runner.threads, temporary: true }, ...args));
-      return [threads - current_runner.threads, pids];
+      const to_allocate = Math.min(threads, current_runner.threads);
+      pids.push(await this.exec(script, current_runner.server, { threads: to_allocate, temporary: true }, ...args));
+      return [threads - to_allocate, pids.filter(d=>d!==0)];
     }
-    return [threads, pids];
+    return [threads, pids.filter(d=>d!==0)];
   }
   /**
    * Allocate threads to a particular script
@@ -118,6 +134,10 @@ export class ThreadAllocator {
       pids = pids.concat(new_pids);
     }
     return [remaining, pids];
+  }
+
+  public getAllocator(): ((script: string, threads: number, cumulative?: boolean, ...args: ScriptArg[]) => Promise<[number, number[]]>) {
+    return this.allocateThreads.bind(this);
   }
 }
 

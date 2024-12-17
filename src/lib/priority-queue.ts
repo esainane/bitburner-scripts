@@ -1,4 +1,5 @@
 import { NS } from '@ns'
+import { assert_all_passed, assert_eq } from './assert';
 
 export class PriorityQueue<T> {
   private heap: T[] = [];
@@ -106,12 +107,6 @@ export class PriorityQueue<T> {
   }
 }
 
-function assert_eq<T>(expected: T, actual: T, context?: string): void {
-  if (expected !== actual) {
-    throw new Error(`Assertion failed${context ? ` (${context})` : ''}: expected ${expected}, but got ${actual}`);
-  }
-}
-
 export async function main(ns: NS): Promise<void> {
   ns.tprint('Testing priority queue implementation');
 
@@ -122,11 +117,11 @@ export async function main(ns: NS): Promise<void> {
   pq.push(8);
   pq.push(1);
 
-  assert_eq(1, pq.pop(), 'Test 1');
-  assert_eq(3, pq.pop(), 'Test 2');
-  assert_eq(5, pq.pop(), 'Test 3');
-  assert_eq(8, pq.pop(), 'Test 4');
-  assert_eq(undefined, pq.pop(), 'Test 5');
+  assert_eq(ns, 1, pq.pop(), 'Test 1');
+  assert_eq(ns, 3, pq.pop(), 'Test 2');
+  assert_eq(ns, 5, pq.pop(), 'Test 3');
+  assert_eq(ns, 8, pq.pop(), 'Test 4');
+  assert_eq(ns, undefined, pq.pop(), 'Test 5');
 
   const pq2 = new PriorityQueue<{ value: number, priority: number }>((a, b) => a.priority - b.priority);
 
@@ -135,11 +130,11 @@ export async function main(ns: NS): Promise<void> {
   pq2.push({ value: 8, priority: 3 });
   pq2.push({ value: 1, priority: 0 });
 
-  assert_eq(1, pq2.pop()?.value, 'Test 6');
-  assert_eq(3, pq2.pop()?.value, 'Test 7');
-  assert_eq(5, pq2.pop()?.value, 'Test 8');
-  assert_eq(8, pq2.pop()?.value, 'Test 9');
-  assert_eq(undefined, pq2.pop()?.value, 'Test 10');
+  assert_eq(ns, 1, pq2.pop()?.value, 'Test 6');
+  assert_eq(ns, 3, pq2.pop()?.value, 'Test 7');
+  assert_eq(ns, 5, pq2.pop()?.value, 'Test 8');
+  assert_eq(ns, 8, pq2.pop()?.value, 'Test 9');
+  assert_eq(ns, undefined, pq2.pop()?.value, 'Test 10');
 
-  ns.tprint('All tests passed');
+  assert_all_passed(ns);
 }

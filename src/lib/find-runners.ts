@@ -22,7 +22,7 @@ export function recalculate_threads(ns: NS, runners: Array<Runner>, script: stri
   return sum;
 }
 
-export async function find_runners(ns: NS, servers: Array<string>, script: string, exclude_runners: Set<string> = new Set(), ignore_scripts: null | ((process: ProcessInfo) => boolean) = null): Promise<RunnersData> {
+export function find_runners(ns: NS, servers: Array<string>, script: string, exclude_runners: Set<string> = new Set(), ignore_scripts: null | ((process: ProcessInfo) => boolean) = null): RunnersData {
   const available_runners: Array<Runner> = [];
   let total_available_threads = 0;
 
@@ -37,7 +37,7 @@ export async function find_runners(ns: NS, servers: Array<string>, script: strin
     }
     let ignored_used_ram = 0;
     if (ignore_scripts) {
-      for (const process of ns.ps()) {
+      for (const process of ns.ps(s)) {
         if (ignore_scripts(process)) {
           ignored_used_ram += process.threads * ns.getScriptRam(process.filename, s);
         }

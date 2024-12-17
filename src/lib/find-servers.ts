@@ -1,6 +1,6 @@
 import { NS } from '@ns'
 
-export async function find_servers(ns: NS): Promise<Array<string>> {
+export function find_servers(ns: NS): Array<string> {
   // Traverse the network
   const seen: Set<string> = new Set();
   const to_visit: Array<string> = ['home'];

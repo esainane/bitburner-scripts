@@ -7,10 +7,15 @@ export function autocomplete(data : AutocompleteData, args : string[]) : string[
 }
 
 export async function main(ns: NS): Promise<void> {
-  const servers: Array<string> = (await find_servers(ns));
+  const servers: Array<string> = find_servers(ns);
+
 
   // Copy script to all servers
   const script = String(ns.args[0]);
+  if (!ns.fileExists(script)) {
+    ns.tprint(`Script not found: ${script}`);
+    return;
+  }
   for (const target of servers) {
     ns.scp(script, target);
   }

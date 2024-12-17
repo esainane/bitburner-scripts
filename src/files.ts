@@ -2,7 +2,7 @@ import { NS } from '@ns'
 import { find_servers } from 'lib/find-servers';
 
 export async function main(ns: NS): Promise<void> {
-  const servers = (await find_servers(ns)).filter((d: string) => d !== 'home' && d !== 'darkweb');
+  const servers = find_servers(ns).filter((d: string) => d !== 'home' && d !== 'darkweb');
 
   const ignore_files = new Set<string>(ns.ls('home'));
   const all_files = new Map<string, string[]>([]);

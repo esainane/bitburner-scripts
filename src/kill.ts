@@ -13,7 +13,7 @@ function killall(ns: NS, servers: Array<string>, script: string) {
 }
 
 export async function main(ns: NS): Promise<void> {
-  const servers = await find_servers(ns);
+  const servers = find_servers(ns);
   if (ns.args.length > 0) {
     killall(ns, servers, String(ns.args[0]));
   } else {
