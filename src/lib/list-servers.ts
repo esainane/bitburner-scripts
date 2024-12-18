@@ -16,8 +16,8 @@ export function list_servers(ns: NS, servers: Array<Server>): void {
       s.requiredHackingSkill,
       s.hackDifficulty,
       s.minDifficulty,
-      color_pad(currency_format(s.moneyAvailable ?? 0), 8),
-      color_pad(currency_format(s.moneyMax ?? 0), 8),
+      color_pad(currency_format(s.moneyAvailable ?? 0), 9),
+      color_pad(currency_format(s.moneyMax ?? 0), 9),
     );
   }
 }
