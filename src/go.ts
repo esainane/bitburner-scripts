@@ -136,11 +136,11 @@ function same_basis(a: Player, b: Player): boolean {
 }
 
 function format_mult_to_percent(a: number): string {
-  return `${colors.fg_white}${Math.floor(10000 * (a - 1)) / 100}${colors.fg_cyan}%${colors.reset}`;
+  return `${format_number(Math.floor(10000 * (a - 1)) / 100)}${colors.fg_cyan}%${colors.reset}`;
 }
 
 function format_player_basis(a: Player): string {
-  return `H: ${a.skills.hacking} HM: ${format_mult_to_percent(a.mults.hacking)} HC: ${format_mult_to_percent(a.mults.hacking_chance)} HG: ${format_mult_to_percent(a.mults.hacking_grow)} H$: ${format_mult_to_percent(a.mults.hacking_money)} HS: ${format_mult_to_percent(a.mults.hacking_speed)}`;
+  return `H: ${format_number(a.skills.hacking)} HM: ${format_mult_to_percent(a.mults.hacking)} HC: ${format_mult_to_percent(a.mults.hacking_chance)} HG: ${format_mult_to_percent(a.mults.hacking_grow)} H$: ${format_mult_to_percent(a.mults.hacking_money)} HS: ${format_mult_to_percent(a.mults.hacking_speed)}`;
 }
 
 function is_server_normalized(ns: NS, server: string): boolean {
@@ -160,7 +160,7 @@ function format_normalize_state(ns: NS, server: string): string {
   const server_fullness_percent = Math.floor(100 * ns.getServerMoneyAvailable(server) / ns.getServerMaxMoney(server));
   const server_min_security = ns.getServerMinSecurityLevel(server);
   const server_security_excess = Math.floor(1000 * (ns.getServerSecurityLevel(server) - server_min_security)) / 1000;
-  return `{${format_number(server_fullness_percent)}${colors.fg_cyan}%${colors.reset} @ ${server_min_security}${colors.fg_red}+${format_number(server_security_excess)}}`;
+  return `{${format_number(server_fullness_percent)}${colors.fg_cyan}%${colors.reset} @ ${server_min_security}${ server_security_excess ? `${colors.fg_red}+${format_number(server_security_excess)}` : ''}`;
 }
 
 function find_best_split(ns: NS, server: string, available_threads: number): CycleData | null {
@@ -327,7 +327,7 @@ export async function main(real_ns: NS): Promise<void> {
       for (const plan of plans.slice(0, 3)) {
         const ev_pt_ps = value_per_thread_per_second(plan);
         const threads_per_block = plan_threads_required_per_block(plan);
-        ns.log(`INFO   ${format_servername(plan.server)}: ${currency_format(Math.floor(ev_pt_ps))} EV $/T/sec (H: ${plan.hack_threads}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(threads_per_block)}) over ${format_duration(plan.execution_duration)}ms, up to ${currency_format(ev_pt_ps * threads_per_block * plan.blocks)} EV $/sec with ${format_number(plan.blocks)} blocks`, (plan.success_rate < 0.999 ? ` (${colors.fg_white}${Math.floor(plan.success_rate * 100)}${colors.fg_cyan}%${colors.reset} success each block)` : ''));
+        ns.log(`INFO   ${format_servername(plan.server)}: ${currency_format(Math.floor(ev_pt_ps))} EV $/T/sec (H: ${plan.hack_threads}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(threads_per_block)}) over ${format_duration(plan.execution_duration)}ms, up to ${currency_format(ev_pt_ps * threads_per_block * plan.blocks)} EV $/sec with ${format_number(plan.blocks)} blocks`, (plan.success_rate < 0.999 ? ` (${format_number(Math.floor(plan.success_rate * 100))}${colors.fg_cyan}%${colors.reset} success each block)` : ''));
       }
     }
 
@@ -442,7 +442,7 @@ export async function main(real_ns: NS): Promise<void> {
             const threads_used = prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads;
             const was_throttled = prep_plan.grow_threads !== prep_plan.wanted;
             // Report
-            ns.log(`INFO Normalizing ${format_servername(server)} ${format_normalize_state(ns, server)}: [W1: ${format_number(prep_plan.weaken_1st_threads)}, G: ${format_number(prep_plan.grow_threads)}, W2: ${format_number(prep_plan.weaken_2nd_threads)}; T: ${format_number(threads_used)}] over ${format_duration(prep_duration)}.${(was_throttled) ? ` (${colors.fg_yellow}THROTTLED${colors.reset}, Grow: ${format_number(prep_plan.grow_threads)}/${format_number(prep_plan.wanted)})` : ""}`);
+            ns.log(`INFO ${colors.fg_cyan}Normalizing${colors.reset} ${format_servername(server)} ${format_normalize_state(ns, server)}: [W1: ${format_number(prep_plan.weaken_1st_threads)}, G: ${format_number(prep_plan.grow_threads)}, W2: ${format_number(prep_plan.weaken_2nd_threads)}; T: ${format_number(threads_used)}] over ${format_duration(prep_duration)}.${(was_throttled) ? ` (${colors.fg_yellow}THROTTLED${colors.reset}, Grow: ${format_number(prep_plan.grow_threads)}/${format_number(prep_plan.wanted)})` : ""}`);
             if (!was_throttled) {
               // If we could do everything we wanted, indicate this NPC will be fully normalized at block end
               next_normalized.set(server, Date.now() + prep_duration);
@@ -534,7 +534,7 @@ export async function main(real_ns: NS): Promise<void> {
             return;
           }
           const now = Date.now();
-          ns.log(`INFO Starting HWGW block on ${format_servername(plan.server)}: [H: ${format_number(plan.hack_threads)}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(plan_threads_required_per_block(plan))}] ending in ${format_duration(block_start - now + plan.execution_duration)}`);
+          ns.log(`INFO Starting ${colors.fg_cyan}HWGW${colors.reset} block on ${format_servername(plan.server)}: [H: ${format_number(plan.hack_threads)}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(plan_threads_required_per_block(plan))}] ending in ${format_duration(block_start - now + plan.execution_duration)}`);
           // Good to go, allocate threads for this block
           const [unallocable_h, pids_h] = await allocator('worker/hack1.js', plan.hack_threads, true, plan.server, block_start - now + plan.hack_delay);
           const [unallocable_w1, pids_w1] = await allocator('worker/weak1.js', plan.weaken_1st_threads, true, plan.server, block_start - now + plan.weaken_1st_delay);
