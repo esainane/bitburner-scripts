@@ -316,7 +316,7 @@ export async function main(real_ns: NS): Promise<void> {
     const plans: Array<CycleData> = servers.map(s => find_best_split(ns, s, all_available_threads)).filter(d => d != null).sort(value_per_thread_per_second_descending);
     if (!plans.length) {
       ns.log("WARN Could not devise any feasible plan!");
-      if (!unprepared_servers.length) {
+      if (!unprepared_servers.length && !normalized_later) {
         ns.log("ERROR Nothing we can do, terminating.");
         return;
       }
