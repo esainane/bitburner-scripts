@@ -287,6 +287,7 @@ export async function main(real_ns: NS): Promise<void> {
       (process: ProcessInfo) => ['worker/grow1.js', 'worker/hack1.js', 'worker/weak1.js'].indexOf(process.filename) !== -1
     );
     const all_available_threads = runners.available_threads;
+    // TODO: Keep track of pending growth multiplier/weaken state, so we don't over-normalize early on
 
     const targeted_servers: Array<string> = (p_args.length > 0 ? p_args : all_servers).filter(s => ns.getServerRequiredHackingLevel(s) <= ns.getPlayer().skills.hacking && ns.getServerMaxMoney(s) > 0);
     // Split up all servers into those which are normalized and those which are not
