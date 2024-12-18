@@ -159,7 +159,7 @@ function cycle_threads_required_for_all_blocks(p: CycleData): number {
 function format_normalize_state(ns: NS, server: string): string {
   const server_fullness_percent = Math.floor(100 * ns.getServerMoneyAvailable(server) / ns.getServerMaxMoney(server));
   const server_min_security = ns.getServerMinSecurityLevel(server);
-  const server_security_excess = Math.floor(1000 * ns.getServerSecurityLevel(server) - server_min_security) / 1000;
+  const server_security_excess = Math.floor(1000 * (ns.getServerSecurityLevel(server) - server_min_security)) / 1000;
   return `{${format_number(server_fullness_percent)}${colors.fg_cyan}%${colors.reset} @ ${server_min_security}${colors.fg_red}+${format_number(server_security_excess)}}`;
 }
 

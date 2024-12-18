@@ -16,10 +16,12 @@ export async function calc_max_prep(ns: NS, target: string, available_threads: n
   const cores = 1;
   const grow_duration = ns.getGrowTime(target);
   const weaken_duration = ns.getWeakenTime(target);
-  const starting_security = ns.getServerSecurityLevel(target) - ns.getServerMinSecurityLevel(target);
+  const min_security = ns.getServerMinSecurityLevel(target);
+  const current_security = ns.getServerSecurityLevel(target);
+  const excess_security = current_security - min_security;
   const weaken_security_decrease_per_thread = ns.weakenAnalyze(1, cores);
   // Work out how much is needed to fully weaken the target
-  const weaken_1st_threads = Math.ceil(starting_security / weaken_security_decrease_per_thread);
+  const weaken_1st_threads = Math.ceil(excess_security / weaken_security_decrease_per_thread);
   // Work out how much is needed to fully grow the target
   const growth_required = ns.getServerMaxMoney(target) / ns.getServerMoneyAvailable(target);
   // Work how many grow threads are needed ideally
