@@ -56,7 +56,7 @@ export async function main(ns: NS): Promise<void> {
   }
 
   if (!modified.length) {
-    ns.tprint("INFO No servers could be modified", unrootable ? `(${format_number(unrootable)} remain unrootable)` : '');
+    ns.tprint("INFO No servers could be modified", unrootable ? ` (${format_number(unrootable)} remain unrootable)` : '');
     return;
   }
 
