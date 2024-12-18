@@ -36,7 +36,7 @@ export async function calc_max_prep(ns: NS, target: string, available_threads: n
   }
   if (available_threads <= weaken_1st_threads) {
     // No resources to grow the NPC, but we can weaken it
-    return {grow_duration, grow_threads: 0, weaken_1st_threads, weaken_duration, weaken_2nd_threads: 0, wanted: wanted_grow_threads};
+    return {grow_duration, grow_threads: 0, weaken_1st_threads: available_threads, weaken_duration, weaken_2nd_threads: 0, wanted: wanted_grow_threads};
   }
   grow_cap = Math.min(grow_cap, available_threads - weaken_1st_threads);
   while (grow_cap > 0) {
@@ -53,5 +53,5 @@ export async function calc_max_prep(ns: NS, target: string, available_threads: n
     }
     return {grow_duration, grow_threads: grow_threads, weaken_1st_threads, weaken_duration, weaken_2nd_threads, wanted: wanted_grow_threads };
   }
-  return {grow_duration, grow_threads: 0, weaken_1st_threads: available_threads, weaken_duration, weaken_2nd_threads: 0, wanted: wanted_grow_threads };
+  return {grow_duration, grow_threads: 0, weaken_1st_threads, weaken_duration, weaken_2nd_threads: 0, wanted: wanted_grow_threads };
 }
