@@ -1,6 +1,6 @@
-import { NS } from '@ns'
+import { autocomplete_func, ccts_main, CCTSolver } from './interface';
 
-import { ccts_main, CCTSolver } from './interface';
+export const autocomplete = autocomplete_func;
 
 import { contracts as algo_stock_contracts } from './algo_stock';
 import { contracts as caesar_contracts } from './caesar';

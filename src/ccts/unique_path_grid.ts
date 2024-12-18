@@ -1,6 +1,8 @@
 import { NS } from '@ns'
-import { ccts_main, CCTSolver } from './interface';
+import { autocomplete_func, ccts_main, CCTSolver } from './interface';
 import { assert_all_passed, assert_eq } from '/lib/assert';
+
+export const autocomplete = autocomplete_func;
 
 export const contracts = new Map<string, CCTSolver>([
   ["Unique Paths in a Grid I", { solve: unique_grid_paths_1, test: test_unique_grid_paths_1 }],

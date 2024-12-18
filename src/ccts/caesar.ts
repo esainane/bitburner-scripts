@@ -1,6 +1,8 @@
 import { NS } from '@ns'
-import { ccts_main, CCTSolver } from './interface';
+import { autocomplete_func, ccts_main, CCTSolver } from './interface';
 import { assert_eq, assert_all_passed } from '/lib/assert';
+
+export const autocomplete = autocomplete_func;
 
 export const contracts = new Map<string, CCTSolver>([
   ["Encryption I: Caesar Cipher", { solve: caesar_cipher_1, test: test_caesar_cipher_1 }],

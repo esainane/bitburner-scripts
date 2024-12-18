@@ -1,4 +1,4 @@
-import { NS } from '@ns';
+import { AutocompleteData, NS } from '@ns';
 
 export type CCTResult = string | number | unknown[];
 
@@ -49,11 +49,15 @@ export function test_dummy(ns: NS, type: string, solver: CCTSolver, verbose=true
   return { type, input: data, filename: fname, actual: answer };
 }
 
+export function autocomplete_func(data: AutocompleteData, args: string[]): string[] {
+  return ['--generated', '--desc', '--quiet'];
+}
+
 export function ccts_main(contracts: Map<string, CCTSolver>): (ns: NS) => Promise<void> {
   return async function main(ns: NS): Promise<void> {
     if (ns.args.indexOf('--generated') !== -1) {
       // Use generated ccts
-      test_dummy_all(ns, contracts);
+      test_dummy_all(ns, contracts, ns.args.indexOf('--quiet') === -1);
       return;
     } else if (ns.args.indexOf('--desc') !== -1) {
       // Get descriptions for all contracts

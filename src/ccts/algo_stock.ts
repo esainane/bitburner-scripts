@@ -1,6 +1,8 @@
 import { NS } from '@ns'
-import { CCTSolver, CCTResult, ccts_main } from './interface';
-import { assert_all_passed, assert_eq } from '/lib/assert';
+import { autocomplete_func, ccts_main, CCTSolver } from './interface';
+import { assert_eq, assert_all_passed } from '/lib/assert';
+
+export const autocomplete = autocomplete_func;
 
 export const contracts = new Map<string, CCTSolver>([
   ["Algorithmic Stock Trader II", { solve: algo_stock_2, test: test_algo_stock_2 }],
