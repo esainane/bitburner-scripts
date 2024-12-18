@@ -126,7 +126,7 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
 }
 
 // Expected value per thread per second (for one block)
-const value_per_thread_per_second = (p: PlanData) => p.success_payout * p.success_rate / (p.execution_duration * 1000) / plan_threads_required_per_block(p);
+const value_per_thread_per_second = (p: PlanData) => 1000 * p.success_payout * p.success_rate / (p.execution_duration) / plan_threads_required_per_block(p);
 
 function same_basis(a: Player, b: Player): boolean {
   // Not just hacking skill; these can change from simple IPvGO bonuses
@@ -511,7 +511,7 @@ export async function main(real_ns: NS): Promise<void> {
 
       // Allocate as many blocks as we can, up to the maximum blocks per cycle or the available threads
       const blocks = Math.min(Math.floor(available_threads / threads_per_block), plan.blocks);
-      ns.log(`INFO Plan for ${format_servername(plan.server)} needs ${format_number(threads_per_block)} threads per block, allocating ${format_number(blocks)}/${format_number(plan.blocks)} blocks using ${format_number(threads_per_block * blocks)}/${format_number(available_threads)} threads available for an expected ${currency_format(value_per_thread_per_second(plan) * threads_per_block * blocks)} per second after ${format_duration(plan.execution_duration)}.`);
+      ns.log(`INFO Plan for ${format_servername(plan.server)} needs ${format_number(threads_per_block)} threads per block, allocating ${format_number(blocks)}/${format_number(plan.blocks)} blocks using ${format_number(threads_per_block * blocks)}/${format_number(available_threads)} threads available for an expected ${currency_format(value_per_thread_per_second(plan) * threads_per_block * blocks)} per second, earning ${currency_format(plan.success_payout)} per block in ${format_duration(plan.execution_duration)}.`);
       available_threads -= threads_per_block * blocks;
       blocks_per_plan.set(plan.server, blocks);
       if (available_threads <= 0) {
@@ -528,7 +528,7 @@ export async function main(real_ns: NS): Promise<void> {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    ns.log(`INFO Selected the top ${format_number(selected_plans.length)} plans for execution, overall expected value per second: ${currency_format(selected_plans.reduce((acc, p) => acc + p.success_payout * p.success_rate / (p.execution_duration * 1000) * blocks_per_plan.get(p.server)!, 0))}`);
+    ns.log(`INFO Selected the top ${format_number(selected_plans.length)} plans for execution, overall expected value per second: ${currency_format(selected_plans.reduce((acc, p) => acc + 1000 * p.success_payout * p.success_rate / (p.execution_duration) * blocks_per_plan.get(p.server)!, 0))}`);
 
     // Queue up HWGW blocks for each selected plan
     for (const plan of selected_plans) {
@@ -551,7 +551,7 @@ export async function main(real_ns: NS): Promise<void> {
             return;
           }
           const now = Date.now();
-          ns.log(`INFO Starting ${colors.fg_cyan}HWGW${colors.reset} block on ${format_servername(plan.server)}: [H: ${format_number(plan.hack_threads)}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(plan_threads_required_per_block(plan))}] ending in ${format_duration(block_start - now + plan.execution_duration)}`);
+          ns.log(`INFO Starting ${colors.fg_cyan}HWGW${colors.reset} block on ${format_servername(plan.server)}: [H: ${format_number(plan.hack_threads)}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(plan_threads_required_per_block(plan))}] ending in ${format_duration(block_start - now + plan.execution_duration)} for a payout of ${currency_format(plan.success_payout)}.`);
           // Good to go, allocate threads for this block
           const [unallocable_h, pids_h] = await allocator('worker/hack1.js', plan.hack_threads, true, plan.server, block_start - now + plan.hack_delay);
           const [unallocable_w1, pids_w1] = await allocator('worker/weak1.js', plan.weaken_1st_threads, true, plan.server, block_start - now + plan.weaken_1st_delay);
