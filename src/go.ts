@@ -411,6 +411,12 @@ export async function main(real_ns: NS): Promise<void> {
             }
             continue;
           }
+          // If a full normalization for this server is already in progress, skip it
+          if ((next_normalized.get(server) ?? 0) > Date.now()) {
+            // But don't release our resources yet
+            any_throttled_or_incomplete = true;
+            continue;
+          }
           // Otherwise, we have a server which needs normalizing
           // If we don't have the resources to do anything more, break
           if (normalization_reserved - normalization_used <= 0) {
@@ -443,10 +449,11 @@ export async function main(real_ns: NS): Promise<void> {
             const was_throttled = prep_plan.grow_threads !== prep_plan.wanted;
             // Report
             ns.log(`INFO ${colors.fg_cyan}Normalizing${colors.reset} ${format_servername(server)} ${format_normalize_state(ns, server)}: [W1: ${format_number(prep_plan.weaken_1st_threads)}, G: ${format_number(prep_plan.grow_threads)}, W2: ${format_number(prep_plan.weaken_2nd_threads)}; T: ${format_number(threads_used)}] over ${format_duration(prep_duration)}.${(was_throttled) ? ` (${colors.fg_yellow}THROTTLED${colors.reset}, Grow: ${format_number(prep_plan.grow_threads)}/${format_number(prep_plan.wanted)})` : ""}`);
-            if (!was_throttled) {
+            if (was_throttled) {
+              any_throttled_or_incomplete = true;
+            } else {
               // If we could do everything we wanted, indicate this NPC will be fully normalized at block end
               next_normalized.set(server, Date.now() + prep_duration);
-              any_throttled_or_incomplete = true;
             }
             // OK
             normalization_used += prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads;
