@@ -553,9 +553,9 @@ export async function main(real_ns: NS): Promise<void> {
           const now = Date.now();
           ns.log(`INFO Starting ${colors.fg_cyan}HWGW${colors.reset} block on ${format_servername(plan.server)}: [H: ${format_number(plan.hack_threads)}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(plan_threads_required_per_block(plan))}] ending in ${format_duration(block_start - now + plan.execution_duration)} for a payout of ${currency_format(plan.success_payout)}.`);
           // Good to go, allocate threads for this block
-          const [unallocable_h, pids_h] = await allocator('worker/hack1.js', plan.hack_threads, true, plan.server, block_start - now + plan.hack_delay);
+          const [unallocable_h, pids_h] = await allocator('worker/hack1.js', plan.hack_threads, false, plan.server, block_start - now + plan.hack_delay);
           const [unallocable_w1, pids_w1] = await allocator('worker/weak1.js', plan.weaken_1st_threads, true, plan.server, block_start - now + plan.weaken_1st_delay);
-          const [unallocable_g, pids_g] = await allocator('worker/grow1.js', plan.grow_threads, true, plan.server, block_start - now + plan.grow_delay);
+          const [unallocable_g, pids_g] = await allocator('worker/grow1.js', plan.grow_threads, false, plan.server, block_start - now + plan.grow_delay);
           const [unallocable_w2, pids_w2] = await allocator('worker/weak1.js', plan.weaken_2nd_threads, true, plan.server, block_start - now + plan.weaken_2nd_delay);
           // Check we actually allocated everything.
           if ([unallocable_h, unallocable_w1, unallocable_g, unallocable_w2].some(d => d > 0)) {
