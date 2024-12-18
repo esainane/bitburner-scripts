@@ -1,6 +1,6 @@
 import { NS } from '@ns'
 
-import { CCTSolver } from './interface';
+import { ccts_main, CCTSolver } from './interface';
 
 import { contracts as algo_stock_contracts } from './algo_stock';
 import { contracts as caesar_contracts } from './caesar';
@@ -11,3 +11,5 @@ export const contracts = new Map<string, CCTSolver>([
   ...caesar_contracts,
   ...unique_path_grid_contracts,
 ]);
+
+export const main = ccts_main(contracts);
