@@ -18,6 +18,10 @@
     // Autosnippet settings
     "autoSnippet.snippets": [
         {
+            "pattern": "**/ccts/*.ts",
+            "snippet": "cct-template"
+        },
+        {
             "pattern": "**/*.ts",
             "snippet": "ns-template"
         },
