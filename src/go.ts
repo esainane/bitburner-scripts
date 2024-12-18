@@ -333,7 +333,7 @@ export async function main(real_ns: NS): Promise<void> {
       for (const plan of plans.slice(0, 3)) {
         const ev_pt_ps = value_per_thread_per_second(plan);
         const threads_per_block = plan_threads_required_per_block(plan);
-        ns.log(`INFO   ${format_servername(plan.server)}: ${currency_format(Math.floor(ev_pt_ps))} EV $/T/sec (H: ${plan.hack_threads}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(threads_per_block)}) over ${format_duration(plan.execution_duration)}ms, up to ${currency_format(ev_pt_ps * threads_per_block * plan.blocks)} EV $/sec with ${format_number(plan.blocks)} blocks`, (plan.success_rate < 0.999 ? ` (${format_number(Math.floor(plan.success_rate * 100))}${colors.fg_cyan}%${colors.reset} success each block)` : ''));
+        ns.log(`INFO   ${format_servername(plan.server)}: ${ev_pt_ps < 5 ? `${colors.fg_red}$${format_number(Math.floor(1000 * ev_pt_ps) / 1000)}` : currency_format(Math.floor(1000 * ev_pt_ps) / 1000)} EV $/T/sec (H: ${plan.hack_threads}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(threads_per_block)}) over ${format_duration(plan.execution_duration)}ms, up to ${currency_format(ev_pt_ps * threads_per_block * plan.blocks)} EV $/sec with ${format_number(plan.blocks)} blocks`, (plan.success_rate < 0.999 ? ` (${format_number(Math.floor(plan.success_rate * 100))}${colors.fg_cyan}%${colors.reset} success each block)` : ''));
       }
     }
 
