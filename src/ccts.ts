@@ -1,145 +1,11 @@
 import { AutocompleteData, NS } from '@ns'
 import { find_servers } from 'lib/find-servers';
 
+import { CCTSolver } from 'ccts/interface';
+import { contracts as known_ccts } from 'ccts/all';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
   return [...data.scripts.filter(s => s.endsWith('.cct')), '--desc', '--desc-unknown', '--live', '--force'];
-}
-
-type CCTSolver =
-  (data: unknown) => string | number | unknown[];
-
-const known_ccts = new Map<string, CCTSolver>([
-  ["Algorithmic Stock Trader II", algo_stock_2],
-  ["Encryption I: Caesar Cipher", caesar_cipher_1],
-  ["Unique Paths in a Grid I", unique_grid_paths_1]
-])
-
-function algo_stock_2(data: unknown) {
-  if (!Array.isArray(data)) {
-    throw new Error('Expected array of prices, received ' + JSON.stringify(data));
-  }
-  const prices: number[] = data;
-  // Determine maximum potential profit from holding up to one share at a time
-  let profit = 0;
-  if (!prices.length) {
-    return 0;
-  }
-  let last: number = prices[0];
-  for (const current of prices.slice(1)) {
-    if (current > last) {
-      profit += current - last;
-    }
-    last = current;
-  }
-  return profit;
-}
-
-function algo_stock_3(data: unknown) {
-  if (!Array.isArray(data)) {
-    throw new Error('Expected array of prices, received ' + JSON.stringify(data));
-  }
-  const prices: number[] = data;
-  // Determine maximum potential profit from holding up to one share at a time for up to two runs
-  let profit = 0;
-  if (!prices.length) {
-    return 0;
-  }
-  let last: number = prices[0];
-  for (const current of prices.slice(1)) {
-    if (current > last) {
-      profit += current - last;
-    }
-    last = current;
-  }
-  return profit;
-}
-
-function caesar_cipher_1(data: unknown) {
-  if (!Array.isArray(data) || data.length !== 2 || typeof data[0] !== 'string' || typeof data[1] !== 'number') {
-    throw new Error('Expected [string, number], received ' + JSON.stringify(data));
-  }
-  // First element is plaintext, second element is left shift value.
-  const [plaintext, left_shift]: [string, number] = data as [string, number];
-  let cipher = '';
-  const base = 'A'.charCodeAt(0);
-  const upper = 'Z'.charCodeAt(0);
-  for (const char of plaintext) {
-    const val = char.charCodeAt(0);
-    if (base <= val && val <= upper) {
-      cipher += String.fromCharCode(((val - left_shift - base + 26) % 26) + base);
-    } else {
-      cipher += char;
-    }
-  }
-  return cipher;
-}
-
-function pascals_triangle(row: number, column: number) {
-  // (row n, column k) is (row n, column (k - 1)) * (n + 1 - k) / k
-  // indices are 0-based
-  /*
-  pascals_triangle(0, 0) = 1
-  pascals_triangle(1, 0) = 1
-  pascals_triangle(1, 1) = 1
-  pascals_triangle(2, 0) = 1
-  pascals_triangle(2, 1) = 2
-  pascals_triangle(2, 2) = 1
-  pascals_triangle(3, 0) = 1
-  pascals_triangle(3, 1) = 3
-  pascals_triangle(3, 2) = 3
-  pascals_triangle(3, 3) = 1
-  pascals_triangle(4, 0) = 1
-  pascals_triangle(4, 1) = 4
-  pascals_triangle(4, 2) = 6
-  pascals_triangle(4, 3) = 4
-  pascals_triangle(4, 4) = 1
-  pascals_triangle(5, 0) = 1
-  pascals_triangle(5, 1) = 5
-  pascals_triangle(5, 2) = 10
-  pascals_triangle(5, 3) = 10
-  pascals_triangle(5, 4) = 5
-  pascals_triangle(5, 5) = 1
-  pascals_triangle(6, 0) = 1
-  pascals_triangle(6, 1) = 6
-  pascals_triangle(6, 2) = 15
-  pascals_triangle(6, 3) = 20
-  pascals_triangle(6, 4) = 15
-  pascals_triangle(6, 5) = 6
-  pascals_triangle(6, 6) = 1
-  */
-  let acc = 1
-  for (let cell=1; cell <= column; ++cell) {
-    acc *= (row + 1 - cell) / cell
-  }
-  return acc
-}
-
-function unique_grid_paths_1(data: unknown) {
-  /*
-  You are in a grid with 2 rows and 9 columns, and you are positioned in the top-left corner of that grid.
-  You are trying to reach the bottom-right corner of the grid, but you can only move down or right on each step.
-  Determine how many unique paths there are from start to finish.
-
-  NOTE: The data returned for this contract is an array with the number of rows and columns:
-  [2,9]
-  */
-  // Effectively, pascal's triangle, tilted diagonally
-  /*
-  01 01 01 01 01 01
-  01 02 03 04 05 06
-  01 03 06 10 15 21
-  01 04 10 20 35 56
-  01 05 15 35 70 126
-  */
-  if (!Array.isArray(data) || data.length !== 2 || typeof data[0] !== 'number' || typeof data[1] !== 'number') {
-    throw new Error('Expected [number, number], received ' + JSON.stringify(data));
-  }
-  const [w, h]: [number, number] = data as [number, number];
-  const long = Math.max(w, h) - 1;
-  const short = Math.min(w, h) - 1;
-  const ways = pascals_triangle(long + short, short);
-  return ways;
 }
 
 function print_desc(ns: NS, filename: string, host: string | undefined, cct_type: string, data: any) {
@@ -154,14 +20,15 @@ async function attempt_cct(ns: NS, filename: string, host: string | undefined) {
   if (ns.args.indexOf('--desc') !== -1) {
     print_desc(ns, filename, host, cct_type, data);
   }
-  if (!known_ccts.has(cct_type)) {
+  const solver: CCTSolver | undefined = known_ccts.get(cct_type);
+  if (!solver) {
     ns.tprint("Warning: Unknown coding contract \"", cct_type, "\" in ", filename, ' @ ', host, '; ignoring.');
     if (ns.args.indexOf('--desc-unknown') !== -1) {
       print_desc(ns, filename, host, cct_type, data);
     }
     return;
   }
-  const answer = known_ccts.get(cct_type)!(data);
+  const answer = solver(data);
   const remaining = ns.codingcontract.getNumTriesRemaining(filename, host);
   if (ns.args.indexOf('--live') !== -1) {
     if (remaining < 3 && ns.args.indexOf('--force') === -1) {
