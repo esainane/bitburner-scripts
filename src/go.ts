@@ -290,6 +290,8 @@ export async function main(real_ns: NS): Promise<void> {
     const servers: Array<string> = [];
     const now = Date.now();
     let normalized_later = 0;
+    let earliest_normalized = Infinity;
+    let last_normalized = 0;
     for (const t of targeted_servers) {
       if (is_server_normalized(ns, t)) {
         servers.push(t);
@@ -300,6 +302,10 @@ export async function main(real_ns: NS): Promise<void> {
         // treat it as normalized
         servers.push(t);
         ++normalized_later;
+        if (next_normalized.has(t)) {
+          earliest_normalized = Math.min(earliest_normalized, next_normalized.get(t) ?? Infinity);
+          last_normalized = Math.max(last_normalized, next_normalized.get(t) ?? 0);
+        }
       } else {
         unprepared_servers.push(t);
       }
@@ -310,7 +316,7 @@ export async function main(real_ns: NS): Promise<void> {
     // Sort by required hacking level ascending
     unprepared_servers.sort((l, r) => ns.getServerRequiredHackingLevel(l) - ns.getServerRequiredHackingLevel(r));
 
-    ns.log(`INFO ${format_number(servers.length - normalized_later)}/${format_number(targeted_servers.length)} targetable servers are normalized`, normalized_later === 0 ? '' : `, ${format_number(normalized_later)}/${format_number(targeted_servers.length - servers.length + normalized_later)} are already being fully normalized`, unprepared_servers.length === 0 ? '' : `, ${format_number(unprepared_servers.length)}/${format_number(targeted_servers.length)} are not yet normalized`, '.');
+    ns.log(`INFO ${format_number(servers.length - normalized_later)}/${format_number(targeted_servers.length)} targetable servers are normalized`, normalized_later === 0 ? '' : `, ${format_number(normalized_later)}/${format_number(targeted_servers.length - servers.length + normalized_later)} are already being fully normalized${normalized_later === 1 ? ` in ${format_duration(earliest_normalized, { relative: false })}` : ` from ${format_duration(earliest_normalized, { relative: false })} to ${format_duration(last_normalized, { relative: false })}`}`, unprepared_servers.length === 0 ? '' : `, ${format_number(unprepared_servers.length)}/${format_number(targeted_servers.length)} are not yet normalized`, '.');
 
     // Find plans for all normalized targeted servers
     const plans: Array<CycleData> = servers.map(s => find_best_split(ns, s, all_available_threads)).filter(d => d != null).sort(value_per_thread_per_second_descending);
