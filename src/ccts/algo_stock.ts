@@ -12,6 +12,8 @@ export const contracts = new Map<string, CCTSolver>([
 export const main = ccts_main(contracts);
 
 /**
+ * Algorithmic Stock Trader II
+ *
  * Determine the maximum possible profit you can earn using as many transactions as you'd like.
  * A transaction is defined as buying and then selling one share of the stock.
  * Note that you cannot engage in multiple transactions at once.
@@ -60,6 +62,8 @@ function test_algo_stock_2(ns: NS) {
 }
 
 /**
+ * Algorithmic Stock Trader III
+ *
  * Determine the maximum possible profit you can earn using at most two transactions.
  * A transaction is defined as buying and then selling one share of the stock.
  * Note that you cannot engage in multiple transactions at once.

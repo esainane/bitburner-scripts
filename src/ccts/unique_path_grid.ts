@@ -50,15 +50,15 @@ function pascals_triangle(row: number, column: number) {
   return acc
 }
 
+/**
+ * Unique Paths in a Grid I
+ *
+ * You are in a grid with 6 rows and 2 columns, and you are positioned in the top-left corner of that grid.
+ * You are trying to reach the bottom-right corner of the grid, but you can only move down or right on each step.
+ * Determine how many unique paths there are from start to finish.
+ * @param data The data returned for this contract is an array with the number of rows and columns.
+ */
 export function unique_grid_paths_1(data: unknown) {
-  /*
-  You are in a grid with 2 rows and 9 columns, and you are positioned in the top-left corner of that grid.
-  You are trying to reach the bottom-right corner of the grid, but you can only move down or right on each step.
-  Determine how many unique paths there are from start to finish.
-
-  NOTE: The data returned for this contract is an array with the number of rows and columns:
-  [2,9]
-  */
   // Effectively, pascal's triangle, tilted diagonally
   /*
   01 01 01 01 01 01

@@ -10,6 +10,18 @@ export const contracts = new Map<string, CCTSolver>([
 
 export const main = ccts_main(contracts);
 
+/**
+ * Encryption I: Caesar Cipher
+ *
+ * Caesar cipher is one of the simplest encryption technique.
+ * It is a type of substitution cipher in which each letter in the plaintext
+ * is replaced by a letter some fixed number of positions down the alphabet.
+ * For example, with a left shift of 3, D would be replaced by A,
+ * E would become B, and A would become X (because of rotation).
+ * @param data You are given an array with two elements.
+ *             The first element is the plaintext, the second element is the left shift value.
+ * @returns
+ */
 function caesar_cipher_1(data: unknown) {
   if (!Array.isArray(data) || data.length !== 2 || typeof data[0] !== 'string' || typeof data[1] !== 'number') {
     throw new Error('Expected [string, number], received ' + JSON.stringify(data));
