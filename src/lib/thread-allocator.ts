@@ -46,7 +46,11 @@ export class ThreadAllocator {
       runner.threads -= threads;
       runner.used_ram += threads * this.ns.getScriptRam(script, 'home');
     }
-    return this.ns.exec(script, hostname, threads_or_options, ...args);
+    const pid = this.ns.exec(script, hostname, threads_or_options, ...args);
+    if (pid == 0) {
+      this.ns.tprint('ERROR failed to exec(', script, ',', hostname, ',', threads_or_options, ',', ...args, ')');
+    }
+    return pid;
   }
 
   public largestContiguousBlock(allow_avoided_servers = false): number {
@@ -88,13 +92,16 @@ export class ThreadAllocator {
         if (to_allocate < 1) {
           continue;
         }
-        pids.push(await this.exec(script, runner.server, { threads: to_allocate, temporary: true }, ...args));
-        remaining -= to_allocate;
-        if (remaining < 1) {
-          break;
+        const pid = await this.exec(script, runner.server, { threads: to_allocate, temporary: true }, ...args);
+        if (pid) {
+          pids.push(pid);
+          remaining -= to_allocate;
+          if (remaining < 1) {
+            break;
+          }
         }
       }
-      return [remaining, pids.filter(d=>d!==0)];
+      return [remaining, pids];
     }
     // Otherwise, find the smallest available server with enough threads
     let current_runner = available_runners.find(r => r.threads >= threads);
@@ -102,7 +109,7 @@ export class ThreadAllocator {
     if (!current_runner) {
       if (!maximize_if_fragmented) {
         // no luck, maybe try again in _allocateThreads
-        return [threads, pids.filter(d=>d!==0)];
+        return [threads, pids];
       }
       // Find the largest contiguous block available, do what we can
       available_runners.sort((l, r) => r.threads - l.threads);
@@ -110,10 +117,13 @@ export class ThreadAllocator {
     }
     if (current_runner) {
       const to_allocate = Math.min(threads, current_runner.threads);
-      pids.push(await this.exec(script, current_runner.server, { threads: to_allocate, temporary: true }, ...args));
-      return [threads - to_allocate, pids.filter(d=>d!==0)];
+      const pid = await this.exec(script, current_runner.server, { threads: to_allocate, temporary: true }, ...args);
+      if (pid) {
+        pids.push(pid);
+        return [threads - to_allocate, pids];
+      }
     }
-    return [threads, pids.filter(d=>d!==0)];
+    return [threads, pids];
   }
   /**
    * Allocate threads to a particular script
