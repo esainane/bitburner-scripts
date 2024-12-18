@@ -43,11 +43,13 @@ export function format_duration(time: number | Date, { relative = true, colorize
     ret += `${color.fg_white}${s}${color.fg_cyan}s${color.reset}`;
     remaining -= s * ms_per_second;
   }
-  if (remaining >= 100) {
-    if (delta >= 5000) {
+  if (delta >= 5000) {
+    if (remaining >= 100) {
       // 5s or more, round to deciseconds
       ret += `${color.fg_white}${Math.ceil(remaining / 100)}${color.reset}`;
-    } else {
+    }
+   } else {
+    if (remaining > 0) {
       // Otherwise, list full ms
       ret += `${color.fg_white}${Math.ceil(remaining)}${color.reset}ms`;
     }
