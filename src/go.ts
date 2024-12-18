@@ -122,7 +122,7 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
 }
 
 // Expected value per thread per second (for one block)
-const value_per_thread_per_second = (p: PlanData) => p.success_payout * p.success_rate * 1000 / p.execution_duration / plan_threads_required_per_block(p);
+const value_per_thread_per_second = (p: PlanData) => p.success_payout * p.success_rate / (p.execution_duration * 1000) / plan_threads_required_per_block(p);
 
 function same_basis(a: Player, b: Player): boolean {
   // Not just hacking skill; these can change from simple IPvGO bonuses
@@ -524,7 +524,7 @@ export async function main(real_ns: NS): Promise<void> {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    ns.log(`INFO Selected the top ${format_number(selected_plans.length)} plans for execution, overall expected value per second: ${currency_format(selected_plans.reduce((acc, p) => acc + p.success_payout * p.success_rate / p.execution_duration * 1000 * blocks_per_plan.get(p.server)!, 0))}`);
+    ns.log(`INFO Selected the top ${format_number(selected_plans.length)} plans for execution, overall expected value per second: ${currency_format(selected_plans.reduce((acc, p) => acc + p.success_payout * p.success_rate / (p.execution_duration * 1000) * blocks_per_plan.get(p.server)!, 0))}`);
 
     // Queue up HWGW blocks for each selected plan
     for (const plan of selected_plans) {
