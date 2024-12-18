@@ -5,11 +5,60 @@ import { assert_eq, assert_all_passed } from '/lib/assert';
 export const autocomplete = autocomplete_func;
 
 export const contracts = new Map<string, CCTSolver>([
+  ["Algorithmic Stock Trader I", { solve: algo_stock_1, test: test_algo_stock_1 }],
   ["Algorithmic Stock Trader II", { solve: algo_stock_2, test: test_algo_stock_2 }],
   ["Algorithmic Stock Trader III", { solve: algo_stock_3, test: test_algo_stock_3 }],
 ]);
 
 export const main = ccts_main(contracts);
+
+/**
+ * Algorithmic Stock Trader I
+ * Determine the maximum possible profit you can earn using at most one transaction
+ * (i.e. you can only buy and sell the stock once).
+ * If no profit can be made then the answer should be 0.
+ * Note that you have to buy the stock before you can sell it.
+ *
+ * @param data You are given the following array of stock prices (which are numbers) where the i-th element represents the stock price on day i.
+ */
+function algo_stock_1(data: unknown) {
+  if (!Array.isArray(data)) {
+    throw new Error('Expected array of prices, received ' + JSON.stringify(data));
+  }
+  const prices: number[] = data;
+  // Determine maximum potential profit from holding up to one share at a time
+  let profit = 0;
+  if (!prices.length) {
+    return 0;
+  }
+  let last: number = prices[0];
+  for (const current of prices.slice(1)) {
+    if (current > last) {
+      profit = Math.max(profit, current - last);
+    } else {
+      last = current;
+    }
+  }
+  return profit;
+}
+
+function test_algo_stock_1(ns: NS) {
+  // Test cases for algo_stock_1
+  const testCases = [
+    { input: [3, 3, 5, 0, 0, 3, 1, 4], expected: 4 },
+    { input: [7, 6, 4, 3, 1], expected: 0 },
+    { input: [1, 2, 3, 4, 5], expected: 4 },
+    { input: [], expected: 0 },
+    { input: [1], expected: 0 },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = algo_stock_1(input);
+    assert_eq(ns, expected, actual, `algo_stock_1(${JSON.stringify(input)})`);
+  }
+
+  assert_all_passed(ns);
+}
 
 /**
  * Algorithmic Stock Trader II
