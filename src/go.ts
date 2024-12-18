@@ -8,6 +8,7 @@ import { currency_format } from 'lib/format-money';
 import { format_duration } from 'lib/format-duration';
 import { colors, format_number } from 'lib/colors';
 import { format_servername } from 'lib/colors';
+import { as_normalized } from 'lib/as-normalized';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
@@ -47,6 +48,7 @@ interface CycleData extends PlanData {
 }
 
 function plan_schedule(ns: NS, server: string, cycle_time: number, threads_available: number): PlanData | null {
+  const forumlas_api_available = ns.fileExists('Formulas.exe', 'home');
   const cores = 1;
   // Analyze a server's hack intervals, effects, and create a timetable to the configured tolerance
   const hack_stolen_per_thread = ns.hackAnalyze(server);
@@ -80,7 +82,9 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
     }
     const growth_required = 1/(1-hack_stolen);
     //ns.log("INFO For: ", server, " want to see ", growth_required, " growth");
-    const grow_threads = Math.ceil(ns.growthAnalyze(server, growth_required, cores));
+    const grow_threads = forumlas_api_available
+      ? Math.ceil(ns.formulas.hacking.growThreads(as_normalized(ns, server), ns.getPlayer(), growth_required, cores))
+      : Math.ceil(ns.growthAnalyze(server, growth_required, cores));
     // Calculate the security increase caused by this much growth
     // We avoid passing the server hostname so this isn't capped by being already fully grown right now
     const growth_security_increase = ns.growthAnalyzeSecurity(grow_threads, undefined, cores);
