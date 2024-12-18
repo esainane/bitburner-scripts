@@ -28,7 +28,7 @@ async function attempt_cct(ns: NS, filename: string, host: string | undefined) {
     }
     return;
   }
-  const answer = solver(data);
+  const answer = solver.solve(data);
   const remaining = ns.codingcontract.getNumTriesRemaining(filename, host);
   if (ns.args.indexOf('--live') !== -1) {
     if (remaining < 3 && ns.args.indexOf('--force') === -1) {

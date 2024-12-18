@@ -1,7 +1,11 @@
 import { NS } from '@ns';
 
-export type CCTSolver =
-  (data: unknown) => string | number | unknown[];
+export type CCTResult = string | number | unknown[];
+
+export interface CCTSolver {
+  solve: (data: unknown) => CCTResult;
+  test: (ns: NS) => void;
+}
 
 export interface Counterexample {
   type: string;
@@ -28,7 +32,7 @@ export function test_dummy(ns: NS, type: string, solver: CCTSolver, verbose=true
     return;
   }
   const data = ns.codingcontract.getData(fname);
-  const answer = solver(data);
+  const answer = solver.solve(data);
   // Dummy contracts are always created on the home server
   const ok = ns.codingcontract.attempt(answer, fname, 'home');
   if (ok) {
@@ -43,4 +47,28 @@ export function test_dummy(ns: NS, type: string, solver: CCTSolver, verbose=true
     ns.tprint(desc);
   }
   return { type, input: data, filename: fname, actual: answer };
+}
+
+export function ccts_main(contracts: Map<string, CCTSolver>): (ns: NS) => Promise<void> {
+  return async function main(ns: NS): Promise<void> {
+    if (ns.args.indexOf('--generated') !== -1) {
+      // Use generated ccts
+      test_dummy_all(ns, contracts);
+      return;
+    } else if (ns.args.indexOf('--desc') !== -1) {
+      // Get descriptions for all contracts
+      for (const [type, solver] of contracts) {
+        ns.tprint(`${type}:`);
+        const fname = ns.codingcontract.createDummyContract(type);
+        ns.tprint(ns.codingcontract.getDescription(fname, 'home'));
+        ns.rm(fname, 'home');
+      }
+      return;
+    }
+    // Otherwise, use self-tests
+    for (const [type, solver] of contracts) {
+      ns.tprint(`{${type}}`);
+      solver.test(ns);
+    }
+  }
 }

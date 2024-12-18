@@ -1,9 +1,12 @@
 import { NS } from '@ns'
-import { CCTSolver } from './interface';
+import { ccts_main, CCTSolver } from './interface';
+import { assert_all_passed, assert_eq } from '/lib/assert';
 
 export const contracts = new Map<string, CCTSolver>([
-  ["Unique Paths in a Grid I", unique_grid_paths_1]
+  ["Unique Paths in a Grid I", { solve: unique_grid_paths_1, test: test_unique_grid_paths_1 }],
 ]);
+
+export const main = ccts_main(contracts);
 
 function pascals_triangle(row: number, column: number) {
   // (row n, column k) is (row n, column (k - 1)) * (n + 1 - k) / k
@@ -72,6 +75,23 @@ export function unique_grid_paths_1(data: unknown) {
   return ways;
 }
 
-export async function main(ns: NS): Promise<void> {
-  //
+function test_unique_grid_paths_1(ns: NS) {
+  // Test cases for unique_grid_paths_1
+  const testCases = [
+    { input: [2, 9], expected: 9 },
+    { input: [3, 3], expected: 6 },
+    { input: [4, 5], expected: 35 },
+    { input: [4, 4], expected: 20 },
+    { input: [5, 4], expected: 35 },
+    { input: [5, 5], expected: 70 },
+    { input: [6, 5], expected: 126 },
+    { input: [5, 6], expected: 126 },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = unique_grid_paths_1(input);
+    assert_eq(ns, expected, actual, `unique_grid_paths_1(${JSON.stringify(input)})`);
+  }
+
+  assert_all_passed(ns);
 }

@@ -1,11 +1,13 @@
 import { NS } from '@ns'
-import { CCTSolver, test_dummy_all } from './interface';
+import { CCTSolver, CCTResult, ccts_main } from './interface';
 import { assert_all_passed, assert_eq } from '/lib/assert';
 
 export const contracts = new Map<string, CCTSolver>([
-  ["Algorithmic Stock Trader II", algo_stock_2],
-  ["Algorithmic Stock Trader III", algo_stock_3]
+  ["Algorithmic Stock Trader II", { solve: algo_stock_2, test: test_algo_stock_2 }],
+  ["Algorithmic Stock Trader III", { solve: algo_stock_3, test: test_algo_stock_3 }],
 ]);
+
+export const main = ccts_main(contracts);
 
 /**
  * Determine the maximum possible profit you can earn using as many transactions as you'd like.
@@ -107,21 +109,3 @@ function test_algo_stock_3(ns: NS) {
   assert_all_passed(ns);
 }
 
-export async function main(ns: NS): Promise<void> {
-  if (ns.args.indexOf('--generated') !== -1) {
-    // Use generated ccts
-    test_dummy_all(ns, contracts);
-    return;
-  } else if (ns.args.indexOf('--desc') !== -1) {
-    // Get descriptions for all contracts
-    for (const [type, solver] of contracts) {
-      ns.tprint(`${type}:`);
-      const fname = ns.codingcontract.createDummyContract(type);
-      ns.tprint(ns.codingcontract.getDescription(fname, 'home'));
-      ns.rm(fname, 'home');
-    }
-    return;
-  }
-  test_algo_stock_2(ns);
-  test_algo_stock_3(ns);
-}

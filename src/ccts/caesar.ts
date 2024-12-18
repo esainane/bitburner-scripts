@@ -1,9 +1,12 @@
 import { NS } from '@ns'
-import { CCTSolver } from './interface';
+import { ccts_main, CCTSolver } from './interface';
+import { assert_eq, assert_all_passed } from '/lib/assert';
 
 export const contracts = new Map<string, CCTSolver>([
-  ["Encryption I: Caesar Cipher", caesar_cipher_1]
+  ["Encryption I: Caesar Cipher", { solve: caesar_cipher_1, test: test_caesar_cipher_1 }],
 ]);
+
+export const main = ccts_main(contracts);
 
 function caesar_cipher_1(data: unknown) {
   if (!Array.isArray(data) || data.length !== 2 || typeof data[0] !== 'string' || typeof data[1] !== 'number') {
@@ -25,6 +28,20 @@ function caesar_cipher_1(data: unknown) {
   return cipher;
 }
 
-export async function main(ns: NS): Promise<void> {
-  //
+function test_caesar_cipher_1(ns: NS) {
+  // Test cases for caesar_cipher_1
+  const testCases = [
+    { input: ['ABC', 1], expected: 'ZAB' },
+    { input: ['XYZ', 1], expected: 'WXY' },
+    { input: ['HELLO', 3], expected: 'EBIIL' },
+    { input: ['HELLO', 26], expected: 'HELLO' },
+    { input: ['HELLO', 27], expected: 'GDKKN' },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = caesar_cipher_1(input);
+    assert_eq(ns, expected, actual, `caesar_cipher_1(${JSON.stringify(input)})`);
+  }
+
+  assert_all_passed(ns);
 }
