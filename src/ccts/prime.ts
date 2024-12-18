@@ -16,7 +16,6 @@ export const main = ccts_main(contracts);
  * A prime factor is a factor that is a prime number. What is the largest prime factor of <data>?
  * @param data You are given an array with two elements.
  *             The first element is the plaintext, the second element is the left shift value.
- * @returns
  */
 function largest_prime(data: unknown) {
   if (typeof(data) !== 'number') {
