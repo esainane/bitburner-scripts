@@ -607,7 +607,7 @@ export async function main(real_ns: NS): Promise<void> {
           const threads_available = allocator_instance.availableThreads();
           const largest_2_contiguous = allocator_instance.largestContiguousBlock({ topN: 2 });
           let total_wanted = plan_threads_required_per_block(plan);
-          let final_plan = plan;
+          let final_plan: PlanData = plan;
           // If there are enough threads available in general (as the plan was made to fit, when this is not the case
           // there are trailing runners around which will finish soon enonugh), but the thread pool is too fragmented:
           //  - The largest block isn't large enough to fit both the hack and grow threads, and either
@@ -620,12 +620,11 @@ export async function main(real_ns: NS): Promise<void> {
             largest_2_contiguous[1] < Math.min(plan.hack_threads, plan.grow_threads)
           )) {
             // We have enough threads, but they're too fragmented.
-            final_plan = plan_schedule(ns, plan.server, plan.execution_duration, total_wanted, largest_2_contiguous);
-            if (!final_plan) {
+            const defrag = plan_schedule(ns, plan.server, plan.execution_duration, total_wanted, largest_2_contiguous);
+            if (defrag) {
               // Let it fail
-              final_plan = plan;
-            } else {
-              total_wanted = plan_threads_required_per_block(final_plan);
+              final_plan = defrag;
+              total_wanted = plan_threads_required_per_block(defrag);
             }
           }
           ns.log(`INFO Starting ${colors.fg_cyan}HWGW${colors.reset} block on ${format_servername(final_plan.server)}: [H: ${format_number(final_plan.hack_threads)}, W1: ${format_number(final_plan.weaken_1st_threads)}, G: ${format_number(final_plan.grow_threads)}, W2: ${format_number(final_plan.weaken_2nd_threads)}; T: ${format_number(total_wanted)}] ending in ${format_duration(block_start - now + final_plan.execution_duration)} for a payout of ${currency_format(final_plan.success_payout)}${final_plan.grow_threads !== plan.grow_threads ? `, ${colors.fg_yellow}THROTTLED${colors.reset} ${format_number(final_plan.grow_threads)}/${format_number(plan.grow_threads)}` : ''}.`);
