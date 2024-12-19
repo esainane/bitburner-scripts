@@ -422,10 +422,22 @@ export async function main(real_ns: NS): Promise<void> {
         ns.log("INFO Running normalization.");
         const allocator_instance = new ThreadAllocator(ns, exclude_runners, avoid_runners);
         const allocator = allocator_instance.getAllocator();
-        for (const server of unprepared_servers) {
+        for (let i = 0, last_i = -1, consecutive_delay = 0; i < unprepared_servers.length; ++i) {
+          if (last_i === i) {
+            // If we're running multiple blocks on the same server, stagger them
+            consecutive_delay += 3 * gap;
+          } else {
+            consecutive_delay = 0;
+          }
+          last_i = i;
+          const server = unprepared_servers[i];
           if (is_server_normalized(ns, server)) {
             // We have a newly normalized server
             unprepared_servers.splice(unprepared_servers.indexOf(server), 1);
+            // Try with the target server that just took our spot on the next iteration
+            --i;
+            // ...and as we're now gone, the "last" server will no longer have a valid index
+            last_i = -1;
             next_normalized.set(server, Date.now());
             block_finishes.set(server, Date.now());
             // Create a plan for it
@@ -453,14 +465,14 @@ export async function main(real_ns: NS): Promise<void> {
             any_throttled_or_incomplete = true;
             break;
           }
-          const largest_block = allocator_instance.largestContiguousBlock();
-          if (largest_block === 0) {
+          const largest_contiguous = allocator_instance.largestContiguousBlock();
+          if (largest_contiguous === 0) {
             ns.log("INFO No normalization resources available in practice {branch 3}.");
             any_throttled_or_incomplete = true;
             break;
           }
-          const prep_plan = calc_max_prep(ns, server, normalization_reserved - normalization_used, largest_block);
-          const duration = prep_duration(prep_plan);
+          const prep_plan = calc_max_prep(ns, server, normalization_reserved - normalization_used, largest_contiguous);
+          const duration = prep_duration(prep_plan) + consecutive_delay;
           const [unallocable_w1, pids_w1] = await allocator('worker/weak1.js', prep_plan.weaken_1st_threads, true, server, duration - prep_plan.weaken_duration - 3 * gap);
           const [unallocable_g, pids_g] = await allocator('worker/grow1.js', prep_plan.grow_threads, false, server, duration - prep_plan.grow_duration - 2 * gap);
           const [unallocable_w2, pids_w2] = await allocator('worker/weak1.js', prep_plan.weaken_2nd_threads, true, server, duration - prep_plan.weaken_duration - 1 * gap);
@@ -476,6 +488,12 @@ export async function main(real_ns: NS): Promise<void> {
             // OK
             const threads_used = prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads;
             const was_throttled = prep_plan.grow_threads !== prep_plan.wanted;
+            if (was_throttled && prep_plan.grow_threads === largest_contiguous) {
+              // If we were only throttled by this being the largest contiguous threads available, we can try again
+              // immediately to see if there are other runners which can contribute to the normalization of this server
+              // Try this target server again on the next iteration
+              --i;
+            }
             // Report
             ns.log(`INFO ${colors.fg_cyan}Normalizing${colors.reset} ${format_servername(server)} ${format_normalize_state(ns, server)}: [W1: ${format_number(prep_plan.weaken_1st_threads)}, G: ${format_number(prep_plan.grow_threads)}, W2: ${format_number(prep_plan.weaken_2nd_threads)}; T: ${format_number(threads_used)}] over ${format_duration(duration)}.${(was_throttled) ? ` (${colors.fg_yellow}THROTTLED${colors.reset}, Grow: ${format_number(prep_plan.grow_threads)}/${format_number(prep_plan.wanted)})` : ""}`);
             if (was_throttled) {
