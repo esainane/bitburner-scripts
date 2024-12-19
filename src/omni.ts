@@ -50,7 +50,7 @@ interface CycleData extends PlanData {
   blocks: number;
 }
 
-function plan_schedule(ns: NS, server: string, cycle_time: number, threads_available: number): PlanData | null {
+function plan_schedule(ns: NS, server: string, cycle_time: number, threads_available: number, grow_cap = Infinity): PlanData | null {
   const forumlas_api_available = ns.fileExists('Formulas.exe', 'home');
   const cores = 1;
   // Analyze a server's hack intervals, effects, and create a timetable to the configured tolerance
@@ -90,6 +90,11 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
     const grow_threads = forumlas_api_available
       ? Math.ceil(ns.formulas.hacking.growThreads({ ...as_normalized(ns, server), moneyAvailable: money_after }, ns.getPlayer(), max_money, cores))
       : Math.ceil(ns.growthAnalyze(server, growth_required, cores));
+    if (grow_threads > grow_cap) {
+      // No unfragmented block large enough
+      hack_threads -= 1;
+      break;
+    }
     // Calculate the security increase caused by this much growth
     // We avoid passing the server hostname so this isn't capped by being already fully grown right now
     const growth_security_increase = ns.growthAnalyzeSecurity(grow_threads, undefined, cores);
@@ -600,31 +605,40 @@ export async function main(real_ns: NS): Promise<void> {
           const threads_available = allocator_instance.availableThreads();
           const largest_contiguous = allocator_instance.largestContiguousBlock();
           const total_wanted = plan_threads_required_per_block(plan);
-          ns.log(`INFO Starting ${colors.fg_cyan}HWGW${colors.reset} block on ${format_servername(plan.server)}: [H: ${format_number(plan.hack_threads)}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(total_wanted)}] ending in ${format_duration(block_start - now + plan.execution_duration)} for a payout of ${currency_format(plan.success_payout)}.`);
+          let final_plan = plan;
+          if (threads_available >= total_wanted && largest_contiguous < total_wanted) {
+            // We have enough threads, but they're too fragmented.
+            final_plan = plan_schedule(ns, plan.server, plan.execution_duration, total_wanted, largest_contiguous);
+            if (!final_plan) {
+              // Let it fail
+              final_plan = plan;
+            }
+          }
+          ns.log(`INFO Starting ${colors.fg_cyan}HWGW${colors.reset} block on ${format_servername(final_plan.server)}: [H: ${format_number(final_plan.hack_threads)}, W1: ${format_number(final_plan.weaken_1st_threads)}, G: ${format_number(final_plan.grow_threads)}, W2: ${format_number(final_plan.weaken_2nd_threads)}; T: ${format_number(total_wanted)}] ending in ${format_duration(block_start - now + final_plan.execution_duration)} for a payout of ${currency_format(final_plan.success_payout)}${final_plan.grow_threads !== plan.grow_threads ? `, ${colors.fg_yellow}THROTTLED${colors.reset} ${format_number(final_plan.grow_threads)}/${format_number(plan.grow_threads)}` : ''}.`);
           // Good to go, allocate threads for this block
-          const [unallocable_h, pids_h] = await allocator('worker/hack1.js', plan.hack_threads, false, plan.server, block_start - now + plan.hack_delay);
-          const [unallocable_w1, pids_w1] = await allocator('worker/weak1.js', plan.weaken_1st_threads, true, plan.server, block_start - now + plan.weaken_1st_delay);
-          const [unallocable_g, pids_g] = await allocator('worker/grow1.js', plan.grow_threads, false, plan.server, block_start - now + plan.grow_delay);
-          const [unallocable_w2, pids_w2] = await allocator('worker/weak1.js', plan.weaken_2nd_threads, true, plan.server, block_start - now + plan.weaken_2nd_delay);
+          const [unallocable_h, pids_h] = await allocator('worker/hack1.js', final_plan.hack_threads, false, final_plan.server, block_start - now + final_plan.hack_delay);
+          const [unallocable_w1, pids_w1] = await allocator('worker/weak1.js', final_plan.weaken_1st_threads, true, final_plan.server, block_start - now + final_plan.weaken_1st_delay);
+          const [unallocable_g, pids_g] = await allocator('worker/grow1.js', final_plan.grow_threads, false, final_plan.server, block_start - now + final_plan.grow_delay);
+          const [unallocable_w2, pids_w2] = await allocator('worker/weak1.js', final_plan.weaken_2nd_threads, true, final_plan.server, block_start - now + final_plan.weaken_2nd_delay);
           // Check we actually allocated everything.
           if ([unallocable_h, unallocable_w1, unallocable_g, unallocable_w2].some(d => d > 0)) {
-            ns.log(`INFO Could not allocate all threads for HWGW block on ${format_servername(plan.server)}, ${format_number(threads_available)}/${format_number(total_wanted)} threads available, largest contiguous is ${format_number(largest_contiguous)} threads, aborting block.`);
+            ns.log(`INFO Could not allocate all threads for HWGW block on ${format_servername(final_plan.server)}, ${format_number(threads_available)}/${format_number(total_wanted)} threads available, largest contiguous is ${format_number(largest_contiguous)} threads, aborting block.`);
             for (const pid of [...pids_h, ...pids_w1, ...pids_g, ...pids_w2]) {
               ns.kill(pid);
             }
           } else {
             // OK
             // Mark that there will be variations in security until the time these tasks finish
-            block_finishes.set(plan.server, Date.now() + plan.execution_duration);
+            block_finishes.set(final_plan.server, Date.now() + plan.execution_duration);
           }
           // ...and schedule the next block when this cycle finishes.
           // Blocks happening 4*gap after this one will be launched by other iterations of the
           // outer loop `(for (plan of selected_plans))` up to the number of blocks which have been allocated
-          block_start += plan.execution_duration;
+          block_start += final_plan.execution_duration;
           blockQueue.push({ callback: schedule_block, startTime: block_start });
           // Indicate that the next block is free at this time, if our next scheduled block does not itself run
           // (perhaps due to the queue beingdropped needing to recalculate after a skill change)
-          next_normalized.set(plan.server, block_start);
+          next_normalized.set(final_plan.server, block_start);
         }
         // Start the first block at this block offset. It will schedule another exactly one cycle later, and so on.
         // If the player's hacking skill changes, the blockQueue is discarded (unlike the taskQueue) and replaced
