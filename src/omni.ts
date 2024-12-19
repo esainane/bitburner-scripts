@@ -272,19 +272,28 @@ export async function main(real_ns: NS): Promise<void> {
     const data = ns.read(state_file);
     if (data) {
       const j_data = JSON.parse(data);
-      for (const [k, v] of j_data.block_finishes) {
-        block_finishes.set(k, v);
+      if (j_data.block_finishes) {
+        for (const [k, v] of j_data.block_finishes) {
+          block_finishes.set(k, v);
+        }
       }
-      for (const [k, v] of j_data.next_normalized) {
-        next_normalized.set(k, v);
+      if (j_data.next_normalized) {
+        for (const [k, v] of j_data.next_normalized) {
+          next_normalized.set(k, v);
+        }
       }
-      for (const d of j_data.dirty) {
-        dirty.add(d);
+      if (j_data.dirty) {
+        for (const d of j_data.dirty) {
+          dirty.add(d);
+        }
       }
     }
   }
 
   const p_args = ns.args.map(String).filter(d => !d.startsWith('-'));
+
+  // Soft persistence: Tracked through replans, not through restarts (as otherwise we'll leak resources)
+  let normalization_used = 0;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -414,7 +423,6 @@ export async function main(real_ns: NS): Promise<void> {
         }
       }
       ns.log(`INFO Reserving ${format_number(normalization_reserved)} threads for normalization${normalization_reserved_desc}`);
-      let normalization_used = 0;
       const try_later_delay = 5000;
       let any_throttled_or_incomplete = false;
       // Schedule the normalization procecss
