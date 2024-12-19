@@ -26,14 +26,16 @@ export async function calc_max_prep(ns: NS, target: string, available_threads: n
   // Work out how much is needed to fully weaken the target
   const weaken_1st_threads = Math.ceil(excess_security / weaken_security_decrease_per_thread);
   // Work out how much is needed to fully grow the target
-  const growth_required = ns.getServerMaxMoney(target) / ns.getServerMoneyAvailable(target);
+  const current_money = ns.getServerMoneyAvailable(target);
+  const max_money = ns.getServerMaxMoney(target);
+  const growth_required = max_money / current_money;
   // Work how many grow threads are needed
   // If the formulas API is available, we can use it to get an exact solution using the post-weakened server stats.
   // Otherwise, we'll use the current server and player status, which can overestimate what is required.
   // This is fine for normalization, though it can be wasteful, especially as it increases the number of weaken
   // threads required in the second weaken.
   const wanted_grow_threads = forumlas_api_available
-    ? Math.ceil(ns.formulas.hacking.growThreads(as_normalized(ns, target), ns.getPlayer(), growth_required, cores))
+    ? Math.ceil(ns.formulas.hacking.growThreads({...as_normalized(ns, target), moneyAvailable: current_money }, ns.getPlayer(), max_money, cores))
     : Math.ceil(ns.growthAnalyze(target, growth_required, cores));
   if (available_threads <= 0) {
     // Don't immediately fail, as we sometimes want to know the wanted value. However, we can still avoid the loop.

@@ -63,6 +63,7 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
   // Varies: Increases with security level, decreases with player hacking level
   // Need formulas API to determine duration at always-fully-weakened levels
   const grow_duration = ns.getGrowTime(server);
+  const max_money = ns.getServerMaxMoney(server);
 
   // Given a server which is fully weakened and fully grown...
   // Calculate the required thread counts to perform one HWGW cycle, leaving the server fully weakened and grown
@@ -80,10 +81,11 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
       hack_threads -= 1;
       break;
     }
+    const money_after = max_money * (1 - hack_stolen);
     const growth_required = 1/(1-hack_stolen);
     //ns.log("INFO For: ", server, " want to see ", growth_required, " growth");
     const grow_threads = forumlas_api_available
-      ? Math.ceil(ns.formulas.hacking.growThreads(as_normalized(ns, server), ns.getPlayer(), growth_required, cores))
+      ? Math.ceil(ns.formulas.hacking.growThreads({ ...as_normalized(ns, server), moneyAvailable: money_after }, ns.getPlayer(), max_money, cores))
       : Math.ceil(ns.growthAnalyze(server, growth_required, cores));
     // Calculate the security increase caused by this much growth
     // We avoid passing the server hostname so this isn't capped by being already fully grown right now
@@ -111,7 +113,7 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
 
     const execution_duration = cycle_time;
 
-    const success_payout = (ns.getServerMaxMoney(server) ?? 0) * hack_stolen;
+    const success_payout = max_money * hack_stolen;
 
     best = {
       hack_threads, weaken_1st_threads, grow_threads, weaken_2nd_threads,
