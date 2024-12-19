@@ -587,7 +587,8 @@ export async function main(real_ns: NS): Promise<void> {
         let block_start = server_next_slot_start + block_offset * 4 * gap;
         const schedule_block = async () => {
           // Schedule tasks for the current one...
-          const allocator = new ThreadAllocator(ns, exclude_runners, avoid_runners).getAllocator();
+          const allocator_instance = new ThreadAllocator(ns, exclude_runners, avoid_runners);
+          const allocator = allocator_instance.getAllocator();
           if (!is_server_normalized(ns, plan.server)) {
             // Something has not gone according to plan
             ns.log(`WARN Server ${format_servername(plan.server, { is_warning: true })} is not normalized ${format_normalize_state(ns, plan.server)}, something did not go according to plan. Restarting planner`);
@@ -596,7 +597,10 @@ export async function main(real_ns: NS): Promise<void> {
             return;
           }
           const now = Date.now();
-          ns.log(`INFO Starting ${colors.fg_cyan}HWGW${colors.reset} block on ${format_servername(plan.server)}: [H: ${format_number(plan.hack_threads)}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(plan_threads_required_per_block(plan))}] ending in ${format_duration(block_start - now + plan.execution_duration)} for a payout of ${currency_format(plan.success_payout)}.`);
+          const threads_available = allocator_instance.availableThreads();
+          const largest_contiguous = allocator_instance.largestContiguousBlock();
+          const total_wanted = plan_threads_required_per_block(plan);
+          ns.log(`INFO Starting ${colors.fg_cyan}HWGW${colors.reset} block on ${format_servername(plan.server)}: [H: ${format_number(plan.hack_threads)}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(total_wanted)}] ending in ${format_duration(block_start - now + plan.execution_duration)} for a payout of ${currency_format(plan.success_payout)}.`);
           // Good to go, allocate threads for this block
           const [unallocable_h, pids_h] = await allocator('worker/hack1.js', plan.hack_threads, false, plan.server, block_start - now + plan.hack_delay);
           const [unallocable_w1, pids_w1] = await allocator('worker/weak1.js', plan.weaken_1st_threads, true, plan.server, block_start - now + plan.weaken_1st_delay);
@@ -604,7 +608,7 @@ export async function main(real_ns: NS): Promise<void> {
           const [unallocable_w2, pids_w2] = await allocator('worker/weak1.js', plan.weaken_2nd_threads, true, plan.server, block_start - now + plan.weaken_2nd_delay);
           // Check we actually allocated everything.
           if ([unallocable_h, unallocable_w1, unallocable_g, unallocable_w2].some(d => d > 0)) {
-            ns.log("INFO Could not allocate all threads for HWGW block on ", format_servername(plan.server), ", aborting block.");
+            ns.log(`INFO Could not allocate all threads for HWGW block on ${format_servername(plan.server)}, ${format_number(threads_available)}/${format_number(total_wanted)} threads available, largest contiguous is ${format_number(largest_contiguous)} threads, aborting block.`);
             for (const pid of [...pids_h, ...pids_w1, ...pids_g, ...pids_w2]) {
               ns.kill(pid);
             }
