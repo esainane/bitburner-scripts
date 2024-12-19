@@ -11,7 +11,7 @@ export interface PrepPlan {
   wanted: number;
 }
 
-export async function calc_max_prep(ns: NS, target: string, available_threads: number, grow_cap = Infinity): Promise<PrepPlan> {
+export function calc_max_prep(ns: NS, target: string, available_threads: number, grow_cap = Infinity): PrepPlan {
   if (available_threads > 0 && grow_cap < 1) {
     ns.tprint("Something very strange happened - there must be at least one server with a thread available to say there are positive available threads: calc_max_prep(ns, ", target, ", ", available_threads, ", ", grow_cap, ")");
   }

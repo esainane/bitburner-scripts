@@ -3,7 +3,7 @@ import { find_servers } from 'lib/find-servers';
 import { PriorityQueue } from 'lib/priority-queue';
 import { ThreadAllocator } from 'lib/thread-allocator';
 import { find_runners, RunnersData } from 'lib/find-runners';
-import { calc_max_prep } from 'lib/prep-plan';
+import { calc_max_prep, PrepPlan } from 'lib/prep-plan';
 import { currency_format } from 'lib/format-money';
 import { format_duration } from 'lib/format-duration';
 import { colors, format_normalize_state, format_number } from 'lib/colors';
@@ -27,6 +27,9 @@ const avoid_runners: Set<string> = new Set(["home"]);
 const gap = 1000;
 // Steal no more than this much money per hack
 const hack_limit = 0.3;
+// Carefully prioritize by threadseconds to normalize
+// Relatively expensive to calculate; will order by required hacking level if false, which is often fine
+const use_smart_normalize_sort = true;
 
 interface PlanData {
   hack_threads: number;
@@ -162,6 +165,14 @@ function cycle_threads_required_for_all_blocks(p: CycleData): number {
   return p.blocks * plan_threads_required_per_block(p);
 }
 
+function threadseconds_required_for_normalization(p: PrepPlan): number {
+  return (p.weaken_1st_threads + p.grow_threads + p.weaken_2nd_threads) * prep_duration(p);
+}
+
+function prep_duration(p: PrepPlan): number {
+  return Math.max(p.weaken_duration + 3 * gap, p.grow_duration + 2 * gap);
+}
+
 function find_best_split(ns: NS, server: string, available_threads: number): CycleData | null {
   // Fail fast: If we can't actually hack the server, we can't do anything
   if (ns.getServerRequiredHackingLevel(server) > ns.getHackingLevel()) {
@@ -176,10 +187,12 @@ function find_best_split(ns: NS, server: string, available_threads: number): Cyc
   if (!is_server_normalized(ns, server)) {
     return null;
   }
-  // XXX: These all depend on the server being normalized at the time of calculation
-  const weak_time = ns.getWeakenTime(server);
-  const grow_time = ns.getGrowTime(server);
-  const hack_time = ns.getHackTime(server);
+  const player = ns.getPlayer();
+  const normalized = as_normalized(ns, server);
+  // Use formulas.exe where available. Otherwise, use pessimistic calculations based on current state.
+  const [ weak_time, grow_time, hack_time ] = ns.fileExists('Formulas.exe')
+   ? [ ns.formulas.hacking.weakenTime(normalized, player), ns.formulas.hacking.growTime(normalized, player), ns.formulas.hacking.hackTime(normalized, player) ]
+   : [ ns.getWeakenTime(server), ns.getGrowTime(server), ns.getHackTime(server) ];
   const base_cycle_time = Math.max(hack_time + 4 * gap, weak_time + 3 * gap, grow_time + 2 * gap);
   // Artifically pad the cycle time so that blocks starting every 4 seconds won't end up between a security increasing
   // task finishing and the weaken which normalizes it
@@ -313,8 +326,18 @@ export async function main(real_ns: NS): Promise<void> {
     // Clear the dirty set
     dirty.clear();
 
-    // Sort by required hacking level ascending
-    unprepared_servers.sort((l, r) => ns.getServerRequiredHackingLevel(l) - ns.getServerRequiredHackingLevel(r));
+    // If requested, sort by resources required to normalize.
+    // Otherwise, just sort by required hacking level ascending as a heuristic.
+    const normalizee_sorter = use_smart_normalize_sort
+      ? (() => {
+        const time_to_normalize = new Map<string, number>(unprepared_servers.map(s =>
+          [s, threadseconds_required_for_normalization(calc_max_prep(ns, s, Infinity))] as [string, number])
+        );
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        return (l: string, r: string) => time_to_normalize.get(l)! - time_to_normalize.get(r)!;
+      })()
+      : (l: string, r: string) => ns.getServerRequiredHackingLevel(l) - ns.getServerRequiredHackingLevel(r);
+    unprepared_servers.sort(normalizee_sorter);
 
     ns.log(`INFO ${format_number(servers.length - normalized_later)}/${format_number(targeted_servers.length)} targetable servers are normalized`, normalized_later === 0 ? '' : `, ${format_number(normalized_later)}/${format_number(targeted_servers.length - servers.length + normalized_later)} are already being fully normalized${normalized_later === 1 ? ` in ${format_duration(earliest_normalized, { relative: false })}` : ` from ${format_duration(earliest_normalized, { relative: false })} to ${format_duration(last_normalized, { relative: false })}`}`, unprepared_servers.length === 0 ? '' : `, ${format_number(unprepared_servers.length)}/${format_number(targeted_servers.length)} are not yet normalized`, '.');
 
@@ -436,11 +459,11 @@ export async function main(real_ns: NS): Promise<void> {
             any_throttled_or_incomplete = true;
             break;
           }
-          const prep_plan = await calc_max_prep(ns, server, normalization_reserved - normalization_used, largest_block);
-          const prep_duration = Math.max(prep_plan.weaken_duration + 3 * gap, prep_plan.grow_duration + 2 * gap);
-          const [unallocable_w1, pids_w1] = await allocator('worker/weak1.js', prep_plan.weaken_1st_threads, true, server, prep_duration - prep_plan.weaken_duration - 3 * gap);
-          const [unallocable_g, pids_g] = await allocator('worker/grow1.js', prep_plan.grow_threads, false, server, prep_duration - prep_plan.grow_duration - 2 * gap);
-          const [unallocable_w2, pids_w2] = await allocator('worker/weak1.js', prep_plan.weaken_2nd_threads, true, server, prep_duration - prep_plan.weaken_duration - 1 * gap);
+          const prep_plan = calc_max_prep(ns, server, normalization_reserved - normalization_used, largest_block);
+          const duration = prep_duration(prep_plan);
+          const [unallocable_w1, pids_w1] = await allocator('worker/weak1.js', prep_plan.weaken_1st_threads, true, server, duration - prep_plan.weaken_duration - 3 * gap);
+          const [unallocable_g, pids_g] = await allocator('worker/grow1.js', prep_plan.grow_threads, false, server, duration - prep_plan.grow_duration - 2 * gap);
+          const [unallocable_w2, pids_w2] = await allocator('worker/weak1.js', prep_plan.weaken_2nd_threads, true, server, duration - prep_plan.weaken_duration - 1 * gap);
           // If allocation failed, kill anything which was allocated and try again later
           if ([unallocable_w1, unallocable_g, unallocable_w2].some(d => d > 0)) {
             ns.log(`INFO Could not allocate all threads for normalization block on ${format_servername(server)} ${format_normalize_state(ns, server)} [W1: ${format_number(prep_plan.weaken_1st_threads - unallocable_w1)}/${format_number(prep_plan.weaken_1st_threads)}, G: ${format_number(prep_plan.grow_threads - unallocable_g)}/${format_number(prep_plan.grow_threads)}, W2: ${format_number(prep_plan.weaken_2nd_threads - unallocable_w2)}/${format_number(prep_plan.weaken_2nd_threads)}], aborting block.`);
@@ -454,12 +477,12 @@ export async function main(real_ns: NS): Promise<void> {
             const threads_used = prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads;
             const was_throttled = prep_plan.grow_threads !== prep_plan.wanted;
             // Report
-            ns.log(`INFO ${colors.fg_cyan}Normalizing${colors.reset} ${format_servername(server)} ${format_normalize_state(ns, server)}: [W1: ${format_number(prep_plan.weaken_1st_threads)}, G: ${format_number(prep_plan.grow_threads)}, W2: ${format_number(prep_plan.weaken_2nd_threads)}; T: ${format_number(threads_used)}] over ${format_duration(prep_duration)}.${(was_throttled) ? ` (${colors.fg_yellow}THROTTLED${colors.reset}, Grow: ${format_number(prep_plan.grow_threads)}/${format_number(prep_plan.wanted)})` : ""}`);
+            ns.log(`INFO ${colors.fg_cyan}Normalizing${colors.reset} ${format_servername(server)} ${format_normalize_state(ns, server)}: [W1: ${format_number(prep_plan.weaken_1st_threads)}, G: ${format_number(prep_plan.grow_threads)}, W2: ${format_number(prep_plan.weaken_2nd_threads)}; T: ${format_number(threads_used)}] over ${format_duration(duration)}.${(was_throttled) ? ` (${colors.fg_yellow}THROTTLED${colors.reset}, Grow: ${format_number(prep_plan.grow_threads)}/${format_number(prep_plan.wanted)})` : ""}`);
             if (was_throttled) {
               any_throttled_or_incomplete = true;
             } else {
               // If we could do everything we wanted, indicate this NPC will be fully normalized at block end
-              next_normalized.set(server, Date.now() + prep_duration);
+              next_normalized.set(server, Date.now() + duration);
             }
             // OK
             normalization_used += prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads;
@@ -468,7 +491,7 @@ export async function main(real_ns: NS): Promise<void> {
             blockQueue.push({ callback: async () => {
               normalization_used -= prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads;
               await schedule_normalize();
-            }, startTime: Date.now() + prep_duration });
+            }, startTime: Date.now() + duration });
             if (normalization_reserved - normalization_used <= 0) {
               // No more resources available for normalization at this time
               ns.log("INFO No more normalization resources available {branch 2}.");

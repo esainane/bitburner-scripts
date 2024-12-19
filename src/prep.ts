@@ -18,7 +18,7 @@ export async function main(ns: NS): Promise<void> {
     const available_threads = allocator.availableThreads();
     const target = String(ns.args[0]);
 
-    const {grow_duration, grow_threads, weaken_1st_threads, weaken_duration, weaken_2nd_threads, wanted} = await calc_max_prep(ns, target, available_threads);
+    const {grow_duration, grow_threads, weaken_1st_threads, weaken_duration, weaken_2nd_threads, wanted} = calc_max_prep(ns, target, available_threads);
 
     const weaken_1st_start = -weaken_duration - 3 * tolerance;
     const grow_start = -grow_duration - 2 * tolerance;
