@@ -6,7 +6,7 @@ import { find_runners, RunnersData } from 'lib/find-runners';
 import { calc_max_prep } from 'lib/prep-plan';
 import { currency_format } from 'lib/format-money';
 import { format_duration } from 'lib/format-duration';
-import { colors, format_number } from 'lib/colors';
+import { colors, format_normalize_state, format_number } from 'lib/colors';
 import { format_servername } from 'lib/colors';
 import { as_normalized } from 'lib/as-normalized';
 
@@ -158,13 +158,6 @@ function plan_threads_required_per_block(p: PlanData): number {
 
 function cycle_threads_required_for_all_blocks(p: CycleData): number {
   return p.blocks * plan_threads_required_per_block(p);
-}
-
-function format_normalize_state(ns: NS, server: string): string {
-  const server_fullness_percent = Math.floor(100 * ns.getServerMoneyAvailable(server) / ns.getServerMaxMoney(server));
-  const server_min_security = ns.getServerMinSecurityLevel(server);
-  const server_security_excess = Math.floor(1000 * (ns.getServerSecurityLevel(server) - server_min_security)) / 1000;
-  return `{${format_number(server_fullness_percent)}${colors.fg_cyan}%${colors.reset} @ ${server_min_security}${ server_security_excess ? `${colors.fg_red}+${format_number(server_security_excess)}` : ''}`;
 }
 
 function find_best_split(ns: NS, server: string, available_threads: number): CycleData | null {

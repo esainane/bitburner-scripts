@@ -54,7 +54,7 @@ export function hm_currency_format(amount: number, { colorize=true, simplify=tru
     magnitude -= 3;
     i++;
   }
-  return (amount >= 1 ? `${color.fg_red}$${color.fg_white}${Math.floor(amount)}${suffixes[i]}${str}` : `${str}`) + color.reset;
+  return (amount >= 1 ? `${color.fg_cyan}$${color.fg_white}${Math.floor(amount)}${suffixes[i]}${str}` : `${str}`) + color.reset;
 }
 
 export const currency_format = hm_currency_format;
