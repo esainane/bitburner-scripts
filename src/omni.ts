@@ -301,6 +301,7 @@ export async function main(real_ns: NS): Promise<void> {
 
   // Soft persistence: Tracked through replans, not through restarts (as otherwise we'll leak resources)
   let normalization_used = 0;
+  const taskQueue = new PriorityQueue<ScheduledTask>((a, b) => a.startTime - b.startTime);
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -521,8 +522,12 @@ export async function main(real_ns: NS): Promise<void> {
             normalization_used += prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads;
             // Once this is done and the relevant threads are available again, check back in and see if more
             // normalization needs to happen
-            blockQueue.push({ callback: async () => {
+            // Task queue is soft persisted across replans, to avoid resource leaks
+            taskQueue.push({ callback: async () => {
               normalization_used -= prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads;
+            }, startTime: Date.now() + duration });
+            // Reschedules can be dropped across a replan
+            blockQueue.push({ callback: async () => {
               await schedule_normalize();
             }, startTime: Date.now() + duration });
             if (normalization_reserved - normalization_used <= 0) {
@@ -663,6 +668,14 @@ export async function main(real_ns: NS): Promise<void> {
     do {
       const now = Date.now();
       const later = now + 500;
+
+      // First, pop any persisted tasks which have finished
+      while ((taskQueue.peek()?.startTime ?? later) <= now) {
+        const task = taskQueue.pop();
+        if (!task) continue;
+
+        await task.callback();
+      }
 
       // Find any servers who can have a new HWGW block assigned
       while ((blockQueue.peek()?.startTime ?? later) <= now) {
