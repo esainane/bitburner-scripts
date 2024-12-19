@@ -53,13 +53,13 @@ export class ThreadAllocator {
     return pid;
   }
 
-  public largestContiguousBlock(allow_avoided_servers = false): number {
-    const ret = Math.max(0, ...this.available_runners
+  public largestContiguousBlock({ topN = 1, allow_avoided_servers = false} = {}): number[] {
+    const ret = [...this.available_runners]
       .filter(allow_avoided_servers ? () => true : d => !this.avoid_runners.has(d.server))
       .map(d => d.threads)
-    );
+      .sort((l, r) => r - l);
     // this.ns.tprint('Largest contiguous block: ', ret, ' from [', this.available_runners.map(d => d.threads).join(', '), '] (', this.available_threads, ' total)');
-    return ret;
+    return ret.slice(0, topN).concat(Array(Math.max(0, topN - ret.length)).fill(0));
   }
 
   private async _allocateThreads(script: string, threads: number, cumulative = false, maximize_if_fragmented = false, allow_avoided_servers = false, ...args: ScriptArg[]): Promise<[number, number[]]> {

@@ -50,7 +50,7 @@ interface CycleData extends PlanData {
   blocks: number;
 }
 
-function plan_schedule(ns: NS, server: string, cycle_time: number, threads_available: number, grow_cap = Infinity): PlanData | null {
+function plan_schedule(ns: NS, server: string, cycle_time: number, threads_available: number, largest_2_contiguous = [ Infinity, Infinity ]): PlanData | null {
   const forumlas_api_available = ns.fileExists('Formulas.exe', 'home');
   const cores = 1;
   // Analyze a server's hack intervals, effects, and create a timetable to the configured tolerance
@@ -90,11 +90,6 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
     const grow_threads = forumlas_api_available
       ? Math.ceil(ns.formulas.hacking.growThreads({ ...as_normalized(ns, server), moneyAvailable: money_after }, ns.getPlayer(), max_money, cores))
       : Math.ceil(ns.growthAnalyze(server, growth_required, cores));
-    if (grow_threads > grow_cap) {
-      // No unfragmented block large enough
-      hack_threads -= 1;
-      break;
-    }
     // Calculate the security increase caused by this much growth
     // We avoid passing the server hostname so this isn't capped by being already fully grown right now
     const growth_security_increase = ns.growthAnalyzeSecurity(grow_threads, undefined, cores);
@@ -104,6 +99,13 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
     // Check that we're under the limit
     if (hack_threads + weaken_1st_threads + grow_threads + weaken_2nd_threads > threads_available) {
       // Infeasible, stop incrementing and revert to the last value
+      hack_threads -= 1;
+      break;
+    }
+    if (largest_2_contiguous[0] < grow_threads + hack_threads && (
+      largest_2_contiguous[0] < Math.max(grow_threads, hack_threads) || largest_2_contiguous[1] < Math.min(grow_threads, hack_threads)
+    )) {
+      // No unfragmented configuration large enough
       hack_threads -= 1;
       break;
     }
@@ -478,7 +480,7 @@ export async function main(real_ns: NS): Promise<void> {
             any_throttled_or_incomplete = true;
             break;
           }
-          const largest_contiguous = allocator_instance.largestContiguousBlock();
+          const [ largest_contiguous ] = allocator_instance.largestContiguousBlock();
           if (largest_contiguous === 0) {
             ns.log("INFO No normalization resources available in practice {branch 3}.");
             any_throttled_or_incomplete = true;
@@ -603,12 +605,22 @@ export async function main(real_ns: NS): Promise<void> {
           }
           const now = Date.now();
           const threads_available = allocator_instance.availableThreads();
-          const largest_contiguous = allocator_instance.largestContiguousBlock();
+          const largest_2_contiguous = allocator_instance.largestContiguousBlock({ topN: 2 });
           const total_wanted = plan_threads_required_per_block(plan);
           let final_plan = plan;
-          if (threads_available >= total_wanted && largest_contiguous < total_wanted) {
+          // If there are enough threads available in general (as the plan was made to fit, when this is not the case
+          // there are trailing runners around which will finish soon enonugh), but the thread pool is too fragmented:
+          //  - The largest block isn't large enough to fit both the hack and grow threads, and either
+          //    - The larger block isn't large enough to fit the larger of the hack or grow threds, or
+          //    - The smaller block isn't large enough to fit the smaller of the hack or grow threads
+          // ...then we can't fix the problem with a plan recalculation, but we might be able to patch it up by seeing
+          // if a fragmented replan works
+          if (threads_available >= total_wanted && largest_2_contiguous[0] < plan.hack_threads + plan.grow_threads && (
+            largest_2_contiguous[0] < Math.max(plan.hack_threads, plan.grow_threads) ||
+            largest_2_contiguous[1] < Math.min(plan.hack_threads, plan.grow_threads)
+          )) {
             // We have enough threads, but they're too fragmented.
-            final_plan = plan_schedule(ns, plan.server, plan.execution_duration, total_wanted, largest_contiguous);
+            final_plan = plan_schedule(ns, plan.server, plan.execution_duration, total_wanted, largest_2_contiguous);
             if (!final_plan) {
               // Let it fail
               final_plan = plan;
@@ -622,7 +634,7 @@ export async function main(real_ns: NS): Promise<void> {
           const [unallocable_w2, pids_w2] = await allocator('worker/weak1.js', final_plan.weaken_2nd_threads, true, final_plan.server, block_start - now + final_plan.weaken_2nd_delay);
           // Check we actually allocated everything.
           if ([unallocable_h, unallocable_w1, unallocable_g, unallocable_w2].some(d => d > 0)) {
-            ns.log(`INFO Could not allocate all threads for HWGW block on ${format_servername(final_plan.server)}, ${format_number(threads_available)}/${format_number(total_wanted)} threads available, largest contiguous is ${format_number(largest_contiguous)} threads, aborting block.`);
+            ns.log(`INFO Could not allocate all threads for HWGW block on ${format_servername(final_plan.server)}, ${format_number(threads_available)}/${format_number(total_wanted)} threads available, largest contiguous is ${format_number(largest_2_contiguous[0])} threads, aborting block.`);
             for (const pid of [...pids_h, ...pids_w1, ...pids_g, ...pids_w2]) {
               ns.kill(pid);
             }
