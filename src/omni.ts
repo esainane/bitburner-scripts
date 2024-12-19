@@ -496,7 +496,7 @@ export async function main(real_ns: NS): Promise<void> {
               // No more resources available for normalization at this time
               ns.log("INFO No more normalization resources available {branch 2}.");
               any_throttled_or_incomplete = true;
-            break;
+              break;
             }
           }
         }
