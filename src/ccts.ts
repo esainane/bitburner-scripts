@@ -19,7 +19,7 @@ function print_desc(ns: NS, filename: string, host: string | undefined, cct_type
 
 function format_cct(filename: string, host: string | undefined, cct_type: string, { is_warning = false } = {}) {
   const server = host ?? 'home';
-  return `[${colors.fg_cyan}${cct_type}${colors.reset}] @ ${format_servername(server, { is_warning })}/${filename} `;
+  return `[${colors.fg_cyan}${cct_type}${colors.reset}] @ ${format_servername(server, { is_warning })}/${filename}`;
 }
 
 function format_cct_result(data: unknown, result: CCTResult) {
