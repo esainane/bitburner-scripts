@@ -26,6 +26,10 @@ function format_cct_result(data: unknown, result: CCTResult) {
   return `${format_data(data)} -> ${format_data(result)}`;
 }
 
+// Naughty global state
+// Tracks unknown CCT types, printing one example for each at the end, so we avoid spamming the same description
+const unknowns: Map<string, [string, string]> = new Map();
+
 async function attempt_cct(ns: NS, filename: string, host: string | undefined) {
   const server = host ?? 'home';
   const cct_type = ns.codingcontract.getContractType(filename, server);
@@ -35,9 +39,10 @@ async function attempt_cct(ns: NS, filename: string, host: string | undefined) {
   }
   const solver: CCTSolver | undefined = known_ccts.get(cct_type);
   if (!solver) {
-    ns.tprint(`WARNING Unknown coding contract ${format_cct(filename, host, cct_type, { is_warning: true })}; ignoring.`);
-    if (ns.args.indexOf('--desc-unknown') !== -1) {
-      print_desc(ns, filename, server, cct_type, data);
+    if (ns.args.includes('--desc-unknown')) {
+      unknowns.set(cct_type, [filename, server]);
+    } else {
+      ns.tprint(`WARNING Unknown coding contract ${format_cct(filename, host, cct_type, { is_warning: true })}; ignoring.`);
     }
     return;
   }
@@ -92,5 +97,12 @@ export async function main(ns: NS): Promise<void> {
     for (const [filename, host] of all_ccts) {
       await attempt_cct(ns, filename, host);
     }
+  }
+  if (ns.args.includes('--desc-unknown')) {
+    for (const [type, [filename, server]] of unknowns.entries()) {
+      ns.tprint(`WARNING Unknown coding contract: ${format_cct(filename, server, type, { is_warning: true })}`);
+      print_desc(ns, filename, server, type, ns.codingcontract.getData(filename, server));
+    }
+    unknowns.clear();
   }
 }
