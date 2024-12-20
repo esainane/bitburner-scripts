@@ -6,6 +6,7 @@ export const autocomplete = autocomplete_func;
 
 export const contracts = new Map<string, CCTSolver>([
   ['Compression I: RLE Compression', { solve: compression_1, test: test_compression_1 }],
+  ['Compression II: LZ Decompression', { solve: compression_2, test: test_compression_2 }],
 ]);
 
 export const main = ccts_main(contracts);
@@ -76,4 +77,79 @@ function test_compression_1(ns: NS) {
   }
 
   assert_all_passed(ns);
+}
+
+/**
+ * Compression II: LZ Decompression
+ *
+ * Lempel-Ziv (LZ) compression is a data compression technique which encodes data using references to earlier parts of
+ * the data. In this variant of LZ, data is encoded in two types of chunk. Each chunk begins with a length L, encoded
+ * as a single ASCII digit from 1 to 9, followed by the chunk data, which is either:
+ *
+ * 1. Exactly L characters, which are to be copied directly into the uncompressed data.
+ * 2. A reference to an earlier part of the uncompressed data. To do this, the length is followed by a second ASCII
+ * digit X: each of the L output characters is a copy of the character X places before it in the uncompressed data.
+ *
+ * For both chunk types, a length of 0 instead means the chunk ends immediately, and the next character is the start of
+ * a new chunk. The two chunk types alternate, starting with type 1, and the final chunk may be of either type.
+ *
+ * You are given the following LZ-encoded string:
+ *     45B62115xmGGc8424r870463OIP953GXh8928o3954LIZc513Maj6353LhAW
+ * Decode it and output the original string.
+ *
+ * @example decoding '5aaabb450723abb' chunk-by-chunk
+ *
+ *   5aaabb           ->  aaabb
+ *   5aaabb45         ->  aaabbaaab
+ *   5aaabb450        ->  aaabbaaab
+ *   5aaabb45072      ->  aaabbaaababababa
+ *   5aaabb450723abb  ->  aaabbaaababababaabb
+ */
+function compression_2(data: unknown) {
+  if (typeof(data) !== 'string') {
+    throw new Error('Expected string, received ' + JSON.stringify(data));
+  }
+
+  const input = data as string;
+
+  let decoded_output = '';
+
+  // Decompress the input. Do this character by character, as we can reference characters which we have written out
+  // in the same lookbehind chunk.
+
+  let in_literal = false;
+  let chunk_remaining = 0;
+  for (const c of input) {
+    if (chunk_remaining-- <= 0) {
+      in_literal = !in_literal;
+      chunk_remaining = parseInt(c);
+      continue;
+    }
+    if (in_literal) {
+      decoded_output += c;
+    } else {
+      const lookbehind_distance = parseInt(c);
+      do  {
+        decoded_output += decoded_output[decoded_output.length - lookbehind_distance];
+      } while (chunk_remaining-- > 0);
+    }
+  }
+
+  // Return the decompressed output
+
+  return decoded_output;
+}
+
+function test_compression_2(ns: NS) {
+  // Test cases for compression_2
+  const testCases = [
+    { input: '5aaabb450723abb', expected: 'aaabbaaababababaabb' },
+    { input: "4wsIw929gaWovh42b09uMpRkT04m096m4J0AKSj09ilYG4uy6l483ANS23", expected: "wsIwIwIwIwIwIgaWovh42buMpRkT04m6m4J0AKSjilYG4uy6llYG4ANSAN" },
+    { input: "8PQVzjVdC956m0OOO6254DGwu612th888rdRrv72C924ITLC", expected: "PQVzjVdCzjVdCzjVdm0OOO60ODGwuuuuuuuthuuuuuuthrdRrv72C2C2C2C2C2ITLC" },
+    { input: "8B2PUh0gH159jjOfFrTsY09vnSFEKj4d05v5jTl9196emS5vlKm09IL6vyBMe704327c34", expected: "B2PUh0gHUjjOfFrTsYvnSFEKj4dv5jTllllllllll6emS5vlKmIL6vyBMe7327c327" },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = compression_2(input);
+    assert_eq(ns, expected, actual, `compression_2(${JSON.stringify(input)})`);
 }
