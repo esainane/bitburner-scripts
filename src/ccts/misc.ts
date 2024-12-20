@@ -6,6 +6,7 @@ import { format_data } from '/lib/colors';
 export const autocomplete = autocomplete_func;
 
 export const contracts = new Map<string, CCTSolver>([
+  ["Find All Valid Math Expressions", { solve: find_math_expressions, test: test_find_math_expressions }],
   ["Generate IP Addresses", { solve: generate_ips, test: test_generate_ips }],
   ["Total Ways to Sum", { solve: sum, test: test_sum }],
   ["Total Ways to Sum II", { solve: sum_2, test: test_sum_2 }],
@@ -13,6 +14,72 @@ export const contracts = new Map<string, CCTSolver>([
 ]);
 
 export const main = ccts_main(contracts);
+
+/**
+ * Find All Valid Math Expressions
+ *
+ * You are given the following string which contains only digits between 0 and 9.
+ *
+ * You are also given a target number of -86. Return all possible ways you can add the +(add), -(subtract), and *(multiply) operators to the string such that it evaluates to the target number. (Normal order of operations applies.)
+ *
+ * The provided answer should be an array of strings containing the valid expressions. The data provided by this problem is an array with two elements. The first element is the string of digits, while the second element is the target number:
+ *
+ * @example ["3224124", -86]
+ *
+ * NOTE: The order of evaluation expects script operator precedence.
+ * NOTE: Numbers in the expression cannot have leading 0's. In other words, "1+01" is not a valid expression.
+ *
+ * @example Input: digits = "123", target = 6
+ *          Output: ["1+2+3", "1*2*3"]
+ * @example Input: digits = "105", target = 5
+ *          Output: ["1*0+5", "10-5"]
+ */
+function find_math_expressions(data: unknown) {
+  if (!Array.isArray(data) || data.length !== 2 || typeof data[0] !== 'string' || typeof data[1] !== 'number') {
+    throw new Error('Expected [string, number], received ' + JSON.stringify(data));
+  }
+  const [digits, target] = data as [string, number];
+  if (!digits.split('').every((c) => ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].includes(c))) {
+    throw new Error('Expected digits is string of digits, received ' + JSON.stringify(digits));
+  }
+
+  const result: Array<string> = [];
+
+  const dfs = (s: string, frags: string[]) => {
+    for (const i of s.startsWith('0') ? [0] : Array(s.length - 1).keys()) {
+      const number = s.slice(0, 1 + i);
+      const tail = s.slice(1 + i);
+      dfs(tail, [...frags, number, '+']);
+      dfs(tail, [...frags, number, '-']);
+      dfs(tail, [...frags, number, '*']);
+    }
+    if (s.startsWith('0') && s.length > 1) {
+      return;
+    }
+    const expr = [...frags, s].join('');
+    const ret = eval(expr);
+    if (ret === target) {
+      result.push(expr);
+    }
+  };
+
+  dfs(digits, []);
+
+  return result;
+}
+
+function test_find_math_expressions(ns: NS) {
+  // Test cases for find_math_expressions
+  const testCases = [
+    { input: ['123', 6], expected: ['1+2+3', '1*2*3'] },
+    { input: ['105', 5], expected: ['1*0+5', '10-5'] },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = find_math_expressions(input);
+    assert_set_eq(ns, new Set(expected), new Set(actual), `find_math_expressions(${JSON.stringify(input)})`);
+  }
+}
 
 /**
  * Generate IP Addresses
