@@ -8,6 +8,7 @@ export const autocomplete = autocomplete_func;
 export const contracts = new Map<string, CCTSolver>([
   ["Find All Valid Math Expressions", { solve: find_math_expressions, test: test_find_math_expressions }],
   ["Generate IP Addresses", { solve: generate_ips, test: test_generate_ips }],
+  ["Sanitize Parentheses in Expression", { solve: sanitize_parentheses, test: test_sanitize_parentheses }],
   ["Total Ways to Sum", { solve: sum, test: test_sum }],
   ["Total Ways to Sum II", { solve: sum_2, test: test_sum_2 }],
   ["Square Root", { solve: square_root, test: test_square_root }],
@@ -146,6 +147,85 @@ function test_generate_ips(ns: NS) {
   for (const { input, expected } of testCases) {
     const actual = generate_ips(input);
     assert_set_eq(ns, new Set(expected), new Set(actual), `generate_ips(${JSON.stringify(input)})`);
+  }
+}
+
+/**
+ * Sanitize Parentheses in Expression
+ *
+ * Given the following string, remove the minimum number of invalid parentheses in order to validate the string.
+ * If there are multiple minimal ways to validate the string, provide all of the possible results.
+ * The answer should be provided as an array of strings. If it is impossible to validate the string the result should
+ * be an array with only an empty string.
+ *
+ * IMPORTANT: The string may contain letters, not just parentheses.
+ *
+ * @example "()())()" -> ["()()()", "(())()"]
+ * @example "(a)())()" -> ["(a)()()", "(a())()"]
+ * @example ")(" -> [""]
+ */
+function sanitize_parentheses(data: unknown) {
+  if (typeof data !== 'string') {
+    throw new Error('Expected string, received ' + JSON.stringify(data));
+  }
+  const s = data as string;
+
+  let excess_open = 0;
+  let excess_close = 0;
+  for (const c of s) {
+    if (c === '(') {
+      ++excess_open;
+    } else if (c === ')') {
+      if (excess_open > 0) {
+        --excess_open;
+      } else {
+        ++excess_close;
+      }
+    }
+  }
+
+  const result: Set<string> = new Set();
+  const dfs = (s: string, acc: string, excess_open: number, excess_close: number, currently_open: number) => {
+    if (!s) {
+      if (excess_open === 0 && excess_close === 0 && currently_open === 0) {
+        result.add(acc);
+      }
+      return;
+    }
+    const c = s[0];
+    if (c === '(') {
+      if (excess_open > 0) {
+        dfs(s.slice(1), acc, excess_open - 1, excess_close, currently_open);
+      }
+      dfs(s.slice(1), acc + '(', excess_open, excess_close, currently_open + 1);
+    } else if (c === ')') {
+      if (excess_close > 0) {
+        dfs(s.slice(1), acc, excess_open, excess_close - 1, currently_open);
+      }
+      if (currently_open > 0) {
+        dfs(s.slice(1), acc + ')', excess_open, excess_close, currently_open - 1);
+      }
+    } else {
+      dfs(s.slice(1), acc + c, excess_open, excess_close, currently_open);
+    }
+  };
+
+  dfs(s, '', excess_open, excess_close, 0);
+
+  return [...result];
+}
+
+function test_sanitize_parentheses(ns: NS) {
+  // Test cases for sanitize_parentheses
+  const testCases = [
+    { input: '()())()', expected: ['()()()', '(())()'] },
+    { input: '(a)())()', expected: ['(a)()()', '(a())()'] },
+    { input: ')(', expected: [''] },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = sanitize_parentheses(input);
+    assert_set_eq(ns, new Set(expected), new Set(actual), `sanitize_parentheses(${JSON.stringify(input)})`);
   }
 }
 
