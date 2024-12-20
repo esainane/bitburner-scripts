@@ -32,8 +32,14 @@ export function find_runners(ns: NS, servers: Array<string>, script: string, exc
     if (!ns.hasRootAccess(s)) {
       continue;
     }
+    let reserved = 0;
     if (exclude_runners.has(s)) {
-      continue;
+      if (s != 'home') {
+        continue;
+      }
+      // Spare a little from home
+      // FIXME: What a hack
+      reserved = 64;
     }
     let ignored_used_ram = 0;
     if (ignore_scripts) {
@@ -44,7 +50,7 @@ export function find_runners(ns: NS, servers: Array<string>, script: string, exc
       }
     }
     const [ max_ram, used_ram ] = [ ns.getServerMaxRam(s), ns.getServerUsedRam(s) ];
-    const server_available_threads = Math.floor((max_ram - used_ram + ignored_used_ram) / ram_per_thread);
+    const server_available_threads = Math.floor((max_ram - reserved - used_ram + ignored_used_ram) / ram_per_thread);
     if (server_available_threads < 1) {
       continue;
     }
