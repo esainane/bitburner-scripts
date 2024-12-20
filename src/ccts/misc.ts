@@ -6,11 +6,60 @@ import { format_data } from '/lib/colors';
 export const autocomplete = autocomplete_func;
 
 export const contracts = new Map<string, CCTSolver>([
-  ["Total Ways to Sum II", { solve: sum_2, test: test_sum }],
+  ["Total Ways to Sum", { solve: sum, test: test_sum }],
+  ["Total Ways to Sum II", { solve: sum_2, test: test_sum_2 }],
   ["Square Root", { solve: square_root, test: test_square_root }],
 ]);
 
 export const main = ccts_main(contracts);
+
+/**
+ * Total Ways to Sum
+ *
+ * It is possible write four as a sum in exactly four different ways
+ *   3 + 1
+ *   2 + 2
+ *   2 + 1 + 1
+ *   1 + 1 + 1 + 1
+ *
+ * @example How many different distinct ways can the number 49 be written as a sum of at least two positive integers?
+ *
+ * @param data number
+ */
+function sum(data: unknown) {
+  if (typeof data !== 'number') {
+    throw new Error('Expected number, received ' + JSON.stringify(data));
+  }
+  const num = data as number;
+
+  // Use dynamic programming to solve this problem
+  // There's probably a nice formula for this, but I already did sum_2 first
+  const dp = Array(num + 1).fill(0);
+  dp[0] = 1;
+  for (let i = 1; i < num; i++) {
+    for (let j = i; j <= num; j++) {
+      dp[j] += dp[j - i];
+    }
+  }
+
+  return dp[num];
+}
+
+function test_sum(ns: NS) {
+  // Test cases for sum
+  const testCases = [
+    { input: 4, expected: 4 },
+    { input: 49, expected: 173524 },
+    { input: 62, expected: 1300155 },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = sum(input);
+    assert_eq(ns, expected, actual, `sum(${JSON.stringify(input)})`);
+  }
+
+  assert_all_passed(ns);
+}
 
 /**
  * Total Ways to Sum II
@@ -38,8 +87,8 @@ function sum_2(data: unknown) {
   return dp[total];
 }
 
-function test_sum(ns: NS) {
-  // Test cases for sum
+function test_sum_2(ns: NS) {
+  // Test cases for sum_2
   const testCases = [
     { input: [39, [1, 3, 4, 5, 7, 8, 9, 11, 12]], expected: 2451 },
     { input: [82,[1,2,6,7,8,10,12,13,14,15,16,17]], expected: 142809 },
@@ -47,7 +96,7 @@ function test_sum(ns: NS) {
 
   for (const { input, expected } of testCases) {
     const actual = sum_2(input);
-    assert_eq(ns, expected, actual, `sum(${JSON.stringify(input)})`);
+    assert_eq(ns, expected, actual, `sum_2(${JSON.stringify(input)})`);
   }
 
   assert_all_passed(ns);
