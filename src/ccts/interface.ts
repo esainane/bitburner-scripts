@@ -1,5 +1,5 @@
 import { AutocompleteData, NS } from '@ns';
-import { colors } from '/lib/colors';
+import { colors, format_data } from '/lib/colors';
 
 export type CCTResult = string | number | unknown[];
 
@@ -38,12 +38,12 @@ export function test_dummy(ns: NS, type: string, solver: CCTSolver, verbose=true
   const ok = ns.codingcontract.attempt(answer, fname, 'home');
   if (ok) {
     if (verbose) {
-      ns.tprint(`SUCCESS {${type}} Dummy contract: [${fname}]: ${data} -> `, answer);
+      ns.tprint(`SUCCESS {${colors.fg_cyan}${type}${colors.reset}} Dummy contract: [${fname}]: ${format_data(data)} -> ${format_data(answer)}`);
     }
     return;
   }
   if (verbose) {
-    ns.tprint(`WARNING {${type}} Dummy contract solver failed: [${fname}]: ${data} -> `, answer);
+    ns.tprint(`ERROR {${colors.fg_cyan}${type}${colors.reset}} Dummy contract solver failed: [${fname}]: ${format_data(data)} -> ${format_data(answer)}`);
     const desc = ns.codingcontract.getDescription(fname);
     ns.tprint(desc);
   }
@@ -51,7 +51,7 @@ export function test_dummy(ns: NS, type: string, solver: CCTSolver, verbose=true
 }
 
 export function autocomplete_func(data: AutocompleteData, args: string[]): string[] {
-  return ['--generated', '--desc', '--quiet'];
+  return ['--generated', '--test', '--desc', '--quiet'];
 }
 
 export function ccts_main(contracts: Map<string, CCTSolver>): (ns: NS) => Promise<void> {
