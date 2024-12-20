@@ -1,17 +1,76 @@
 import { NS } from '@ns'
 import { autocomplete_func, CCTResult, ccts_main, CCTSolver } from './interface';
-import { assert_eq, assert_all_passed } from '/lib/assert';
+import { assert_eq, assert_all_passed, assert_set_eq } from '/lib/assert';
 import { format_data } from '/lib/colors';
 
 export const autocomplete = autocomplete_func;
 
 export const contracts = new Map<string, CCTSolver>([
+  ["Generate IP Addresses", { solve: generate_ips, test: test_generate_ips }],
   ["Total Ways to Sum", { solve: sum, test: test_sum }],
   ["Total Ways to Sum II", { solve: sum_2, test: test_sum_2 }],
   ["Square Root", { solve: square_root, test: test_square_root }],
 ]);
 
 export const main = ccts_main(contracts);
+
+/**
+ * Generate IP Addresses
+ *
+ * Given the following string containing only digits, return an array with all possible valid IP address combinations
+ * that can be created from the string
+ *
+ * Note that an octet cannot begin with a '0' unless the number itself is exactly '0'. For example, '192.168.010.1' is not a valid IP.
+ *
+ * @example 187212159172
+ *
+ * @param data string
+ */
+function generate_ips(data: unknown) {
+  if (typeof data !== 'string') {
+    throw new Error('Expected string, received ' + JSON.stringify(data));
+  }
+  const num = data as string;
+
+  const valid_octet = (o: string) => o.length > 0 && parseInt(o) <= 255 && (o.length === 1 || o[0] !== '0');
+
+  const result: Array<string> = [];
+  const dfs = (s: string, frags: string[], piece: number) => {
+    for (const i of Array(3).keys()) {
+      const octet = s.slice(0, 1 + i);
+      if (valid_octet(octet)) {
+        const tail = s.slice(1 + i);
+        if (piece === 3 && valid_octet(tail)) {
+          result.push([...frags, octet, tail].join('.'));
+        } else {
+          dfs(tail, [...frags, octet], piece + 1);
+        }
+      }
+    }
+  };
+
+  dfs(num, [], 1);
+
+  return result;
+}
+
+function test_generate_ips(ns: NS) {
+  // Test cases for generate_ips
+  const testCases = [
+    { input: '187212159172', expected: [
+      '187.212.159.172',
+    ]},
+    { input: '2552552550', expected: [
+      '255.255.255.0',
+      '255.255.25.50'
+    ]},
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = generate_ips(input);
+    assert_set_eq(ns, new Set(expected), new Set(actual), `generate_ips(${JSON.stringify(input)})`);
+  }
+}
 
 /**
  * Total Ways to Sum
