@@ -145,6 +145,7 @@ function test_unique_grid_paths_1(ns: NS) {
     { input: [5, 5], expected: 70 },
     { input: [6, 5], expected: 126 },
     { input: [5, 6], expected: 126 },
+    { input: [12, 13], expected: 1352078 },
   ];
 
   for (const { input, expected } of testCases) {
@@ -195,5 +196,6 @@ function pascals_triangle(row: number, column: number) {
   for (let cell=1; cell <= column; ++cell) {
     acc *= (row + 1 - cell) / cell
   }
-  return acc
+  // Could possibly be improved by using a fraction/rational library instead of hoping floating point is good enough
+  return Math.round(acc);
 }
