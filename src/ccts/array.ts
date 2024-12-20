@@ -59,7 +59,7 @@ function test_array_jumping(ns: NS) {
 
   for (const { input, expected } of testCases) {
     const actual = array_jumping(input);
-    assert_eq(ns, expected, actual, `array(${JSON.stringify(input)})`);
+    assert_eq(ns, expected, actual, `array_jumping(${JSON.stringify(input)})`);
   }
 
   assert_all_passed(ns);
@@ -111,6 +111,6 @@ function test_array_jumping_2(ns: NS) {
 
   for (const { input, expected } of testCases) {
     const actual = array_jumping_2(input);
-    assert_eq(ns, expected, actual, `array(${JSON.stringify(input)})`);
+    assert_eq(ns, expected, actual, `array_jumping_2(${JSON.stringify(input)})`);
   }
 }
