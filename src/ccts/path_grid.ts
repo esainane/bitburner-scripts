@@ -7,6 +7,7 @@ export const autocomplete = autocomplete_func;
 export const contracts = new Map<string, CCTSolver>([
   ["Shortest Path in a Grid", { solve: shortest_path_grid, test: test_shortest_path_grid }],
   ["Unique Paths in a Grid I", { solve: unique_grid_paths_1, test: test_unique_grid_paths_1 }],
+  ["Unique Paths in a Grid II", { solve: unique_grid_paths_2, test: test_unique_grid_paths_2 }],
 ]);
 
 export const main = ccts_main(contracts);
@@ -154,6 +155,80 @@ function test_unique_grid_paths_1(ns: NS) {
   }
 
   assert_all_passed(ns);
+}
+
+/**
+ * Unique Paths in a Grid II
+ *
+ * You are located in the top-left corner of the following grid:
+ *
+ * 0,0,0,0,0,1,0,0,0,0,0,1,
+ * 0,0,0,0,0,1,0,0,0,1,0,0,
+ * 0,0,0,0,0,0,0,0,0,0,0,0,
+ * 0,0,0,0,0,0,0,0,1,0,0,0,
+ * 0,0,0,0,0,0,1,0,0,0,0,0,
+ * 0,0,0,0,0,0,1,1,1,0,0,0,
+ * 0,0,0,0,0,0,0,0,0,0,0,0,
+ * 0,0,0,0,0,0,0,0,0,0,0,0,
+ * 0,0,0,0,0,1,0,0,0,0,0,1,
+ * 0,0,1,0,0,0,0,1,0,0,0,0,
+ *
+ * You are trying reach the bottom-right corner of the grid, but you can only move down or right on each step.
+ * Furthermore, there are obstacles on the grid that you cannot move onto. These obstacles are denoted by '1', while
+ * empty spaces are denoted by 0.
+ *
+ * Determine how many unique paths there are from start to finish.
+ *
+ * @param data NOTE: The data returned for this contract is an 2D array of numbers representing the grid.
+ */
+function unique_grid_paths_2(data: unknown) {
+  if (!Array.isArray(data) || data.length < 1 || !Array.isArray(data[0]) || data[0].length < 1 || typeof(data[0][0]) !== "number") {
+    throw new Error('Expected [[number, number, ...], [number, number, ...], ...], received ' + JSON.stringify(data));
+  }
+
+  const grid = data as number[][];
+
+  const w = grid[0].length;
+  const h = grid.length;
+
+  const paths = [...new Array(h).keys().map(()=>new Array<number>(w).fill(0))];
+
+  for (const y of paths.keys()) {
+    for (const x of paths[0].keys()) {
+      if (grid[y][x] === 1) {
+        continue;
+      }
+      if (x === 0 && y === 0) {
+        paths[y][x] = 1;
+      } else {
+        paths[y][x] = (x > 0 ? paths[y][x - 1] : 0) + (y > 0 ? paths[y - 1][x] : 0);
+      }
+    }
+  }
+
+  return paths[h - 1][w - 1];
+}
+
+function test_unique_grid_paths_2(ns: NS) {
+  // Test cases for unique_grid_paths_2
+  const testCases = [
+    { input: [[0,1],[1,0]], expected: 0 },
+    { input: [[0,0,0,0,0,1,0,0,0,0,0,1],
+              [0,0,0,0,0,1,0,0,0,1,0,0],
+              [0,0,0,0,0,0,0,0,0,0,0,0],
+              [0,0,0,0,0,0,0,0,1,0,0,0],
+              [0,0,0,0,0,0,1,0,0,0,0,0],
+              [0,0,0,0,0,0,1,1,1,0,0,0],
+              [0,0,0,0,0,0,0,0,0,0,0,0],
+              [0,0,0,0,0,0,0,0,0,0,0,0],
+              [0,0,0,0,0,1,0,0,0,0,0,1],
+              [0,0,1,0,0,0,0,1,0,0,0,0]], expected: 24168 },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = unique_grid_paths_2(input);
+    assert_eq(ns, expected, actual, `unique_grid_paths_2(${JSON.stringify(input)})`);
+  }
 }
 
 // Helpers
