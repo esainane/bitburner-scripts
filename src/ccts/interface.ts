@@ -39,17 +39,19 @@ export function test_dummy(ns: NS, type: string, solver: CCTSolver, verbose=true
   try {
     ok = ns.codingcontract.attempt(answer, fname, 'home');
   } catch (e) {
-    ns.tprint(`ERROR {${colors.fg_cyan}${type}${colors.reset}} Dummy contract solver raised exception: [${fname}]: ${format_data(data)} -> ${format_data(answer)}: ${e}`);
+    ns.tprint(`ERROR {${colors.fg_cyan}${type}${colors.reset}} Dummy contract solver raised exception: [${fname}]: ${format_data(data)} -> ${format_data(answer, {abbrev: true})}: ${e}`);
+    console.log('Exception in coding contract', type, 'data:', data, answer);
     return { type, input: data, filename: fname, actual: answer };
   }
   if (ok) {
     if (verbose) {
-      ns.tprint(`SUCCESS {${colors.fg_cyan}${type}${colors.reset}} Dummy contract: [${fname}]: ${format_data(data)} -> ${format_data(answer, { abbrev:true })}`);
+      ns.tprint(`SUCCESS {${colors.fg_cyan}${type}${colors.reset}} Dummy contract: [${fname}]: ${format_data(data)} -> ${format_data(answer, {abbrev:true})}`);
     }
     return;
   }
   if (verbose) {
-    ns.tprint(`ERROR {${colors.fg_cyan}${type}${colors.reset}} Dummy contract solver failed: [${fname}]: ${format_data(data)} -> ${format_data(answer)}`);
+    ns.tprint(`ERROR {${colors.fg_cyan}${type}${colors.reset}} Dummy contract solver failed: [${fname}]: ${format_data(data)} -> ${format_data(answer, {abbrev:true})}`);
+    console.log('Failed coding contract', type, 'data:', data, answer);
     const desc = ns.codingcontract.getDescription(fname);
     ns.tprint(desc);
   }
