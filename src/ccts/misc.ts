@@ -43,29 +43,39 @@ function find_math_expressions(data: unknown) {
     throw new Error('Expected digits is string of digits, received ' + JSON.stringify(digits));
   }
 
-  const result: Array<string> = [];
-
-  const dfs = (s: string, frags: string[]) => {
-    for (const i of s.startsWith('0') ? [0] : Array(s.length - 1).keys()) {
-      const number = s.slice(0, 1 + i);
+  // Track both the current accumulated value and the multiplied accumulated value
+  // The multipled accumulated value gets reset whenever we do a non-multiplication
+  const dfs = (s: string, acc: number, mult_acc: number, root=false): Array<string> => {
+    if (s.length === 0) {
+      if (acc == target) {
+        return [''];
+      }
+      return [];
+    }
+    let result: Array<string> = [];
+    for (const i of s.startsWith('0') ? [0] : Array(s.length).keys()) {
+      const number = parseInt(s.slice(0, 1 + i));
       const tail = s.slice(1 + i);
-      dfs(tail, [...frags, number, '+']);
-      dfs(tail, [...frags, number, '-']);
-      dfs(tail, [...frags, number, '*']);
+      if (root) {
+        result = [
+          ...result,
+          ...dfs(tail, number, number).map(d=>`${number}${d}`),
+        ];
+      } else {
+        // Construct result strings lazily, rather than 4**(s.length-1) times
+        result = [
+          ...result,
+          ...dfs(tail, acc + number, number).map(d=>`+${number}${d}`),
+          ...dfs(tail, acc - number, -number).map(d=>`-${number}${d}`),
+          // acc includes one instance of mult_acc already, so we only need to add number - 1 more
+          ...dfs(tail, acc + mult_acc * (number - 1), mult_acc * number).map(d=>`*${number}${d}`),
+        ];
+      }
     }
-    if (s.startsWith('0') && s.length > 1) {
-      return;
-    }
-    const expr = [...frags, s].join('');
-    const ret = eval(expr);
-    if (ret === target) {
-      result.push(expr);
-    }
+    return result;
   };
 
-  dfs(digits, []);
-
-  return result;
+  return dfs(digits, 0, 0, true);
 }
 
 function test_find_math_expressions(ns: NS) {

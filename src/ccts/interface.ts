@@ -44,7 +44,7 @@ export function test_dummy(ns: NS, type: string, solver: CCTSolver, verbose=true
   }
   if (ok) {
     if (verbose) {
-      ns.tprint(`SUCCESS {${colors.fg_cyan}${type}${colors.reset}} Dummy contract: [${fname}]: ${format_data(data)} -> ${format_data(answer)}`);
+      ns.tprint(`SUCCESS {${colors.fg_cyan}${type}${colors.reset}} Dummy contract: [${fname}]: ${format_data(data)} -> ${format_data(answer, { abbrev:true })}`);
     }
     return;
   }

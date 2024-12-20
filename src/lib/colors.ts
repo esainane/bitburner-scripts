@@ -101,10 +101,13 @@ export function format_number(n: number, { colorize = true } = {}): string {
   return `${colorize ? colors.fg_white : ''}${n}${colors.reset}`;
 }
 
-export function format_data(n: unknown, { colorize = true } = {}): string {
+export function format_data(n: unknown, { colorize = true, abbrev = false } = {}): string {
   if (n?.constructor === BigInt || typeof n === 'bigint') {
     // JSON.stringify will throw an exception if given a bigint
     n = n.toString();
+  }
+  if (abbrev && Array.isArray(n) && n.length > 10) {
+    return `${colorize ? colors.fg_white : ''}[${n.slice(0, 10).map(d => format_data(d, { colorize, abbrev })).join(', ')}${colors.reset} ...(${format_number(n.length -10)} more entries)${colors.fg_white}]${colors.reset}`;
   }
   return `${colorize ? colors.fg_white : ''}${JSON.stringify(n)}${colors.reset}`;
 }
