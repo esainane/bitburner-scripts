@@ -79,6 +79,10 @@ async function find_all_ccts(ns: NS) {
 
 
 export async function main(ns: NS): Promise<void> {
+  if (ns.args.includes('--test')) {
+    ns.spawn('ccts/all.js', 1, '--test');
+    return;
+  }
   if (ns.args.length > 1 && !String(ns.args[0]).startsWith('-')) {
     const filename = String(ns.args[0]);
     const host = String(ns.args[1]);

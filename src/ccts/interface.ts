@@ -56,10 +56,13 @@ export function autocomplete_func(data: AutocompleteData, args: string[]): strin
 
 export function ccts_main(contracts: Map<string, CCTSolver>): (ns: NS) => Promise<void> {
   return async function main(ns: NS): Promise<void> {
-    if (ns.args.indexOf('--generated') !== -1) {
+    if (ns.args.includes('--test') || ns.args.includes('--generated')) {
       // Use generated ccts
       test_dummy_all(ns, contracts, ns.args.indexOf('--quiet') === -1);
-      return;
+      // If told to --test, do both generated and self-tests
+      if (!ns.args.includes('--test')) {
+        return;
+      }
     } else if (ns.args.indexOf('--desc') !== -1) {
       // Get descriptions for all contracts
       for (const [type, solver] of contracts) {
