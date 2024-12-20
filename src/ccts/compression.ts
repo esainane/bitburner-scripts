@@ -310,6 +310,10 @@ function compression_3(data: unknown) {
     i += 1;
   }
 
+  if (!best_this_iteration) {
+    throw new Error("best_this_iterator was null after processing the entire input, this shouldn't happen!");
+  }
+
   return best_this_iteration;
 }
 
