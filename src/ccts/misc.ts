@@ -11,6 +11,7 @@ export const contracts = new Map<string, CCTSolver>([
   ['Merge Overlapping Intervals', { solve: merge_intervals, test: test_merge_intervals }],
   ["Minimum Path Sum in a Triangle", { solve: minimum_path_triangle, test: test_minimum_path_triangle }],
   ["Sanitize Parentheses in Expression", { solve: sanitize_parentheses, test: test_sanitize_parentheses }],
+  ["Subarray with Maximum Sum", { solve: subarray_sum, test: test_subarray_sum }],
   ["Total Ways to Sum", { solve: sum, test: test_sum }],
   ["Total Ways to Sum II", { solve: sum_2, test: test_sum_2 }],
   ["Square Root", { solve: square_root, test: test_square_root }],
@@ -332,6 +333,42 @@ function test_sanitize_parentheses(ns: NS) {
   for (const { input, expected } of testCases) {
     const actual = sanitize_parentheses(input);
     assert_set_eq(ns, new Set(expected), new Set(actual), `sanitize_parentheses(${JSON.stringify(input)})`);
+  }
+}
+
+/**
+ * Subarray with Maximum Sum
+ *
+ * Given the following integer array, find the contiguous subarray (containing at least one number) which has the
+ * largest sum and return that sum. 'Sum' refers to the sum of all the numbers in the subarray.
+ *
+ * @example 5,-8,0,2,-4,0,10,6,3,-6,-6,2,7,-9,-3,7,7,-8,9,-1,-9,-4,-3,6
+ */
+function subarray_sum(data: unknown) {
+  if (!Array.isArray(data) || !data.every((n) => typeof n === 'number')) {
+    throw new Error('Expected [number], received ' + JSON.stringify(data));
+  }
+  const nums = data as number[];
+
+  let max_sum = nums[0];
+  let current_sum = nums[0];
+  for (let i = 1; i < nums.length; i++) {
+    current_sum = Math.max(nums[i], current_sum + nums[i]);
+    max_sum = Math.max(max_sum, current_sum);
+  }
+
+  return max_sum;
+}
+
+function test_subarray_sum(ns: NS) {
+  // Test cases for subarray_sum
+  const testCases = [
+    { input: [5, -8, 0, 2, -4, 0, 10, 6, 3, -6, -6, 2, 7, -9, -3, 7, 7, -8, 9, -1, -9, -4, -3, 6], expected: 19 },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = subarray_sum(input);
+    assert_eq(ns, expected, actual, `subarray_sum(${JSON.stringify(input)})`);
   }
 }
 
