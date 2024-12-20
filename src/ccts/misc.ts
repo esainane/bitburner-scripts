@@ -1,6 +1,6 @@
 import { NS } from '@ns'
 import { autocomplete_func, CCTResult, ccts_main, CCTSolver } from './interface';
-import { assert_eq, assert_all_passed, assert_set_eq } from '/lib/assert';
+import { assert_eq, assert_all_passed, assert_set_eq, assert_arr_eq } from '/lib/assert';
 import { format_data } from '/lib/colors';
 
 export const autocomplete = autocomplete_func;
@@ -8,6 +8,7 @@ export const autocomplete = autocomplete_func;
 export const contracts = new Map<string, CCTSolver>([
   ["Find All Valid Math Expressions", { solve: find_math_expressions, test: test_find_math_expressions }],
   ["Generate IP Addresses", { solve: generate_ips, test: test_generate_ips }],
+  ['Merge Overlapping Intervals', { solve: merge_intervals, test: test_merge_intervals }],
   ["Minimum Path Sum in a Triangle", { solve: minimum_path_triangle, test: test_minimum_path_triangle }],
   ["Sanitize Parentheses in Expression", { solve: sanitize_parentheses, test: test_sanitize_parentheses }],
   ["Total Ways to Sum", { solve: sum, test: test_sum }],
@@ -150,6 +151,57 @@ function test_generate_ips(ns: NS) {
     assert_set_eq(ns, new Set(expected), new Set(actual), `generate_ips(${JSON.stringify(input)})`);
   }
 }
+
+/**
+ * Merge Overlapping Intervals
+ *
+ * Given the following array of arrays of numbers representing a list of intervals, merge all overlapping intervals.
+ *
+ * [[19,21],[14,21],[11,14],[3,12],[4,6],[23,33],[6,11],[17,21],[12,18],[12,16]]
+ *
+ * @example [[1, 3], [8, 10], [2, 6], [10, 16]]
+ *          would merge into [[1, 6], [8, 16]].
+ *
+ * The intervals must be returned in ASCENDING order. You can assume that in an interval, the first number will always
+ * be smaller than the second.
+ */
+function merge_intervals(data: unknown) {
+  if (!Array.isArray(data) || !data.every(Array.isArray) || !data.every((a) => a.length === 2)) {
+    throw new Error('Expected array of arrays of length 2, received ' + JSON.stringify(data));
+  }
+  const intervals = data as [number, number][];
+
+  intervals.sort((a, b) => a[0] - b[0]);
+
+  const result: [number, number][] = intervals.reduce((acc: [number, number][], [start, end]: [number, number]): [number, number][] => {
+    if (acc.length === 0) {
+      return [[start, end]];
+    }
+    const last = acc[acc.length - 1];
+    if (start <= last[1]) {
+      last[1] = Math.max(last[1], end);
+    } else {
+      acc.push([start, end]);
+    }
+    return acc;
+  }, []);
+
+  return result;
+}
+
+function test_merge_intervals(ns: NS) {
+  // Test cases for merge_intervals
+  const testCases = [
+    { input: [[1, 3], [8, 10], [2, 6], [10, 16]], expected: [[1, 6], [8, 16]] },
+    { input: [[19, 21], [14, 21], [11, 14], [3, 12], [4, 6], [23, 33], [6, 11], [17, 21], [12, 18], [12, 16]], expected: [[3, 21], [23, 33]] },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = merge_intervals(input);
+    assert_arr_eq(ns, expected, actual, `merge_intervals(${JSON.stringify(input)})`);
+  }
+}
+
 
 /**
  * Minimum Path Sum in a Triangle
