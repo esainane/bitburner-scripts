@@ -3,6 +3,7 @@ import { autocomplete_func, ccts_main, CCTSolver } from './interface';
 export const autocomplete = autocomplete_func;
 
 import { contracts as algo_stock_contracts } from './algo_stock';
+import { contracts as array_contracts } from './array';
 import { contracts as encryption_contracts } from './encryption';
 import { contracts as compression_contracts } from './compression';
 import { contracts as misc_contracts } from './misc';
@@ -11,6 +12,7 @@ import { contracts as path_grid_contracts } from './path_grid';
 
 export const contracts = new Map<string, CCTSolver>([
   ...algo_stock_contracts,
+  ...array_contracts,
   ...compression_contracts,
   ...encryption_contracts,
   ...misc_contracts,
