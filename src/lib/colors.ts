@@ -102,6 +102,10 @@ export function format_number(n: number, { colorize = true } = {}): string {
 }
 
 export function format_data(n: unknown, { colorize = true } = {}): string {
+  if (n?.constructor === BigInt || typeof n === 'bigint') {
+    // JSON.stringify will throw an exception if given a bigint
+    n = n.toString();
+  }
   return `${colorize ? colors.fg_white : ''}${JSON.stringify(n)}${colors.reset}`;
 }
 

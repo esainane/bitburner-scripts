@@ -35,7 +35,13 @@ export function test_dummy(ns: NS, type: string, solver: CCTSolver, verbose=true
   const data = ns.codingcontract.getData(fname);
   const answer = solver.solve(data);
   // Dummy contracts are always created on the home server
-  const ok = ns.codingcontract.attempt(answer, fname, 'home');
+  let ok;
+  try {
+    ok = ns.codingcontract.attempt(answer, fname, 'home');
+  } catch (e) {
+    ns.tprint(`ERROR {${colors.fg_cyan}${type}${colors.reset}} Dummy contract solver raised exception: [${fname}]: ${format_data(data)} -> ${format_data(answer)}: ${e}`);
+    return { type, input: data, filename: fname, actual: answer };
+  }
   if (ok) {
     if (verbose) {
       ns.tprint(`SUCCESS {${colors.fg_cyan}${type}${colors.reset}} Dummy contract: [${fname}]: ${format_data(data)} -> ${format_data(answer)}`);
