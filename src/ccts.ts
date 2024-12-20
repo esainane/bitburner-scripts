@@ -53,7 +53,7 @@ async function attempt_cct(ns: NS, filename: string, host: string | undefined) {
     if (!result) {
       ns.tprint(`ERROR CCT FAIL: ${format_cct(filename, host, cct_type)}: ${format_cct_result(data, answer)}`);
     } else {
-      ns.tprint(`SUCCESS CCT OK (${colors.fg_cyan}${result}${colors.reset}): ${format_cct(filename, host, cct_type)}: ${format_cct_result(data, answer)}`)
+      ns.tprint(`SUCCESS CCT OK (${colors.fg_magenta}${result}${colors.reset}): ${format_cct(filename, host, cct_type)}: ${format_cct_result(data, answer)}`)
     }
   } else {
     ns.tprint(`${format_cct(filename, host, cct_type)}: ${format_cct_result(data, answer)}`);
