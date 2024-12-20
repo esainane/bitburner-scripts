@@ -1,49 +1,62 @@
 import { AutocompleteData, NS } from '@ns'
 import { find_servers } from 'lib/find-servers';
 
-import { CCTSolver } from 'ccts/interface';
+import { CCTResult, CCTSolver } from 'ccts/interface';
 import { contracts as known_ccts } from 'ccts/all';
+import { colors, format_data, format_number, format_servername } from '/lib/colors';
+import { format_duration } from '/lib/format-duration';
+import { format } from 'path';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
   return [...data.scripts.filter(s => s.endsWith('.cct')), '--desc', '--desc-unknown', '--live', '--force'];
 }
 
-function print_desc(ns: NS, filename: string, host: string | undefined, cct_type: string, data: any) {
+function print_desc(ns: NS, filename: string, host: string | undefined, cct_type: string, data: unknown) {
   const desc = ns.codingcontract.getDescription(filename, host);
-  ns.tprint(filename, " [", cct_type, "] @ ", host, ": ", data, '.');
+  ns.tprint(`${format_cct(filename, host, cct_type)}: ${format_data(data)}`);
   ns.tprint(desc);
 }
 
+function format_cct(filename: string, host: string | undefined, cct_type: string, { is_warning = false } = {}) {
+  const server = host ?? 'home';
+  return `[${colors.fg_cyan}${cct_type}${colors.reset}] @ ${format_servername(server, { is_warning })}/${filename} `;
+}
+
+function format_cct_result(data: unknown, result: CCTResult) {
+  return `${format_data(data)} -> ${format_data(result)}`;
+}
+
 async function attempt_cct(ns: NS, filename: string, host: string | undefined) {
-  const cct_type = ns.codingcontract.getContractType(filename, host);
-  const data = ns.codingcontract.getData(filename, host);
+  const server = host ?? 'home';
+  const cct_type = ns.codingcontract.getContractType(filename, server);
+  const data = ns.codingcontract.getData(filename, server);
   if (ns.args.indexOf('--desc') !== -1) {
-    print_desc(ns, filename, host, cct_type, data);
+    print_desc(ns, filename, server, cct_type, data);
   }
   const solver: CCTSolver | undefined = known_ccts.get(cct_type);
   if (!solver) {
-    ns.tprint("Warning: Unknown coding contract \"", cct_type, "\" in ", filename, ' @ ', host, '; ignoring.');
+    ns.tprint(`WARNING Unknown coding contract ${format_cct(filename, host, cct_type, { is_warning: true })}; ignoring.`);
     if (ns.args.indexOf('--desc-unknown') !== -1) {
-      print_desc(ns, filename, host, cct_type, data);
+      print_desc(ns, filename, server, cct_type, data);
     }
     return;
   }
   const answer = solver.solve(data);
-  const remaining = ns.codingcontract.getNumTriesRemaining(filename, host);
+  const remaining = ns.codingcontract.getNumTriesRemaining(filename, server);
   if (ns.args.indexOf('--live') !== -1) {
     if (remaining < 3 && ns.args.indexOf('--force') === -1) {
-      ns.tprint("Warning: Coding contract ", filename, " [", cct_type, "] @ ", host, ' has fewer than 3 tries (', remaining, ') remaining, not continuing without a --force.');
-      ns.tprint("Would submit: ", filename, " [", cct_type, "] @ ", host, ": ", data, ' -> ', answer);
+      ns.tprint(`WARNING Coding contract ${format_cct(filename, host, cct_type, { is_warning: true })} has fewer than 3 tries (${format_number(remaining)}) remaining, not continuing without a ${colors.fg_cyan}--force.${colors.reset}`);
+      ns.tprint(`INFO Would submit: ${format_cct(filename, host, cct_type)}: ${format_cct_result(data, answer)}`);
       return;
     }
-    const result = ns.codingcontract.attempt(answer, filename, host);
+    const result = ns.codingcontract.attempt(answer, filename, server);
     if (!result) {
-      ns.tprint('CCT FAIL: ', filename, " [", cct_type, "] @ ", host, ": ", data, ' -> ', answer);
+      ns.tprint(`ERROR CCT FAIL: ${format_cct(filename, host, cct_type)}: ${format_cct_result(data, answer)}`);
     } else {
-      ns.tprint('CCT OK (', result, '): ', filename, " [", cct_type, "] @ ", host, ": ", data, ' -> ', answer)
+      ns.tprint(`SUCCESS CCT OK (${colors.fg_cyan}${result}${colors.reset}): ${format_cct(filename, host, cct_type)}: ${format_cct_result(data, answer)}`)
     }
   } else {
-    ns.tprint(filename, " [", cct_type, "] @ ", host, ": ", data, ' -> ', answer);
+    ns.tprint(`${format_cct(filename, host, cct_type)}: ${format_cct_result(data, answer)}`);
   }
 }
 

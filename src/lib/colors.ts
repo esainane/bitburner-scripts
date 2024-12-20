@@ -101,6 +101,9 @@ export function format_number(n: number, { colorize = true } = {}): string {
   return `${colorize ? colors.fg_white : ''}${n}${colors.reset}`;
 }
 
+export function format_data(n: unknown, { colorize = true } = {}): string {
+  return `${colorize ? colors.fg_white : ''}${JSON.stringify(n)}${colors.reset}`;
+}
 
 export async function main(ns: NS): Promise<void> {
   ns.tprint("Colors:");

@@ -1,4 +1,5 @@
 import { AutocompleteData, NS } from '@ns';
+import { colors } from '/lib/colors';
 
 export type CCTResult = string | number | unknown[];
 
@@ -71,7 +72,7 @@ export function ccts_main(contracts: Map<string, CCTSolver>): (ns: NS) => Promis
     }
     // Otherwise, use self-tests
     for (const [type, solver] of contracts) {
-      ns.tprint(`{${type}}`);
+      ns.tprint(`{${colors.fg_cyan}${type}${colors.reset}}`);
       solver.test(ns);
     }
   }
