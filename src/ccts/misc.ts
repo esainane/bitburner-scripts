@@ -8,6 +8,7 @@ export const autocomplete = autocomplete_func;
 export const contracts = new Map<string, CCTSolver>([
   ["Find All Valid Math Expressions", { solve: find_math_expressions, test: test_find_math_expressions }],
   ["Generate IP Addresses", { solve: generate_ips, test: test_generate_ips }],
+  ["Minimum Path Sum in a Triangle", { solve: minimum_path_triangle, test: test_minimum_path_triangle }],
   ["Sanitize Parentheses in Expression", { solve: sanitize_parentheses, test: test_sanitize_parentheses }],
   ["Total Ways to Sum", { solve: sum, test: test_sum }],
   ["Total Ways to Sum II", { solve: sum_2, test: test_sum_2 }],
@@ -148,6 +149,59 @@ function test_generate_ips(ns: NS) {
     const actual = generate_ips(input);
     assert_set_eq(ns, new Set(expected), new Set(actual), `generate_ips(${JSON.stringify(input)})`);
   }
+}
+
+/**
+ * Minimum Path Sum in a Triangle
+ *
+ * Given a triangle, find the minimum path sum from top to bottom. In each step of the path, you may only move to adjacent numbers in the row below. The triangle is represented as a 2D array of numbers:
+
+ [
+    [8],
+   [5,9],
+  [4,1,8]
+]
+
+ Example: If you are given the following triangle:
+
+[
+      [2],
+     [3,4],
+    [6,5,7],
+   [4,1,8,3]
+ ]
+
+ The minimum path sum is 11 (2 -> 3 -> 5 -> 1).
+ */
+function minimum_path_triangle(data: unknown) {
+  if (!Array.isArray(data) || !data.every(Array.isArray)) {
+    throw new Error('Expected 2D array, received ' + JSON.stringify(data));
+  }
+  const triangle = data as number[][];
+
+  // From the bottom up, the weight is the minimum of the two adjacent numbers plus the current number
+  // We can build this in place
+  for (let i = triangle.length - 2; i >= 0; i--) {
+    for (let j = 0; j < triangle[i].length; j++) {
+      triangle[i][j] += Math.min(triangle[i + 1][j], triangle[i + 1][j + 1]);
+    }
+  }
+
+  return triangle[0][0];
+}
+
+function test_minimum_path_triangle(ns: NS) {
+  // Test cases for minimum_path_triangle
+  const testCases = [
+    { input: [[2], [3, 4], [6, 5, 7], [4, 1, 8, 3]], expected: 11 },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = minimum_path_triangle(input);
+    assert_eq(ns, expected, actual, `minimum_path_triangle(${JSON.stringify(input)})`);
+  }
+
+  assert_all_passed(ns);
 }
 
 /**
