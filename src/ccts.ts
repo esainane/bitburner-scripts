@@ -23,7 +23,7 @@ function format_cct(filename: string, host: string | undefined, cct_type: string
 }
 
 function format_cct_result(data: unknown, result: CCTResult) {
-  return `${format_data(data)} -> ${format_data(result)}`;
+  return `${format_data(data)} -> ${format_data(result, {abbrev: true})}`;
 }
 
 // Naughty global state
@@ -57,6 +57,7 @@ async function attempt_cct(ns: NS, filename: string, host: string | undefined) {
     const result = ns.codingcontract.attempt(answer, filename, server);
     if (!result) {
       ns.tprint(`ERROR CCT FAIL: ${format_cct(filename, host, cct_type)}: ${format_cct_result(data, answer)}`);
+      console.log('Failed coding contract', cct_type, 'data:', data, answer);
     } else {
       ns.tprint(`SUCCESS CCT OK (${colors.fg_magenta}${result}${colors.reset}): ${format_cct(filename, host, cct_type)}: ${format_cct_result(data, answer)}`)
     }
