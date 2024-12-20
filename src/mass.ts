@@ -17,7 +17,7 @@ export async function main(ns: NS): Promise<void> {
 
   // Copy script to all servers
   // First copy everything in lib/ unless expressly requested otherwise
-  if (ns.args.indexOf('--no-lib') === -1) {
+  if (!ns.args.includes('--no-lib')) {
     const libs = ns.ls('home').filter(d=>d.startsWith('lib/'));
     for (const file of libs) {
       for (const target of servers) {
@@ -27,7 +27,7 @@ export async function main(ns: NS): Promise<void> {
   }
   // Then the listed scripts
   const scripts = p_args;
-  const do_run = our_args.indexOf('--run') !== -1;
+  const do_run = our_args.includes('--run');
   const do_run_threads = our_args.map(d => String(d)).find((d) => d.startsWith('--run-threads'));
   const do_run_threads_count = do_run_threads && do_run_threads.includes('=') ? Number(do_run_threads.split('=')[1]) : 0;
   for (const script of scripts) {

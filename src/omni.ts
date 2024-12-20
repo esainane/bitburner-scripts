@@ -247,14 +247,14 @@ interface ScheduledTask {
 const state_file = "data/go-state.json";
 
 export async function main(real_ns: NS): Promise<void> {
-  const ns = { ...real_ns, log: real_ns.args.indexOf('--quiet') !== -1 ? real_ns.print : real_ns.tprint };
+  const ns = { ...real_ns, log: real_ns.args.includes('--quiet') ? real_ns.print : real_ns.tprint };
 
   // Sort by value descending
   const value_per_thread_per_second_descending = (l: PlanData, r: PlanData) => value_per_thread_per_second(r) - value_per_thread_per_second(l);
 
   // Silence noisy and uninteresting functions
   ns.disableLog('ALL');
-  if (real_ns.args.indexOf('--quiet') === -1) {
+  if (!real_ns.args.includes('--quiet')) {
     ns.enableLog('exec');
     ns.enableLog('scp');
   }
@@ -275,7 +275,7 @@ export async function main(real_ns: NS): Promise<void> {
   }, "Serialize state");
 
   // Load state on startup, unless we are passed a "--noload"
-  if (ns.fileExists(state_file) && ns.args.indexOf("--noload") === -1) {
+  if (ns.fileExists(state_file) && !ns.args.includes("--noload")) {
     const data = ns.read(state_file);
     if (data) {
       const j_data = JSON.parse(data);
@@ -309,7 +309,7 @@ export async function main(real_ns: NS): Promise<void> {
     const all_servers: Array<string> = p_args.length > 0 ? p_args : find_servers(ns);
     const runners: RunnersData = find_runners(
       ns, all_servers, 'worker/grow1.js', exclude_runners,
-      (process: ProcessInfo) => ['worker/grow1.js', 'worker/hack1.js', 'worker/weak1.js'].indexOf(process.filename) !== -1
+      (process: ProcessInfo) => ['worker/grow1.js', 'worker/hack1.js', 'worker/weak1.js'].includes(process.filename)
     );
     const all_available_threads = runners.available_threads;
     // TODO: Keep track of pending growth multiplier/weaken state, so we don't over-normalize early on

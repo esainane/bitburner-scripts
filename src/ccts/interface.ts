@@ -66,12 +66,12 @@ export function ccts_main(contracts: Map<string, CCTSolver>): (ns: NS) => Promis
   return async function main(ns: NS): Promise<void> {
     if (ns.args.includes('--test') || ns.args.includes('--generated')) {
       // Use generated ccts
-      test_dummy_all(ns, contracts, ns.args.indexOf('--quiet') === -1);
+      test_dummy_all(ns, contracts, !ns.args.includes('--quiet'));
       // If told to --test, do both generated and self-tests
       if (!ns.args.includes('--test')) {
         return;
       }
-    } else if (ns.args.indexOf('--desc') !== -1) {
+    } else if (ns.args.includes('--desc')) {
       // Get descriptions for all contracts
       for (const [type, solver] of contracts) {
         ns.tprint(`${type}:`);

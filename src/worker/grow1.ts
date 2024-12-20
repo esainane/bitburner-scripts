@@ -9,7 +9,7 @@ export async function main(ns: NS): Promise<void> {
   }
   const opts: BasicHGWOptions = {
     additionalMsec: wait < 0 ? 0 : wait,
-    stock: ns.args.indexOf("--long") === -1 ? false : true,
+    stock: ns.args.includes("--long"),
   }
   await ns.grow(target, opts);
 }

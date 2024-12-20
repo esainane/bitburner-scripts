@@ -34,7 +34,7 @@ async function attempt_cct(ns: NS, filename: string, host: string | undefined) {
   const server = host ?? 'home';
   const cct_type = ns.codingcontract.getContractType(filename, server);
   const data = ns.codingcontract.getData(filename, server);
-  if (ns.args.indexOf('--desc') !== -1) {
+  if (ns.args.includes('--desc')) {
     print_desc(ns, filename, server, cct_type, data);
   }
   const solver: CCTSolver | undefined = known_ccts.get(cct_type);
@@ -48,8 +48,8 @@ async function attempt_cct(ns: NS, filename: string, host: string | undefined) {
   }
   const answer = solver.solve(data);
   const remaining = ns.codingcontract.getNumTriesRemaining(filename, server);
-  if (ns.args.indexOf('--live') !== -1) {
-    if (remaining < 3 && ns.args.indexOf('--force') === -1) {
+  if (ns.args.includes('--live')) {
+    if (remaining < 3 && !ns.args.includes('--force')) {
       ns.tprint(`WARNING Coding contract ${format_cct(filename, host, cct_type, { is_warning: true })} has fewer than 3 tries (${format_number(remaining)}) remaining, not continuing without a ${colors.fg_cyan}--force.${colors.reset}`);
       ns.tprint(`INFO Would submit: ${format_cct(filename, host, cct_type)}: ${format_cct_result(data, answer)}`);
       return;
