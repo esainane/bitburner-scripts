@@ -64,7 +64,7 @@ function hamming_decode(data: unknown) {
   // Fetch the data bits and convert them to a number
   const data_bits = [...numeric_bits].filter((_, i) => (i & (i - 1)) !== 0);
   console.log('data bits: ', data_bits.join(''));
-  const value = [...data_bits].reduce((acc, bit) => (acc << 1) | bit, 0);
+  const value = [...data_bits].reduce((acc, bit) => acc * 2 + bit, 0);
   console.log('data val:  ', value);
   return value;
 }
@@ -74,7 +74,6 @@ function test_hamming_decode(ns: NS) {
   const testCases = [
     { input: '11110000', expected: 8 },
     { input: '1001101010', expected: 21 },
-    // FIXME: This currently breaks. Maybe 32-bit limit on integer shifts somewhere?
     { input: '1100000010000000100000011101011001100110000111001100101000110001', expected: 1011030477361 },
   ];
 
