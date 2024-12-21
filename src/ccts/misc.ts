@@ -11,6 +11,7 @@ export const contracts = new Map<string, CCTSolver>([
   ['Merge Overlapping Intervals', { solve: merge_intervals, test: test_merge_intervals }],
   ["Minimum Path Sum in a Triangle", { solve: minimum_path_triangle, test: test_minimum_path_triangle }],
   ["Sanitize Parentheses in Expression", { solve: sanitize_parentheses, test: test_sanitize_parentheses }],
+  ["Spiralize Matrix", { solve: spiralize_matrix, test: test_spiralize_matrix }],
   ["Subarray with Maximum Sum", { solve: subarray_sum, test: test_subarray_sum }],
   ["Total Ways to Sum", { solve: sum, test: test_sum }],
   ["Total Ways to Sum II", { solve: sum_2, test: test_sum_2 }],
@@ -333,6 +334,126 @@ function test_sanitize_parentheses(ns: NS) {
   for (const { input, expected } of testCases) {
     const actual = sanitize_parentheses(input);
     assert_set_eq(ns, new Set(expected), new Set(actual), `sanitize_parentheses(${JSON.stringify(input)})`);
+  }
+}
+
+/**
+ * Spiralize Matrix
+ *
+ * Given the following array of arrays of numbers representing a 2D matrix, return the elements of the matrix as an
+ * array in spiral order:
+ *
+ *   [
+ *       [36,12,38,39,46,48,31,10]
+ *       [11,39,17,38,29,27,21,45]
+ *       [20,42,48,19,45,19,13,34]
+ *       [36,38,14,34,11,31,15,29]
+ *       [34,11,45,13,50,25,17,32]
+ *       [16,43,32,28,40,11,16, 3]
+ *       [23, 9,47,20,21,38,17,18]
+ *       [32,47,24,40,21,32,32,16]
+ *       [32,21,49,21,13,20,36,16]
+ *       [36, 5,37, 4,10,24,40, 3]
+ *       [37, 4,44,21,41,17, 1,10]
+ *       [42,15,34,14,47,27,47,35]
+ *       [35,42,19,12,47,36,34,11]
+ *       [49,40,11, 5, 6,16,25, 8]
+ *   ]
+ *
+ * @example Here is an example of what spiral order should be:
+ *
+ *    [
+ *        [1, 2, 3]
+ *        [4, 5, 6]
+ *        [7, 8, 9]
+ *    ]
+ *
+ * Answer: [1, 2, 3, 6, 9, 8 ,7, 4, 5]
+ *
+ * @example Note that the matrix will not always be square:
+ *
+ *    [
+ *        [1,  2,  3,  4]
+ *        [5,  6,  7,  8]
+ *        [9, 10, 11, 12]
+ *    ]
+ *
+ * Answer: [1, 2, 3, 4, 8, 12, 11, 10, 9, 5, 6, 7]
+ */
+function spiralize_matrix(data: unknown) {
+  if (!Array.isArray(data) || !data.every(Array.isArray)) {
+    throw new Error('Expected 2D array, received ' + JSON.stringify(data));
+  }
+  const matrix = data as number[][];
+
+  const result: number[] = [];
+  const spiral = (matrix: number[][], result: number[]) => {
+    if (matrix.length === 0 || matrix[0].length === 0) {
+      return;
+    }
+    const top = matrix.shift() as number[];
+    result.push(...top);
+    if (matrix.length === 0 || matrix[0].length === 0) {
+      return;
+    }
+    const right = matrix.map((row) => row.pop() as number);
+    result.push(...right);
+    if (matrix.length === 0 || matrix[0].length === 0) {
+      return;
+    }
+    const bottom = matrix.pop() as number[];
+    result.push(...bottom.reverse());
+    if (matrix.length === 0 || matrix[0].length === 0) {
+      return;
+    }
+    const left = matrix.map((row) => row.shift() as number);
+    result.push(...left.reverse());
+    spiral(matrix, result);
+  };
+
+  spiral(matrix, result);
+
+  return result;
+}
+
+function test_spiralize_matrix(ns: NS) {
+  // Test cases for spiralize_matrix
+  const testCases = [
+    { input: [
+      [1, 2, 3],
+      [4, 5, 6],
+      [7, 8, 9],
+    ], expected: [1, 2, 3, 6, 9, 8, 7, 4, 5] },
+    { input: [
+      [1, 2, 3, 4],
+      [5, 6, 7, 8],
+      [9, 10, 11, 12],
+    ], expected: [1, 2, 3, 4, 8, 12, 11, 10, 9, 5, 6, 7] },
+    { input: [
+      [ 1,  2,  3],
+      [ 4,  5,  6],
+      [ 7,  8,  9],
+      [10, 11, 12],
+    ], expected: [1, 2, 3, 6, 9, 12, 11, 10, 7, 4, 5, 8] },
+    { input: [
+        [ 8, 38],
+        [ 5, 37],
+        [29, 14],
+        [24, 47],
+        [ 3, 21],
+        [12, 32],
+        [28, 22],
+        [21,  2],
+        [ 9, 33],
+        [49, 12],
+        [ 1,  9],
+        [ 6, 29],
+    ], expected: [8, 38, 37, 14, 47, 21, 32, 22, 2, 33, 12, 9, 29, 6, 1, 49, 9, 21, 28, 12, 3, 24, 29, 5] },
+  ];
+
+  for (const { input, expected } of testCases) {
+    const actual = spiralize_matrix(input);
+    assert_arr_eq(ns, expected, actual, `spiralize_matrix(${JSON.stringify(input)})`);
   }
 }
 
