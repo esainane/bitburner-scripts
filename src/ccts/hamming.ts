@@ -40,7 +40,6 @@ function hamming_decode(data: unknown) {
   if (typeof(data) !== 'string') {
     throw new Error('Expected string, received ' + JSON.stringify(data));
   }
-  console.log('--------');
   const bits = data as string;
   const numeric_bits = [...bits].map(d => parseInt(d));
 
@@ -52,20 +51,14 @@ function hamming_decode(data: unknown) {
     }
   }
 
-  console.log('bit kind', numeric_bits.map((_, i) => (i & (i - 1)) === 0 ? 'p' : 'd').join(''));
-  console.log('decoding', numeric_bits.join(''));
-
   // If there is an error, flip the bit
   if (err !== 0) {
     numeric_bits[err] ^= 1;
-    console.log('became: ', numeric_bits.join(''));
   }
 
   // Fetch the data bits and convert them to a number
   const data_bits = [...numeric_bits].filter((_, i) => (i & (i - 1)) !== 0);
-  console.log('data bits: ', data_bits.join(''));
   const value = [...data_bits].reduce((acc, bit) => acc * 2 + bit, 0);
-  console.log('data val:  ', value);
   return value;
 }
 
