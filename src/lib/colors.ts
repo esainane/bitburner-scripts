@@ -130,7 +130,11 @@ export function format_servername(servername: string, { is_warning = false } = {
   return `${is_warning ? bright_yellow : colors.fg_yellow}${servername}${colors.reset}`;
 }
 
-export function format_number(n: number, { colorize = true } = {}): string {
+export function format_number(n: number, { round = undefined, colorize = true }: { round?: number, colorize?: boolean } = {}): string {
+  if (round !== undefined) {
+    const shift = 10 ** round;
+    n = Math.floor(n * shift) / shift;
+  }
   return `${colorize ? colors.fg_white : ''}${n}${colors.reset}`;
 }
 
