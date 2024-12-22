@@ -38,6 +38,14 @@ const player_low_money_threshold = 300e6;
 const gang_warfare_steamroll_threshold_start = 0.9;
 const gang_warfare_steamroll_threshold_abort = 0.8;
 const gang_warfare_steamroll_power_buffer_minimum = 500;
+// Respect continues to be useful for pretty much the entire time, but you get pretty marginal returns towards the
+// end. The equipment discount hits 90% when respect reaches around 5e7, and 99% when respect reaches around 5e8.
+// Use these as "soft" and "hard" caps for when we should stop really pushing for respect, and switching to money
+// instead. As always, the member with the least respect will continue to perform the respect gaining task, and
+// additionally any member with less than (1 - ascend_preserve_respect_ratio) / 11 respect will perform the respect
+// gaining task, to make sure we don't have any "too big to ascend" members stagnating.
+const soft_respect_cap = 5e7;
+const hard_respect_cap = 5e8;
 
 
 // Random gang member names
@@ -137,7 +145,7 @@ export async function main(ns: NS): Promise<void> {
     }
 
     // The list of members is now fixed for this cycle
-    const members: [string, GangMemberInfo][] = ns.gang.getMemberNames().map(d => [d, ns.gang.getMemberInformation(d)]);
+    const members: readonly [string, GangMemberInfo][] = ns.gang.getMemberNames().map(d => [d, ns.gang.getMemberInformation(d)]);
 
     // Ascend anyone that wants to ascend
     for (const [name, info] of members) {
@@ -317,6 +325,21 @@ export async function main(ns: NS): Promise<void> {
         }
         continue;
       }
+    }
+
+    // If we're "done", having effectively maxed out the meaningful respect discount effect, just focus on making money
+    if (fully_upgraded && info.respect > hard_respect_cap || (fully_upgraded && info.respect > soft_respect_cap)) {
+      for (const [name, info] of trained_members) {
+        if (info.earnedRespect < (1 - ascend_preserve_respect_ratio) / (members.length - 1)) {
+          // But if we might cause a member to stagnate, because our respect is so low that if everyone else except one
+          // had it then that one would have a load-bearing proportion of respect, earn more respect until everyone is
+          // definitely free to ascend when available
+          make_respect(name, info);
+          continue;
+        }
+        make_money(name, info);
+      }
+      continue;
     }
 
     // By default, engage in balanced money and respect growth
