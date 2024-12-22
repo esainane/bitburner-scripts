@@ -481,7 +481,7 @@ export async function main(real_ns: NS): Promise<void> {
             any_throttled_or_incomplete = true;
             break;
           }
-          const [ largest_contiguous ] = allocator_instance.largestContiguousBlock();
+          const [ largest_contiguous ] = allocator_instance.largestContiguousBlock({allow_avoided_servers: true});
           if (largest_contiguous === 0) {
             ns.log("INFO No normalization resources available in practice {branch 3}.");
             any_throttled_or_incomplete = true;
@@ -610,7 +610,7 @@ export async function main(real_ns: NS): Promise<void> {
           }
           const now = Date.now();
           const threads_available = allocator_instance.availableThreads();
-          const largest_2_contiguous = allocator_instance.largestContiguousBlock({ topN: 2 });
+          const largest_2_contiguous = allocator_instance.largestContiguousBlock({ topN: 2, allow_avoided_servers: true });
           let total_wanted = plan_threads_required_per_block(plan);
           let final_plan: PlanData = plan;
           // If there are enough threads available in general (as the plan was made to fit, when this is not the case
