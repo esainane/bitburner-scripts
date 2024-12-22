@@ -431,6 +431,8 @@ export async function main(real_ns: NS): Promise<void> {
         }
       }
       ns.log(`INFO Reserving ${format_number(normalization_reserved)} threads for normalization${normalization_reserved_desc}`);
+      let this_plan_normalization_used = 0;
+
       const try_later_delay = 5000;
       let any_throttled_or_incomplete = false;
       // Schedule the normalization procecss
@@ -519,12 +521,15 @@ export async function main(real_ns: NS): Promise<void> {
               next_normalized.set(server, Date.now() + duration);
             }
             // OK
-            normalization_used += prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads;
+            const used = prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads
+            normalization_used += used;
+            this_plan_normalization_used += used
             // Once this is done and the relevant threads are available again, check back in and see if more
             // normalization needs to happen
             // Task queue is soft persisted across replans, to avoid resource leaks
             taskQueue.push({ callback: async () => {
-              normalization_used -= prep_plan.weaken_1st_threads + prep_plan.grow_threads + prep_plan.weaken_2nd_threads;
+              normalization_used -= used;
+              this_plan_normalization_used -= used;
             }, startTime: Date.now() + duration });
             // Reschedules can be dropped across a replan
             blockQueue.push({ callback: async () => {
@@ -539,7 +544,7 @@ export async function main(real_ns: NS): Promise<void> {
           }
         }
         // Schedule ourselves to be run again later if we would otherwise not
-        if (normalization_used == 0) {
+        if (this_plan_normalization_used == 0) {
           blockQueue.push({ callback: schedule_normalize, startTime: Date.now() + try_later_delay });
         }
       }
