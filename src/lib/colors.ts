@@ -85,6 +85,39 @@ export function color_pad(s: string, length: number, { left = true } = {}): stri
   return left ? pad + s : s + pad;
 }
 
+export interface ArgOpt {
+  left?: boolean;
+  min?: number;
+}
+
+/**
+ * Start a "transaction block" to print a table with column members padded to the longest member's width
+ *
+ * Only wraps ns.tprintf. Once the transaction block ends, the real ns.tprintf will be called with all arguments
+ * padded appropriately, ignoring color codes for width.
+ *
+ * @param ns NS instance to proxy in the transaction block
+ * @param cb Transaction block
+ * @param arg_opts Optional argument options to be forwarded to color_pad, also supplies a 'min' field for column width
+ */
+export function print_table(ns: NS, cb: (ns: NS) => void, arg_opts: ArgOpt[] = []) {
+  const widths: number[] = [];
+  const calls: [string, string[]][] = [];
+  const inner_ns: NS = {...ns,
+    tprintf(format: string, ...values) {
+      values = values.map(String);
+      for (const [i, d] of values.entries()) {
+        widths[i] = Math.max(widths[i] ?? arg_opts[i]?.min ?? 0, strip_color(d).length)
+      }
+      calls.push([format, values]);
+    },
+  };
+  cb(inner_ns);
+  for (const [format, values] of calls) {
+    ns.tprintf(format, ...values.map((d,i) => color_pad(d, widths[i], arg_opts[i])));
+  }
+}
+
 // A color mapping which satisfies the interface, but only return no-ops
 export const nop_colors = Object.keys(colors).reduce(
   (acc: object, key: string) => Object.assign(acc, { [key]: '' }), {}
