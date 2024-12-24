@@ -23,8 +23,8 @@ const no_formulas_starter_skill_threshold = 150;
 const train_premult_skill_threshold = 160;
 // Early game has very different goals. You still want to train people out of the very unproductive stages quickly,
 // but you want to swap over to respect generating activities ASAP in order to get more members starting their own
-// training cycles.
-const early_train_premult_skill_threshold = 15;
+// training cycles. At a rate of 6 levels per member, the thresholds go 18, 24, and 30, for 3, 4, and 5 members.
+const early_train_premult_skill_per_member_threshold = 6;
 // How often should we sample member stats to determine skill growth rate?
 const skill_growth_sample_rate_ms = ms_per_second * 20;
 // If the multiplier from the wanted penalty drops below this threshold, address this penalty directly
@@ -253,7 +253,7 @@ export async function main(ns: NS): Promise<void> {
     // First determine who is growing and who should be assigned a productive task
     const growing_members: [string, GangMemberInfo][] = [];
     const trained_members: [string, GangMemberInfo][] = [];
-    const premult_skill_threshold = early_game ? early_train_premult_skill_threshold : train_premult_skill_threshold;
+    const premult_skill_threshold = early_game ? early_train_premult_skill_per_member_threshold * members.length : train_premult_skill_threshold;
     for (const [name, info] of members) {
       // If a member is growing at a reasonable rate, or is still very new, keep training
       //if (!early_game && (growth_per_minute > minimum_skill_growth_ratio || strategy.average_relevant_skill(ns, info) < minimum_ascend_multiplier)) {
