@@ -29,8 +29,8 @@ export class ThreadAllocator {
     return this.available_threads;
   }
 
-  private async exec(script: string, hostname: string, threads_or_options: number | RunOptions, ...args: ScriptArg[]): Promise<number> {
-    // this.ns.tprint('Attempting to exec(', script, ',', hostname, ',', threads_or_options, ',', ...args, ')');
+  private async exec(script: string, hostname: string, options: RunOptions, ...args: ScriptArg[]): Promise<number> {
+    //this.ns.tprint('Attempting to exec(', script, ', ', hostname, ', ', options, ', ', ...args.join(', '), ')');
     if (!this.ns.fileExists(script, hostname)) {
       // this.ns.tprint('Attempting to scp(', script, ',', hostname, ',home)');
       const copy_ok = this.ns.scp(script, hostname, 'home');
@@ -39,16 +39,18 @@ export class ThreadAllocator {
         return 0;
       }
     }
-    const threads: number = (typeof(threads_or_options) === 'number') ? threads_or_options : threads_or_options.threads ?? 1;
+    const threads: number = (typeof(options) === 'number') ? options : options.threads ?? 1;
     this.available_threads -= threads;
     const runner = this.available_runners.find(r => r.server === hostname);
     if (runner) {
       runner.threads -= threads;
-      runner.used_ram += threads * this.ns.getScriptRam(script, 'home');
+      runner.used_ram += threads * (options.ramOverride ?? this.ns.getScriptRam(script, 'home'));
     }
-    const pid = this.ns.exec(script, hostname, threads_or_options, ...args);
+    const pid = this.ns.exec(script, hostname, options, ...args);
     if (pid == 0) {
-      this.ns.tprint('ERROR failed to exec(', script, ',', hostname, ',', threads_or_options, ',', ...args, ')');
+      this.ns.tprint('ERROR failed to exec(', script, ', ', hostname, ', ', options, ', ', ...args.join(', '), ')');
+    } else {
+      //this.ns.tprint('OK exec(', script, ', ', hostname, ', ', options, ', ', ...args.join(', '), ') -> ', pid);
     }
     return pid;
   }
@@ -62,7 +64,8 @@ export class ThreadAllocator {
     return ret.slice(0, topN).concat(Array(Math.max(0, topN - ret.length)).fill(0));
   }
 
-  private async _allocateThreads(script: string, threads: number, cumulative = false, maximize_if_fragmented = false, allow_avoided_servers = false, ...args: ScriptArg[]): Promise<[number, number[]]> {
+  private async _allocateThreads(script: string, options: RunOptions, cumulative = false, maximize_if_fragmented = false, allow_avoided_servers = false, ...args: ScriptArg[]): Promise<[number, number[]]> {
+    const threads = options.threads ?? 1;
     // If we're not allowed to use avoided servers, remove them from the list
     let available_runners = this.available_runners;
     let available_threads = recalculate_threads(this.ns, available_runners, script);
@@ -92,7 +95,7 @@ export class ThreadAllocator {
         if (to_allocate < 1) {
           continue;
         }
-        const pid = await this.exec(script, runner.server, { threads: to_allocate, temporary: true }, ...args);
+        const pid = await this.exec(script, runner.server, { ...options, threads: to_allocate }, ...args);
         if (pid) {
           pids.push(pid);
           remaining -= to_allocate;
@@ -117,7 +120,7 @@ export class ThreadAllocator {
     }
     if (current_runner) {
       const to_allocate = Math.min(threads, current_runner.threads);
-      const pid = await this.exec(script, current_runner.server, { threads: to_allocate, temporary: true }, ...args);
+      const pid = await this.exec(script, current_runner.server, { ...options, threads: to_allocate }, ...args);
       if (pid) {
         pids.push(pid);
         return [threads - to_allocate, pids];
@@ -132,21 +135,26 @@ export class ThreadAllocator {
    * @param cumulative True if the threads can be split over many instances with the same effect
    * @returns [unallocatable_threads, [pids]]
    */
-  public async allocateThreads(script: string, threads: number, cumulative = false, ...args: ScriptArg[]): Promise<[number, number[]]> {
+  public async allocateThreads(script: string, threads_or_options: number | RunOptions, cumulative = false, ...args: ScriptArg[]): Promise<[number, number[]]> {
+    const threads: number = (typeof(threads_or_options) === 'number') ? threads_or_options : threads_or_options.threads ?? 1;
+    const options: RunOptions = (typeof(threads_or_options) === 'number') ? { threads } : threads_or_options;
+    if (options.temporary === undefined) {
+      options.temporary = true;
+    }
     if (threads < 1) {
       // Nothing to do
       return [0, []];
     }
-    let [remaining, pids] = await this._allocateThreads(script, threads, cumulative, false, false, ...args);
+    let [remaining, pids] = await this._allocateThreads(script, options, cumulative, false, false, ...args);
     if (remaining) {
       let new_pids;
-      [remaining, new_pids] = await this._allocateThreads(script, remaining, cumulative, true, true, ...args);
+      [remaining, new_pids] = await this._allocateThreads(script, { ...options, threads: remaining }, cumulative, true, true, ...args);
       pids = pids.concat(new_pids);
     }
     return [remaining, pids];
   }
 
-  public getAllocator(): ((script: string, threads: number, cumulative?: boolean, ...args: ScriptArg[]) => Promise<[number, number[]]>) {
+  public getAllocator(): ((script: string, threads_or_options: number | RunOptions, cumulative?: boolean, ...args: ScriptArg[]) => Promise<[number, number[]]>) {
     return this.allocateThreads.bind(this);
   }
 }
