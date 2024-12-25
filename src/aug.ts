@@ -1,5 +1,57 @@
 import { NS } from '@ns'
+import { SingularityAsync } from '/lib/singu-interface';
+import { singularity_async as singularity_async } from './lib/singu';
+import { colors, format_data, format_number, print_table } from '/lib/colors';
+import { currency_format } from '/lib/format-money';
+
 export async function main(ns: NS): Promise<void> {
-  // Needs singu, rip
-  // ns.singularity.aug
+  ns.ramOverride(4.75);
+  const factions = ns.getPlayer().factions;
+  const augmentations_by_faction: Map<string, string[]> = new Map();
+  const factions_by_augmentation: Map<string, string[]> = new Map();
+  const price_by_augmentation: Map<string, number> = new Map();
+  const rep_by_augmentation: Map<string, number> = new Map();
+  const prereqs_by_augmentation: Map<string, string[]> = new Map();
+  const rep_by_faction: Map<string, number> = new Map();
+  const favor_by_faction: Map<string, number> = new Map();
+  const sing: SingularityAsync = singularity_async(ns);
+  const owned_by_player: Set<string> = new Set(await sing.getOwnedAugmentations(true));
+  for (const faction of factions) {
+    const augs = await sing.getAugmentationsFromFaction(faction);
+    rep_by_faction.set(faction, await sing.getFactionRep(faction));
+    favor_by_faction.set(faction, await sing.getFactionFavor(faction));
+    augmentations_by_faction.set(faction, augs);
+    for (const aug of augs) {
+      const aug_list = factions_by_augmentation.get(aug);
+      if (aug_list) {
+        aug_list.push(faction);
+      } else {
+        factions_by_augmentation.set(aug, [faction]);
+        price_by_augmentation.set(aug, await sing.getAugmentationBasePrice(aug));
+        rep_by_augmentation.set(aug, await sing.getAugmentationRepReq(aug));
+        prereqs_by_augmentation.set(aug, await sing.getAugmentationPrereq(aug));
+      }
+    }
+  }
+  const opts = [];
+  opts[3] = { left: false };
+  print_table(ns, (ns: NS) => {
+    const color_code_faction = (faction: string, rep_needed: number) => rep_by_faction.get(faction)! > rep_needed
+      ? colors.fg_white
+      : favor_by_faction.get(faction)! >= 150
+        ? colors.fg_cyan
+        : colors.fg_yellow;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    for (const [augmentation, factions] of [...factions_by_augmentation.entries()].sort(([la, lf], [ra, rf]) => price_by_augmentation.get(ra)! - price_by_augmentation.get(la)!)) {
+      if (owned_by_player.has(augmentation)) {
+        continue;
+      }
+      ns.tprintf("%s %s %s rep; via %s",
+        augmentation,
+        currency_format(price_by_augmentation.get(augmentation)!),
+        format_number(rep_by_augmentation.get(augmentation)!, { round: 0 }),
+        `[${factions_by_augmentation.get(augmentation)!.map(d=>`${color_code_faction(d, rep_by_augmentation.get!(augmentation)!)}${d}${colors.reset}`).join(', ')}]`,
+      );
+    }
+  }, opts);
 }
