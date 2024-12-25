@@ -1,8 +1,9 @@
 import { AutocompleteData, NS, Server } from '@ns'
+import { singularity_async } from '/lib/singu';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
-  return [...data.servers];
+  return [...data.servers, '--go'];
 }
 
 /**
@@ -16,8 +17,7 @@ function starting_location(server: Server, here: Server): boolean {
   return server === here || server.backdoorInstalled || server.hostname === 'home';
 }
 
-export async function main(ns: NS): Promise<void> {
-  const target_hostname = String(ns.args[0]);
+export function shortest_route_to(ns: NS, target_hostname: string, start: string): string[] | undefined {
   // Traverse the network
   const seen: Set<string> = new Set();
   const target: Server = ns.getServer(target_hostname);
@@ -25,12 +25,10 @@ export async function main(ns: NS): Promise<void> {
     ns.tprint(`ERROR Unknown server ${target_hostname}`);
     return;
   }
-  const here: Server = ns.getServer();
-
+  const here: Server = ns.getServer(start);
   if (starting_location(target, here)) {
     // Easy case: we're already (or can immediately be) there
-    ns.tprint('SUCCESS ', target_hostname);
-    return;
+    return [target_hostname];
   }
   interface ServerData {
     server: Server;
@@ -52,11 +50,37 @@ export async function main(ns: NS): Promise<void> {
       const server = ns.getServer(adj_name);
       // Finish if we've found a path from any server we can quickly start from
       if (starting_location(server, here)) {
-        ns.tprint('SUCCESS ', [adj_name, ...path, target_hostname].join(' -> '));
-        return;
+        return [adj_name, ...path, target_hostname];
       }
       to_visit.push({server: ns.getServer(adj_name), path: [server.hostname, ...path]});
     }
   }
-  ns.tprint('ERROR Cannot find path to ', target_hostname);
+
+  return undefined;
+}
+
+export async function main(ns: NS): Promise<void> {
+  ns.ramOverride(6.25);
+  if (ns.args.length < 1) {
+    ns.tprint("WARNING: Usage: ./path.js SERVER [--go]");
+    return;
+  }
+  const target_hostname = String(ns.args[0]);
+
+  const route = shortest_route_to(ns, target_hostname, ns.getServer().hostname);
+
+  if (!route) {
+    ns.tprint('ERROR Cannot find path to ', target_hostname);
+    return;
+  }
+
+  if (!ns.args.includes('--go')) {
+    ns.tprint('SUCCESS ', route.join(' -> '));
+    return;
+  }
+
+  const singu = singularity_async(ns);
+  for (const step of route) {
+    await singu.connect(step);
+  }
 }
