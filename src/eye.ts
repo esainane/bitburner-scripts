@@ -14,6 +14,9 @@ function act(ns: NS, type: BladeburnerActionType | `${BladeburnerActionType}`, n
 }
 
 export async function main(ns: NS): Promise<void> {
+  type Action = [BladeburnerActionType | `${BladeburnerActionType}`, BladeburnerActionName | `${BladeburnerActionName}`];
+  type ActionList = Action[];
+
   const cycle_sleep = 5000;
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -54,8 +57,9 @@ export async function main(ns: NS): Promise<void> {
       act(ns, 'General', 'Hyperbolic Regeneration Chamber');
       continue;
     }
+    const [ type, name ]: Action = [ 'Contracts', 'Retirement' ];
     // If we're uncertain about probabilities, do field analysis to improve them
-    const [tracking_chance_min, tracking_chance_max] = ns.bladeburner.getActionEstimatedSuccessChance('Contracts', 'Tracking');
+    const [tracking_chance_min, tracking_chance_max] = ns.bladeburner.getActionEstimatedSuccessChance(type, name);
     if (Math.abs(tracking_chance_max - tracking_chance_min) > 0.05) {
       act(ns, 'General', 'Field Analysis');
       continue;
@@ -66,7 +70,7 @@ export async function main(ns: NS): Promise<void> {
       continue;
     }
     // Otherwise, get tracking
-    act(ns, 'Contracts', 'Tracking');
+    act(ns, type, name);
     continue;
   }
 }
