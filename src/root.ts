@@ -1,9 +1,12 @@
 import { NS, Server } from '@ns'
 import { find_servers } from 'lib/find-servers';
 import { list_servers } from 'lib/list-servers';
-import { colors, format_number } from 'lib/colors';
+import { colors, format_number, format_servername } from 'lib/colors';
+import { shortest_route_to } from '/path';
+import { singularity_async } from '/lib/singu';
 
 export async function main(ns: NS): Promise<void> {
+  ns.ramOverride(7.45);
   ns.disableLog('ALL');
   ns.enableLog('nuke');
   ns.enableLog('brutessh');
@@ -28,7 +31,11 @@ export async function main(ns: NS): Promise<void> {
 
   ns.tprint(`INFO ${portsOpenable.length} ports openable`);
 
+  let here = 'home';
+
   const servers: Array<Server> = find_servers(ns).map(ns.getServer);
+
+  const sing = singularity_async(ns);
 
   let unrootable = 0;
   const modified: Array<string> = [];
@@ -50,10 +57,32 @@ export async function main(ns: NS): Promise<void> {
       ns.nuke(s.hostname);
       modified.push(s.hostname);
     }
-    if (!s.backdoorInstalled && s.hasAdminRights) {
-      // await ns.singularity.installBackdoor();
+    if (!s.backdoorInstalled && s.hasAdminRights && !s.purchasedByPlayer && (s.requiredHackingSkill ?? 0) <= ns.getPlayer().skills.hacking && s.hostname !== 'home') {
+      const route = shortest_route_to(ns, s.hostname, here);
+      if (!route) {
+        ns.tprint(`WARNING Can't find route to ${format_servername(s.hostname)}, ignoring!`);
+        continue;
+      }
+      for (const step of route) {
+        await sing.connect(step);
+        here = step;
+      }
+      await sing.installBackdoor();
     }
   }
+
+  if (here !== 'home') {
+    const route = shortest_route_to(ns, 'home', here);
+    if (!route) {
+      ns.tprint(`WARNING Can't find route back to ${format_servername('home')}, ignoring!`);
+    } else {
+      for (const step of route) {
+        await sing.connect(step);
+        here = step;
+      }
+    }
+  }
+
 
   if (!modified.length) {
     ns.tprint("INFO No servers could be modified", unrootable ? ` (${format_number(unrootable)} remain unrootable)` : '');
