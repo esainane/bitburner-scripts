@@ -39,7 +39,7 @@ export function find_runners(ns: NS, servers: Array<string>, script: string, exc
       }
       // Spare a little from home
       // FIXME: What a hack
-      reserved = 64;
+      reserved = 82;
     }
     let ignored_used_ram = 0;
     if (ignore_scripts) {
