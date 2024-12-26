@@ -3,6 +3,19 @@ import { SingularityAsync } from '/lib/singu-interface';
 import { singularity_async as singularity_async } from './lib/singu';
 import { colors, format_data, format_number, print_table } from '/lib/colors';
 import { currency_format } from '/lib/format-money';
+import { binary_search } from '/lib/binary-search';
+
+function money_for_rep(ns: NS, rep: number, favor: number) {
+  const player = ns.getPlayer();
+  rep *= 100 / (100 + favor);
+  const amount = binary_search((x: number) => ns.formulas.reputation.repFromDonation(x, player), rep, 1e9, 1e13, {unbounded: true});
+  if (amount < 0) {
+    return -(amount + 1);
+  }
+  return amount;
+}
+
+const plus = `${colors.fg_red}+${colors.reset}`;
 
 export async function main(ns: NS): Promise<void> {
   ns.ramOverride(4.75);
@@ -36,11 +49,19 @@ export async function main(ns: NS): Promise<void> {
   const opts = [];
   opts[3] = { left: false };
   print_table(ns, (ns: NS) => {
-    const color_code_faction = (faction: string, rep_needed: number) => rep_by_faction.get(faction)! > rep_needed
-      ? colors.fg_white
-      : favor_by_faction.get(faction)! >= 150
-        ? colors.fg_cyan
-        : colors.fg_yellow;
+    const format_aug_faction = (faction: string, rep_needed: number, aug: string) => {
+      const rep_have = rep_by_faction.get(faction)!;
+      const rep_shortfall = rep_needed - rep_have;
+      if (rep_shortfall <= 0) {
+        return `${colors.fg_white}${aug}${colors.reset}`;
+      }
+      const favor_have = favor_by_faction.get(faction)!;
+      const money_needed = money_for_rep(ns, rep_shortfall, favor_have);
+      if (favor_have >= 150) {
+        return `${colors.fg_cyan}${aug}${colors.reset}[${currency_format(money_needed)}/${plus}${format_number(rep_shortfall)} rep]`;
+      }
+      return `${colors.fg_yellow}${aug}${colors.reset}[${plus}${format_number(rep_shortfall, { round: 1 })} rep]`;
+    };
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     for (const [augmentation, factions] of [...factions_by_augmentation.entries()].sort(([la, lf], [ra, rf]) => price_by_augmentation.get(ra)! - price_by_augmentation.get(la)!)) {
       if (owned_by_player.has(augmentation)) {
@@ -50,7 +71,7 @@ export async function main(ns: NS): Promise<void> {
         augmentation,
         currency_format(price_by_augmentation.get(augmentation)!),
         format_number(rep_by_augmentation.get(augmentation)!, { round: 0 }),
-        `[${factions_by_augmentation.get(augmentation)!.map(d=>`${color_code_faction(d, rep_by_augmentation.get!(augmentation)!)}${d}${colors.reset}`).join(', ')}]`,
+        `[${factions_by_augmentation.get(augmentation)!.map(d=>`${format_aug_faction(d, rep_by_augmentation.get!(augmentation)!, d)}`).join(', ')}]`,
       );
     }
   }, opts);
