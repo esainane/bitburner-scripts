@@ -67,8 +67,8 @@ export async function main(ns: NS): Promise<void> {
       if (owned_by_player.has(augmentation)) {
         continue;
       }
-      ns.tprintf("%s %s %s rep; via %s",
-        augmentation,
+      ns.tprintf(`%s${colors.reset} %s %s rep; via %s`,
+        `${price_by_augmentation.get(augmentation)! > ns.getPlayer().money ? colors.fg_red : ''}${augmentation}`,
         currency_format(price_by_augmentation.get(augmentation)!),
         format_number(rep_by_augmentation.get(augmentation)!, { round: 0 }),
         `[${factions_by_augmentation.get(augmentation)!.map(d=>`${format_aug_faction(d, rep_by_augmentation.get!(augmentation)!, d)}`).join(', ')}]`,
