@@ -14,7 +14,7 @@ const ascend_preserve_respect_ratio = 0.3;
 const equipment_cost_ratio = 0.03;
 // Augmentations are much more expensive, but permanent and very powerful, so we're quicker to spend larger sum
 // on them.
-const aug_cost_ratio = 0.3;
+const aug_cost_ratio = 0.7;
 // If Formulas.exe is not available, use this as the average relevant skill threshold which, when below, a character
 // attempting to do an advanced task should instead do the basic task
 const no_formulas_starter_skill_threshold = 150;
@@ -345,7 +345,8 @@ export async function main(ns: NS): Promise<void> {
     // By default, engage in balanced money and respect growth
     // This could be coordinated if we keep track of revenue sources, and deprioritize gang revenue if we're not
     // capable of making much, relatively speaking
-    let assigned_respect = Math.floor(trained_members.length / 2);
+    const money_income_is_trivial = false;
+    let assigned_respect = money_income_is_trivial ? trained_members.length : Math.floor(trained_members.length / 2);
 
     while (assigned_respect--) {
       make_respect(...trained_members.pop()!);
