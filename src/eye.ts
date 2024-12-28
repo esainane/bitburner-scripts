@@ -106,7 +106,10 @@ export async function main(ns: NS): Promise<void> {
     // Select the best available action: We consider an action available if it has >70% success (and contracts/missions
     // remaining where applicable), and define best as highest rep per minute
     // Filter by max chance, so we have a chance to narrow the range if we're just experiencing high uncertainty.
-    const actions_data = bladeburner_actions_data(ns).filter(d => d.rep_gain_per_minute > 0);
+    const actions_data = bladeburner_actions_data(ns).filter(d =>
+      d.rep_gain_per_minute > 0
+      && (d.type !== 'Black Operations' || ns.bladeburner.getBlackOpRank(d.action as BladeburnerBlackOpName) <= ns.bladeburner.getRank())
+    );
     actions_data.sort((l,r) => l.rep_gain_per_minute - r.rep_gain_per_minute);
     const viable_actions = actions_data.filter(d => d.remaining >= 1 && d.max_chance >= min_success_rate_for_type(d.type));
     const entry: ActionEntry | undefined = viable_actions.pop();
