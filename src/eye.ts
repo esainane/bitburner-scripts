@@ -1,9 +1,22 @@
-import { BladeburnerActionName, BladeburnerActionType, NS } from '@ns'
+import { BladeburnerActionName, BladeburnerActionType, BladeburnerBlackOpName, NS } from '@ns'
 import { ActionEntry, bladeburner_actions_data } from '/lib/burner';
 
 // "Her eyes were green."
 
-const min_success_rate = 30;
+function min_success_rate_for_type(type: BladeburnerActionType | `${BladeburnerActionType}`): number {
+  switch (type) {
+    case 'General':
+      return 100;
+    case 'Contracts':
+      return 50;
+    case 'Operations':
+      return 70;
+    case 'Black Operations':
+      return 90;
+    default:
+      throw new Error(`Unknown action type: ${type}`);
+  }
+}
 
 function act(ns: NS, type: BladeburnerActionType | `${BladeburnerActionType}`, name: BladeburnerActionName | `${BladeburnerActionName}`): void {
   ns.print('Selectied ', type, ', ', name);
@@ -95,10 +108,10 @@ export async function main(ns: NS): Promise<void> {
     // Filter by max chance, so we have a chance to narrow the range if we're just experiencing high uncertainty.
     const actions_data = bladeburner_actions_data(ns).filter(d => d.rep_gain_per_minute > 0);
     actions_data.sort((l,r) => l.rep_gain_per_minute - r.rep_gain_per_minute);
-    const viable_actions = actions_data.filter(d => d.remaining >= 1 && d.max_chance >= min_success_rate);
+    const viable_actions = actions_data.filter(d => d.remaining >= 1 && d.max_chance >= min_success_rate_for_type(d.type));
     const entry: ActionEntry | undefined = viable_actions.pop();
     if (entry !== undefined) {
-      if (entry.min_chance < min_success_rate) {
+      if (entry.min_chance < min_success_rate_for_type(entry.type)) {
         // Improve our analysis before committing
         act(ns, 'General', 'Field Analysis');
         continue;
@@ -119,7 +132,7 @@ export async function main(ns: NS): Promise<void> {
     // - Out of contracts?
 
     // If we're out of contracts, try to get more
-    if (actions_data.find(d => d.max_chance >= min_success_rate && d.remaining < 1) !== undefined) {
+    if (actions_data.find(d => d.max_chance >= min_success_rate_for_type(d.type) && d.remaining < 1) !== undefined) {
       act(ns, 'General', 'Incite Violence');
       continue;
     }
