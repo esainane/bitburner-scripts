@@ -24,6 +24,13 @@ function bonus_adjust(ns: NS, time: number) {
   return bonusable_time / 5 + unbonusable_time;
 }
 
+function bonus_adjust_inverse(ns: NS, time: number) {
+  const bonus_time = ns.bladeburner.getBonusTime();
+  const bonusable_time = Math.min(bonus_time, time);
+  const unbonusable_time = time - bonusable_time;
+  return bonusable_time * 5 + unbonusable_time;
+}
+
 export async function main(ns: NS): Promise<void> {
   const cycle_sleep = 500;
   const jitter_padding = 20;
@@ -41,7 +48,7 @@ export async function main(ns: NS): Promise<void> {
     }
     await ns.asleep(bonus_adjust(ns, Math.max(cycle_sleep, time_remaining + jitter_padding)));
     const new_current_elapsed = ns.bladeburner.getActionCurrentTime();
-    if (new_current_elapsed >= 5000 + jitter_tolerance) {
+    if (new_current_elapsed >= bonus_adjust_inverse(ns, 1000) + jitter_tolerance) {
       ns.print('Overshot by ', new_current_elapsed, 'ms, retrying.');
       continue;
     }
