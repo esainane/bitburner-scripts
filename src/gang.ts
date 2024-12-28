@@ -328,7 +328,7 @@ export async function main(ns: NS): Promise<void> {
     }
 
     // If we're "done", having effectively maxed out the meaningful respect discount effect, just focus on making money
-    if (fully_upgraded && info.respect > hard_respect_cap || (fully_upgraded && info.respect > soft_respect_cap)) {
+    if (info.respect > (fully_upgraded ? soft_respect_cap : hard_respect_cap)) {
       for (const [name, info] of trained_members) {
         if (info.earnedRespect < (1 - ascend_preserve_respect_ratio) / (members.length - 1)) {
           // But if we might cause a member to stagnate, because our respect is so low that if everyone else except one
