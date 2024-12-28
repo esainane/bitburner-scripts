@@ -5,10 +5,10 @@ import { ActionEntry, bladeburner_actions_data } from '../lib/burner';
 
 const percent = `${colors.fg_cyan}%${colors.reset}`;
 
-function print_entry(ns: NS, entry: ActionEntry) {
+export function print_entry(ns: NS, entry: ActionEntry) {
   ns.tprintf(`%s %s %s%s%s%s over %s; %s remaining; %s rep; %s rep/min`,
     `[${entry.type}]`,
-    `${entry.action}${entry.level > 1 ? `[${format_number(entry.level)}]` : ''})`,
+    `${entry.action}${entry.level > 1 ? `[${format_number(entry.level)}]` : ''}`,
     format_number(entry.min_chance, { round: 2 }),
     percent,
     entry.min_chance === entry.max_chance ? '' : `${colors.fg_red}~${colors.reset}`,

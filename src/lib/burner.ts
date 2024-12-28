@@ -1,8 +1,20 @@
 import { NS, BladeburnerActionType, BladeburnerActionName } from '@ns';
-import { ms_per_min } from '/detail/ms_per_min';
+import { ms_per_min } from './consts';
 
 export type Action = [BladeburnerActionType | `${BladeburnerActionType}`, BladeburnerActionName | `${BladeburnerActionName}`];
 export type ActionList = Action[];
+
+export interface ActionEntry {
+  type: BladeburnerActionType | `${BladeburnerActionType}`;
+  action: BladeburnerActionName | `${BladeburnerActionName}`;
+  level: number;
+  min_chance: number;
+  max_chance: number;
+  duration: number;
+  remaining: number;
+  rep_gain: number;
+  rep_gain_per_minute: number;
+}
 
 export function bladeburner_actions_data(ns: NS): ActionEntry[] {
   // Using enums directly, eg BladeburnerActionType.BlackOp, will cause the @ns import to be emitted, causing a failure
@@ -54,15 +66,4 @@ export function bladeburner_actions_data(ns: NS): ActionEntry[] {
   });
 
   return actions_data;
-}export interface ActionEntry {
-  type: BladeburnerActionType | `${BladeburnerActionType}`;
-  action: BladeburnerActionName | `${BladeburnerActionName}`;
-  level: number;
-  min_chance: number;
-  max_chance: number;
-  duration: number;
-  remaining: number;
-  rep_gain: number;
-  rep_gain_per_minute: number;
 }
-
