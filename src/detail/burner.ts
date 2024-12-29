@@ -1,4 +1,4 @@
-import { NS } from '@ns'
+import { BladeburnerBlackOpName, NS } from '@ns'
 import { colors, format_number, print_table } from '/lib/colors';
 import { format_duration } from '/lib/format-duration';
 import { ActionEntry, bladeburner_actions_data } from '../lib/burner';
@@ -6,9 +6,18 @@ import { ActionEntry, bladeburner_actions_data } from '../lib/burner';
 const percent = `${colors.fg_cyan}%${colors.reset}`;
 
 export function print_entry(ns: NS, entry: ActionEntry) {
+  const required_rank = entry.type === 'Black Operations'
+    ? ns.bladeburner.getBlackOpRank(entry.action as BladeburnerBlackOpName)
+    : 0;
   ns.tprintf(`%s %s %s%s%s%s over %s; %s remaining; %s rep; %s rep/min`,
     `[${entry.type}]`,
-    `${entry.action}${entry.level > 1 ? `[${format_number(entry.level)}]` : ''}`,
+    `${entry.action}${entry.level > 1
+      ? `[${format_number(entry.level)}]`
+      : ''}${required_rank
+      ? `{${required_rank > ns.bladeburner.getRank()
+        ? colors.fg_red
+        : colors.fg_green}${required_rank}${colors.reset}}`
+      : ''}`,
     format_number(entry.min_chance, { round: 2 }),
     percent,
     entry.min_chance === entry.max_chance ? '' : `${colors.fg_red}~${colors.reset}`,

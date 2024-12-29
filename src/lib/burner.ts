@@ -16,13 +16,17 @@ export interface ActionEntry {
   rep_gain_per_minute: number;
 }
 
-export function bladeburner_actions_data(ns: NS): ActionEntry[] {
+export function bladeburner_actions_data(ns: NS, all_blackops=true): ActionEntry[] {
   // Using enums directly, eg BladeburnerActionType.BlackOp, will cause the @ns import to be emitted, causing a failure
   // when run in bitburner. So we directly use the string representation instead.
   const general_actions: ActionList = ns.bladeburner.getGeneralActionNames().map(d => ['General', d]);
   const contract_actions: ActionList = ns.bladeburner.getContractNames().map(d => ['Contracts', d]);
   const operation_actions: ActionList = ns.bladeburner.getOperationNames().map(d => ['Operations', d]);
-  const blackops_actions: ActionList = ns.bladeburner.getBlackOpNames().map(d => ['Black Operations', d]);
+  const blackops_actions: ActionList = all_blackops
+    ? ns.bladeburner.getBlackOpNames().map(d => ['Black Operations', d])
+    : ns.bladeburner.getNextBlackOp()
+      ? [['Black Operations', ns.bladeburner.getNextBlackOp()!.name]]
+      : [];
   const actions: ActionList = [
     ...general_actions,
     ...contract_actions,
