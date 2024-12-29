@@ -90,7 +90,7 @@ export async function main(ns: NS): Promise<void> {
       continue;
     }
     // If Charisma is low, improve via recruitment
-    if (player.skills.charisma / player.mults.charisma < 100) {
+    if (player.skills.charisma / player.mults.charisma < 250) {
       act(ns, "General", "Recruitment");
       continue;
     }
