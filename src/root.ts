@@ -35,7 +35,7 @@ export async function main(ns: NS): Promise<void> {
 
   const servers: Array<Server> = find_servers(ns).map(ns.getServer);
 
-  const sing = singularity_async(ns);
+  const to_backdoor: Server[] = [];
 
   let unrootable = 0;
   const modified: Array<string> = [];
@@ -58,17 +58,24 @@ export async function main(ns: NS): Promise<void> {
       modified.push(s.hostname);
     }
     if (!s.backdoorInstalled && s.hasAdminRights && !s.purchasedByPlayer && (s.requiredHackingSkill ?? 0) <= ns.getPlayer().skills.hacking && s.hostname !== 'home') {
-      const route = shortest_route_to(ns, s.hostname, here);
-      if (!route) {
-        ns.tprint(`WARNING Can't find route to ${format_servername(s.hostname)}, ignoring!`);
-        continue;
-      }
-      for (const step of route) {
-        await sing.connect(step);
-        here = step;
-      }
-      await sing.installBackdoor();
+      to_backdoor.push(s);
     }
+  }
+
+  to_backdoor.sort((l, r) => (l.requiredHackingSkill ?? 0) - (r.requiredHackingSkill ?? 0));
+
+  const sing = singularity_async(ns);
+  for (const s of to_backdoor) {
+    const route = shortest_route_to(ns, s.hostname, here);
+    if (!route) {
+      ns.tprint(`WARNING Can't find route to ${format_servername(s.hostname)}, ignoring!`);
+      continue;
+    }
+    for (const step of route) {
+      await sing.connect(step);
+      here = step;
+    }
+    await sing.installBackdoor();
   }
 
   if (here !== 'home') {
