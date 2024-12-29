@@ -5,9 +5,8 @@ import { colors, format_data, format_number, print_table } from '/lib/colors';
 import { currency_format } from '/lib/format-money';
 import { binary_search } from '/lib/binary-search';
 
-function money_for_rep(ns: NS, rep: number, favor: number) {
+function money_for_rep(ns: NS, rep: number) {
   const player = ns.getPlayer();
-  rep *= 100 / (100 + favor);
   const amount = binary_search((x: number) => ns.formulas.reputation.repFromDonation(x, player), rep, 1e9, 1e13, {unbounded: true});
   if (amount < 0) {
     return -(amount + 1);
@@ -56,8 +55,8 @@ export async function main(ns: NS): Promise<void> {
         return `${colors.fg_white}${aug}${colors.reset}`;
       }
       const favor_have = favor_by_faction.get(faction)!;
-      const money_needed = money_for_rep(ns, rep_shortfall, favor_have);
       if (favor_have >= 150) {
+        const money_needed = money_for_rep(ns, rep_shortfall);
         return `${colors.fg_cyan}${aug}${colors.reset}[${currency_format(money_needed)}/${plus}${format_number(rep_shortfall)} rep]`;
       }
       return `${colors.fg_yellow}${aug}${colors.reset}[${plus}${format_number(rep_shortfall, { round: 1 })} rep]`;
