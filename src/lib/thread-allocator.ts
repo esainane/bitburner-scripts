@@ -51,8 +51,8 @@ export class ThreadAllocator {
           // Going below the soft threshold, raise a warning if we're meant to normally exclude home
           if (this.exclude_runners.has('home')) {
             this.ns.tprint('ERROR Home server is running low on memory');
-          } else {
-            this.ns.tprint('WARNING Home server is running low on memory');
+          // } else {
+          //   this.ns.tprint('WARNING Home server is running low on memory');
           }
         }
       }
@@ -174,6 +174,19 @@ export class ThreadAllocator {
   }
 }
 
-export async function main(ns: NS): Promise<void> {
+function mock_ns(real_ns: NS): NS {
+  return {
+    ...real_ns,
+    scan: (host = 'home') => host == 'home' ? ['a', 'b', 'c'] : [],
+    exec: () => 1,
+    fileExists: () => true,
+    getScriptRam: () => 2,
+    getServerMaxRam: (host: string) => 1024,
+    getServerUsedRam: (host: string) => 0,
+    scp: () => true,
+  };
+}
+
+export async function main(real_ns: NS): Promise<void> {
   //
 }
