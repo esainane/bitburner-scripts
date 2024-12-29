@@ -28,11 +28,12 @@ function make_suffixes(colors: Colors): Array<string> {
 export function hm_currency_format(amount: number, { colorize=true, simplify=true, ns = undefined}: { colorize?:boolean, simplify?: boolean, ns?: NS} = {}): string {
   const [color, suffixes] = colorize ? [colors, suffixes_colored] : [nop_colors, suffixes_plain];
   let str = "";
+  let prefix = '';
   if (amount == 0) {
     return `${color.fg_white}0${color.reset}`;
   }
   if (amount < 0) {
-    str = `${color.fg_red}-`;
+    prefix = `${color.fg_red}-`;
     amount = -amount;
   }
   let magnitude = Math.log10(amount);
@@ -54,7 +55,7 @@ export function hm_currency_format(amount: number, { colorize=true, simplify=tru
     magnitude -= 3;
     i++;
   }
-  return (amount >= 1 ? `${color.fg_cyan}$${color.fg_white}${Math.floor(amount)}${suffixes[i]}${str}` : `${str}`) + color.reset;
+  return (amount >= 1 ? `${prefix}${color.fg_cyan}$${color.fg_white}${Math.floor(amount)}${suffixes[i]}${str}` : `${str}`) + color.reset;
 }
 
 export const currency_format = hm_currency_format;
@@ -67,12 +68,13 @@ export async function main(ns: NS): Promise<void> {
 
   const opts = {colorize: false};
   // Test
-  assert_eq(ns, "$0", hm_currency_format(0, opts), );
+  assert_eq(ns, "0", hm_currency_format(0, opts), );
   assert_eq(ns, "$400", hm_currency_format(400, opts));
   assert_eq(ns, "$20", hm_currency_format(20, opts));
   assert_eq(ns, "$4K", hm_currency_format(4000, opts));
   assert_eq(ns, "$4K10", hm_currency_format(4010, opts));
   assert_eq(ns, "$4M143K", hm_currency_format(4143010, opts));
+  assert_eq(ns, "-$4M143K", hm_currency_format(-4143010, opts));
   assert_eq(ns, "$4M143K10", hm_currency_format(4143010, { simplify: false, ...opts }));
 
   assert_all_passed(ns);
