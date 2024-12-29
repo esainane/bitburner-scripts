@@ -82,6 +82,8 @@ export async function main(ns: NS): Promise<void> {
     const symbols = get_stock_info(ns);
     symbols.sort(forecast_sorter)
     ns.tprint('Stock info:');
+    let sum_holdings = 0;
+    let sum_basis = 0;
     print_table(ns, (ns: NS) => {
       for (const symbol of symbols) {
         ns.tprintf("%s %s: %s forecast, %s volatility, %s ask, %s bid, %s max shares, %s long, %s long basis, %s short, %s short basis",
@@ -97,8 +99,16 @@ export async function main(ns: NS): Promise<void> {
           format_number(symbol.short),
           currency_format(symbol.short_basis)
         );
+        sum_holdings += symbol.long * symbol.bid_price;
+        sum_holdings += symbol.short * symbol.ask_price;
+        sum_basis += symbol.long * symbol.long_basis;
+        sum_basis += symbol.short * symbol.short_basis;
       }
     });
+    if (sum_holdings !== 0) {
+      ns.tprint(`Total cost basis value:  ${currency_format(sum_basis)}`);
+      ns.tprint(`Total value of holdings: ${currency_format(sum_holdings)}`);
+    }
     return;
   }
   // eslint-disable-next-line no-constant-condition
