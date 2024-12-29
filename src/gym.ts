@@ -4,7 +4,7 @@ import { format_number } from '/lib/colors';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
-  return ['150'];
+  return ['150', '--info'];
 }
 
 function get_player_combat_premult(ns: NS) {
@@ -35,7 +35,7 @@ export async function main(ns: NS): Promise<void> {
     threshold = Number(ns.args[0]);
   }
 
-  if (ns.args.includes('--print')) {
+  if (ns.args.includes('--info')) {
     ns.tprint(`Current average: ${format_number(get_average_player_combat_premult(ns))}`);
     return;
   }
