@@ -43,8 +43,23 @@ export class ThreadAllocator {
     this.available_threads -= threads;
     const runner = this.available_runners.find(r => r.server === hostname);
     if (runner) {
+      const is_home = hostname === 'home';
+      const newly_using = threads * (options.ramOverride ?? this.ns.getScriptRam(script, 'home'));
+      if (is_home) {
+        const home_actual_available = this.ns.getServerMaxRam('home') - this.ns.getServerUsedRam('home');
+        if (home_actual_available >= 82 && home_actual_available - newly_using < 82) {
+          // Going below the soft threshold, raise a warning if we're meant to normally exclude home
+          if (this.exclude_runners.has('home')) {
+            this.ns.tprint('ERROR Home server is running low on memory');
+          } else {
+            this.ns.tprint('WARNING Home server is running low on memory');
+          }
+        }
+      }
       runner.threads -= threads;
-      runner.used_ram += threads * (options.ramOverride ?? this.ns.getScriptRam(script, 'home'));
+      runner.used_ram += newly_using;
+    } else {
+      this.ns.tprint('WARNING Could not runner to update for ', hostname, ', later allocations may overallocate or fail!');
     }
     const pid = this.ns.exec(script, hostname, options, ...args);
     if (pid == 0) {

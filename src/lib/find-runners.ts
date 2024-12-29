@@ -49,8 +49,8 @@ export function find_runners(ns: NS, servers: Array<string>, script: string, exc
         }
       }
     }
-    const [ max_ram, used_ram ] = [ ns.getServerMaxRam(s), ns.getServerUsedRam(s) ];
-    const server_available_threads = Math.floor((max_ram - reserved - used_ram + ignored_used_ram) / ram_per_thread);
+    const [ max_ram, used_ram ] = [ ns.getServerMaxRam(s) - reserved, ns.getServerUsedRam(s) ];
+    const server_available_threads = Math.floor((max_ram - used_ram + ignored_used_ram) / ram_per_thread);
     if (server_available_threads < 1) {
       continue;
     }
