@@ -7,9 +7,9 @@ import { currency_format } from '/lib/format-money';
 // outlook changes
 
 // Buy if there's a 60% chance of growth
-const buy_threshold = 0.6;
-// Sell if the chance of growth drops below 53%
-const sell_threshold = 0.53;
+const buy_threshold = 0.55;
+// Sell if the chance of growth drops below 52%
+const sell_threshold = 0.52;
 // Keep some money around for other actions/systems
 const max_net_worth_in_shares = 0.8;
 // Make sure we don't make lots of tiny transactions and get eaten by fees
