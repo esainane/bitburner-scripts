@@ -3,6 +3,8 @@ import { colors, format_servername, print_table } from '/lib/colors';
 import { currency_format } from '/lib/format-money';
 
 export async function main(ns: NS): Promise<void> {
+  // XXX: If getMoneySource().total is always the player's current money, perhaps ths could be used as a more RAM
+  // friendly way of retrieving money when a script needs to get the player's current money, and nothing else.
   const { sinceStart: since_last_bitnode, sinceInstall: since_last_aug } = ns.getMoneySources();
   const sources_since_last_bitnode = Object.entries(since_last_bitnode).filter(([k, v]) => v !== 0).sort(([k1, v1], [k2, v2]) => v1 - v2);
   const sources_since_last_aug = Object.entries(since_last_aug).filter(([k, v]) => v !== 0).sort(([k1, v1], [k2, v2]) => v1 - v2);
