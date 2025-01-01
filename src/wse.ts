@@ -57,6 +57,7 @@ function peek<T>(arr: T[]): T | undefined {
 }
 
 const bright_green = colors.combine(colors.bright, colors.fg_green);
+const bright_red = colors.combine(colors.bright, colors.fg_red);
 
 function print_sell(ns: NS, amount: number, symbol: string, bid_price: number, actual_sell_price: number, long_basis: number): void {
   ns.tprint(`Selling ${format_number(amount)} shares of ${format_servername(symbol)} for ${currency_format(bid_price * amount)} at ${currency_format(bid_price)} each (actual: ${currency_format(actual_sell_price)} each), realizing a ${currency_format(amount * (bid_price - long_basis))} ${long_basis < bid_price ? `${bright_green}profit${colors.reset}` : `${colors.fg_red}loss${colors.reset}`}`);
@@ -86,18 +87,31 @@ export async function main(ns: NS): Promise<void> {
     let sum_basis = 0;
     print_table(ns, (ns: NS) => {
       for (const symbol of symbols) {
-        ns.tprintf("%s %s: %s forecast, %s volatility, %s ask, %s bid, %s max shares, %s long, %s long basis, %s short, %s short basis",
+        ns.tprintf("%s %s: %s fcst; %s voli; %s market cap; %s %s; %s ask, %s bid, %s max shares%s%s%s%s%s%s%s%s",
           format_servername(symbol.org),
           format_servername(symbol.symbol),
           format_number(symbol.forecast, { round: 2 }),
           format_number(symbol.volatility, { round: 2 }),
+          currency_format(symbol.ask_price * symbol.maxShares),
+          symbol.long || symbol.short ? currency_format(symbol.long * symbol.bid_price - symbol.short * symbol.ask_price) : `${colors.fg_black}-${colors.reset}`,
+          symbol.long
+            ? symbol.short
+              ? `${bright_red}BOTH!?${colors.reset}`
+              : `${colors.fg_cyan}LONG${colors.reset}`
+            : symbol.short
+              ? `${colors.fg_magenta}SHORT${colors.reset}`
+              : `${colors.fg_black}-${colors.reset}`,
           currency_format(symbol.ask_price),
           currency_format(symbol.bid_price),
           format_number(symbol.maxShares),
-          format_number(symbol.long),
-          currency_format(symbol.long_basis),
-          format_number(symbol.short),
-          currency_format(symbol.short_basis)
+          symbol.long ? `; ${format_number(symbol.long)}` : '',
+          symbol.long ? " long, " : '',
+          symbol.long ? currency_format(symbol.long_basis) : '',
+          symbol.long ? " long basis" : '',
+          symbol.short ? `; ${format_number(symbol.short)}` : '',
+          symbol.short ? " short, " : '',
+          symbol.short ? currency_format(symbol.short_basis) : '',
+          symbol.short ? " short basis" : '',
         );
         sum_holdings += symbol.long * symbol.bid_price;
         sum_holdings += symbol.short * symbol.ask_price;
