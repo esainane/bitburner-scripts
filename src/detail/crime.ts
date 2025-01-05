@@ -1,8 +1,9 @@
-import { AutocompleteData, CrimeStats, NS } from '@ns'
+import { AutocompleteData, CrimeStats, NS, Person } from '@ns'
 import { format_number, format_servername, print_table, percent, colors } from '/lib/colors';
 import { singularity_async } from '/lib/singu';
 import { format_duration } from '/lib/format-duration';
 import { currency_format } from '/lib/format-money';
+import { range } from '/lib/range';
 import { ms_per_min } from '/lib/consts';
 
 interface Crime {
@@ -32,18 +33,45 @@ const sorters = new Map<string, (l: Crime, r: Crime) => number>([
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
-  return Array.from(sorters.keys());
+  // Sort functions or sleeve indices
+  return [...sorters.keys(), ...range(8).map(String)];
 }
 
 export async function main(ns: NS): Promise<void> {
   // RAM dodge
-  ns.ramOverride(4.25);
+  ns.ramOverride(8.75);
   const singu = singularity_async(ns);
+
+  const has_formulas = ns.fileExists('Formulas.exe');
+
+
+  let sorter: ((l: Crime, r: Crime) => number) | undefined = undefined;
+  let agent: Person | null = null;
+
+  for (const arg of ns.args) {
+    ns.tprint('arg: ', arg);
+    const sorter_entry = sorters.get(String(arg));
+    if (sorter_entry) {
+      // If we're asked to sort by something specific, do so
+      sorter = sorter_entry;
+    } else if (typeof arg === 'number' || (typeof arg === 'string' && arg.match(/^\d+$/))) {
+      // If we're given a sleeve index to get information for, use that instead of the player
+      const idx = Number(arg);
+      ns.tprint('Using information for sleeve ', idx, ' (via "', arg, '")');
+      agent = ns.sleeve.getSleeve(idx);
+    } else {
+      ns.tprint(`WARNING Unknown sorter: ${arg}. Valid sorters: ${Array.from(sorters.keys()).join(', ')}`);
+    }
+  }
+  agent ??= ns.getPlayer();
 
   // Get data
   const crimes: Crime[] = [];
+
   for (const crime of Object.values(ns.enums.CrimeType)) {
-    const odds = await singu.getCrimeChance(crime);
+    const odds = has_formulas
+      ? ns.formulas.work.crimeSuccessChance(agent, crime)
+      : await singu.getCrimeChance(crime);
     const stats = await singu.getCrimeStats(crime);
     crimes.push({
       crime,
@@ -52,14 +80,9 @@ export async function main(ns: NS): Promise<void> {
     });
   }
 
-  // If we're asked to sort by something specific, do so
-  if (ns.args.length > 0) {
-    const sorter = sorters.get(String(ns.args[0]));
-    if (sorter) {
-      crimes.sort(sorter);
-    } else {
-      ns.tprint(`WARNING Unknown sorter: ${ns.args[0]}. Valid sorters: ${Array.from(sorters.keys()).join(', ')}`);
-    }
+
+  if (sorter) {
+    crimes.sort(sorter);
   }
 
   const empty = `${colors.fg_black}-${colors.reset}`;
