@@ -192,7 +192,7 @@ export class HWGWBlock {
     await this._startHack(actual_hack_threads);
   }
 
-  private async _startHack(threads: number) {
+  private async _startHack(threads: number, extra_delay: number) {
     // Immediately spawn a hacking process, without checks
     const [unallocatable_threads, pids] = await this.thread_allocator('worker/hack1.ts', threads, false);
     if (unallocatable_threads == threads) {
@@ -235,7 +235,7 @@ export class HWGWBlock {
     await this._startWeak1();
   }
 
-  private async _startWeak1() {
+  private async _startWeak1(extra_delay: number) {
     // Immediately spawn a weakening process, without checks
     const [unallocatable_threads, pids] = await this.thread_allocator('worker/weak1.ts', this.weak1_threads, true);
     if (unallocatable_threads == this.weak1_threads) {
@@ -297,7 +297,7 @@ export class HWGWBlock {
     await this._startGrow(actual_grow_threads);
   }
 
-  private async _startGrow(threads: number) {
+  private async _startGrow(threads: number, extra_delay: 0) {
     // Immediately spawn a growing process, without checks
     const [unallocatable_threads, pids] = await this.thread_allocator('worker/grow1.ts', threads, false);
     if (unallocatable_threads == threads) {
@@ -343,7 +343,7 @@ export class HWGWBlock {
     await this._startWeak2();
   }
 
-  private async _startWeak2() {
+  private async _startWeak2(extra_delay: number) {
     // Immediately spawn a weakening process, without checks
     const [unallocatable_threads, pids] = await this.thread_allocator('worker/weak1.ts', this.weak2_threads, true);
     if (unallocatable_threads == this.weak2_threads) {
