@@ -12,6 +12,12 @@ export class ThreadAllocator {
     this.refresh();
   }
 
+  private is_avoided(s: string): boolean {
+    // Always try to avoid hacknet servers
+    // FIXME: Ugly special casing
+    return this.avoid_runners.has(s) || s.startsWith('hacknet-server');
+  }
+
   private available_runners: Array<Runner> = [];
   private available_threads = 0;
 
@@ -72,7 +78,7 @@ export class ThreadAllocator {
 
   public largestContiguousBlock({ topN = 1, allow_avoided_servers = false} = {}): number[] {
     const ret = [...this.available_runners]
-      .filter(allow_avoided_servers ? () => true : d => !this.avoid_runners.has(d.server))
+      .filter(allow_avoided_servers ? () => true : d => !this.is_avoided(d.server))
       .map(d => d.threads)
       .sort((l, r) => r - l);
     // this.ns.tprint('Largest contiguous block: ', ret, ' from [', this.available_runners.map(d => d.threads).join(', '), '] (', this.available_threads, ' total)');
@@ -85,7 +91,7 @@ export class ThreadAllocator {
     let available_runners = this.available_runners;
     let available_threads = recalculate_threads(this.ns, available_runners, script, options);
     if (!allow_avoided_servers) {
-      available_runners = available_runners.filter(r => !this.avoid_runners.has(r.server));
+      available_runners = available_runners.filter(r => !this.is_avoided(r.server));
       available_threads = available_runners.reduce((acc, r) => acc + r.threads, 0);
     }
     if (available_threads < threads) {
@@ -97,8 +103,8 @@ export class ThreadAllocator {
     if (cumulative) {
       available_runners.sort(allow_avoided_servers ? (l, r) => {
         // Avoid servers if we can
-        const avoid_l = this.avoid_runners.has(l.server);
-        const avoid_r = this.avoid_runners.has(r.server);
+        const avoid_l = this.is_avoided(l.server);
+        const avoid_r = this.is_avoided(r.server);
         if (avoid_l != avoid_r) {
           return avoid_l ? 1 : -1;
         }

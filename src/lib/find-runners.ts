@@ -42,6 +42,10 @@ export function find_runners(ns: NS, servers: Array<string>, script: string, exc
       // FIXME: What a hack
       reserved = 82;
     }
+    // FIXME: Also a hack
+    if (s.startsWith('hacknet-server') && exclude_runners.has('HACKNET')) {
+      continue;
+    }
     let ignored_used_ram = 0;
     if (ignore_scripts) {
       for (const process of ns.ps(s)) {

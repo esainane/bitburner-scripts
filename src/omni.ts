@@ -20,7 +20,7 @@ export function autocomplete(data : AutocompleteData, args : string[]) : string[
 // given available runners and the player's hacking skill level.
 
 // Servers which should not be used as runners
-const exclude_runners: Set<string> = new Set(["home"]);
+const exclude_runners: Set<string> = new Set(["home", "HACKNET"]);
 // Servers which can be used as runners if and only if there are no non-avoid options
 const avoid_runners: Set<string> = new Set(["home"]);
 // Tolerance for script drift in ms
