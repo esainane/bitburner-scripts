@@ -7,6 +7,11 @@ import { format_duration } from '/lib/format-duration';
 // Simple stock management script
 // Buy stocks with a high price forecast, mark bought stocks for growth by the management script, sell them when the
 // outlook changes
+// Note that this is a very conservative strategy. The stocks most likely to grow are not necessarily those that will
+// grow the most, and this script will not take advantage of the most profitable opportunities. It is currently
+// designed to prioritize safety and reliability, rather than maximizing expected value.
+// This could be changed with additional logic to sort by a fitness function which also examines volatility, and
+// prioritizes EV as the ratio of growth to loss odds multiplied by volatility.
 
 // Thresholds for when precise 4S API information is available
 // Buy if there's a 55% chance of growth
