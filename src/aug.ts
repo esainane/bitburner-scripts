@@ -5,7 +5,8 @@ import { colors, format_data, format_number, print_table } from '/lib/colors';
 import { currency_format } from '/lib/format-money';
 import { binary_search } from '/lib/binary-search';
 
-function money_for_rep(ns: NS, rep: number) {
+// TODO: lib this
+export function money_for_rep(ns: NS, rep: number) {
   const player = ns.getPlayer();
   const amount = binary_search((x: number) => ns.formulas.reputation.repFromDonation(x, player), rep, 1e9, 1e13, {unbounded: true});
   if (amount < 0) {
