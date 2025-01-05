@@ -8,7 +8,7 @@ export function autocomplete(data: string[], args: string[]): string[] {
   return ['--no-sell', '--no-buy'];
 }
 
-const money_per_hash = 1e6 / 4;
+export const money_per_hash = 1e6 / 4;
 
 // Cache the result of the lookahead function to avoid recalculating it every tick.
 // Cache params are [new_server_cost, player_mults.hacknet_node_money, player_mults.hacknet_node_level_cost, player_mults.hacknet_node_ram_cost, player_mults.hacknet_node_core_cost]

@@ -49,7 +49,7 @@ const failed_scrapes_warning_frequency = 60e3;
 // If we hit no scrapes for a full minute, warn the user
 const failed_scrapes_warning_threshold = 60e3;
 
-function scrape_4s(ns: NS, symbol: string): [number?, number?] {
+function scrape_4s(ns: NS, symbol: string, warn_on_failed_scrapes: boolean): [number?, number?] {
   // Scrape the stock market tab for the symbol's information
   // The resultant forecast is imprecise, and this only works when the tab is opened
   // Find a p element which contains the symbol in the text, and has a div element of class MuiListItemText-root as an ancestor
@@ -74,7 +74,7 @@ function scrape_4s(ns: NS, symbol: string): [number?, number?] {
     return [forecast, volatility];
   }
   const now = Date.now();
-  if (now > last_successful_scrape + failed_scrapes_warning_threshold && now > last_failed_scrape_warning + failed_scrapes_warning_frequency) {
+  if (warn_on_failed_scrapes && now > last_successful_scrape + failed_scrapes_warning_threshold && now > last_failed_scrape_warning + failed_scrapes_warning_frequency) {
     const message = (colors: Colors, colorize: boolean) => `Repeatedly ${colors.fg_red}failed${colors.reset} to scrape stock market tab for stock information. Last update ${format_duration(now - last_successful_scrape, { abs_threshold: -1, colorize })} ago. Switch tab to ${colors.fg_cyan}Stock Market${colors.reset} ASAP to avoid loss.`;
     // Market inversions happen frequently, so pop up a long duration warning toast as well
     ns.tprint(`WARNING ${message(colors, true)}`);
@@ -84,7 +84,7 @@ function scrape_4s(ns: NS, symbol: string): [number?, number?] {
   return [undefined, undefined];
 }
 
-function get_stock_info(ns: NS): StockInfo[] {
+export function get_stock_info(ns: NS, warn_on_failed_scrapes=true): StockInfo[] {
   const symbols = ns.stock.getSymbols();
   const stocks: StockInfo[] = [];
   const has_4s = ns.stock.has4SData();
@@ -95,7 +95,7 @@ function get_stock_info(ns: NS): StockInfo[] {
       ? [ns.stock.getForecast(symbol), ns.stock.getVolatility(symbol)]
       : has_4s
         // Otherwise, try to guess whenever the user has the stock page open
-        ? scrape_4s(ns, symbol)
+        ? scrape_4s(ns, symbol, warn_on_failed_scrapes)
         : [undefined, undefined];
     const ask_price = ns.stock.getAskPrice(symbol);
     const bid_price = ns.stock.getBidPrice(symbol);
