@@ -1,5 +1,5 @@
 import { AutocompleteData, NS } from '@ns'
-import { Colors, colors, format_number, format_servername, nop_colors, print_table } from '/lib/colors';
+import { Colors, colors, format_number, format_servername, nop_colors, percent, print_table } from '/lib/colors';
 import { format_currency } from '/lib/format-money';
 import { sanitize_for_xpath, xpath_all } from '/lib/xpath';
 import { format_duration } from '/lib/format-duration';
@@ -165,11 +165,12 @@ export async function main(ns: NS): Promise<void> {
     let sum_basis = 0;
     print_table(ns, (ns: NS) => {
       for (const symbol of symbols) {
-        ns.tprintf("%s %s: %s fcst; %s voli; %s market cap; %s %s; %s ask, %s bid, %s max shares%s%s%s%s%s%s%s%s",
+        ns.tprintf("%s %s: %s fcst; %s%s voli; %s market cap; %s %s; %s ask, %s bid, %s max shares%s%s%s%s%s%s%s%s",
           format_servername(symbol.org),
           format_servername(symbol.symbol),
           symbol.forecast === undefined ? `${colors.fg_red}???${colors.reset}` : format_number(symbol.forecast, { round: 2 }),
-          symbol.volatility === undefined ? `${colors.fg_red}???${colors.reset}` : format_number(symbol.volatility, { round: 2 }),
+          symbol.volatility === undefined ? `${colors.fg_red}???${colors.reset}` : format_number(symbol.volatility * 100, { round: 2 }),
+          percent,
           format_currency(symbol.ask_price * symbol.maxShares),
           symbol.long || symbol.short ? format_currency(symbol.long * symbol.bid_price - symbol.short * symbol.ask_price) : `${colors.fg_black}-${colors.reset}`,
           symbol.long
