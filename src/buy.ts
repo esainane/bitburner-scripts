@@ -12,4 +12,5 @@ export async function main(ns: NS): Promise<void> {
   if (ns.args[1] == '-f') {
     ns.purchaseServer(`s-${ns.getPurchasedServers().length}-${spec}`, 2**spec);
   }
+  ns.spawn('mass.js', 1);
 }
