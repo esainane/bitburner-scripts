@@ -3,6 +3,7 @@ import { format_number, format_servername, print_table, percent, colors } from '
 import { singularity_async } from '/lib/singu';
 import { format_duration } from '/lib/format-duration';
 import { currency_format } from '/lib/format-money';
+import { ms_per_min } from '/lib/consts';
 
 interface Crime {
   crime: string;
@@ -64,7 +65,7 @@ export async function main(ns: NS): Promise<void> {
   const empty = `${colors.fg_black}-${colors.reset}`;
 
   const value = (crime: Crime, value: number, round = 3, do_normalize=true) => {
-    return value === 0 ? empty : format_number(do_normalize ? normalize(crime, value) * 60 : value, { round });
+    return value === 0 ? empty : format_number(do_normalize ? normalize(crime, value) * ms_per_min : value, { round });
   }
 
   // Print the result
@@ -82,7 +83,7 @@ export async function main(ns: NS): Promise<void> {
         value(crime, crime.stats.agility_exp),
         value(crime, crime.stats.charisma_exp),
         value(crime, crime.stats.intelligence_exp, 5),
-        currency_format(normalize(crime, crime.stats.money)),
+        currency_format(normalize(crime, crime.stats.money) * ms_per_min),
         value(crime, crime.stats.karma, 3),
         value(crime, crime.stats.hacking_success_weight, 2, false),
         value(crime, crime.stats.strength_success_weight, 2, false),
