@@ -1,15 +1,24 @@
 import { AutocompleteData, NS } from '@ns'
 import { colors, format_number, format_servername, print_table } from '/lib/colors';
 import { currency_format } from '/lib/format-money';
+import { sanitize_for_xpath, xpath_all } from '/lib/xpath';
+import { format_duration } from '/lib/format-duration';
 
 // Simple stock management script
 // Buy stocks with a high price forecast, mark bought stocks for growth by the management script, sell them when the
 // outlook changes
 
-// Buy if there's a 60% chance of growth
-const buy_threshold = 0.55;
+// Thresholds for when precise 4S API information is available
+// Buy if there's a 55% chance of growth
+const precise_buy_threshold = 0.55;
 // Sell if the chance of growth drops below 52%
-const sell_threshold = 0.52;
+const precise_sell_threshold = 0.52;
+// Thresholds for when we're having to guess from the UI, and the values returned will be in steps of 10 percentage
+// points - 0.35, 0.45, 0.55, 0.65, etc
+// Buy at ++ or better
+const fuzzy_buy_threshold = 0.64;
+// Sell at + or worse
+const fuzzy_sell_threshold = 0.56;
 // Keep some money around for other actions/systems
 const max_net_worth_in_shares = 0.8;
 // Make sure we don't make lots of tiny transactions and get eaten by fees
@@ -33,13 +42,45 @@ interface StockInfo {
   short_basis: number;
 }
 
+function scrape_4s(ns: NS, symbol: string): [number?, number?] {
+  // Scrape the stock market tab for the symbol's information
+  // The resultant forecast is imprecise, and this only works when the tab is opened
+  // Find a p element which contains the symbol in the text, and has a div element of class MuiListItemText-root as an ancestor
+  const cls = 'MuiListItemText-root';
+  const candidate_elements = xpath_all(`//p[contains(text(), ' ${sanitize_for_xpath(symbol)} ')][ancestor::div[contains(concat(' ', normalize-space(@class), ' '), ' ${sanitize_for_xpath(cls)} ')]]`);
+  for (const candidate of candidate_elements) {
+    const text = candidate.textContent;
+    console.log('Candidate for symbol', symbol, candidate, text);
+    if (text === null) {
+      continue;
+    }
+    const forecast_match = /Price Forecast: ([+-]+)/.exec(text);
+    const volatility_match = /Volatility: ([0-9.]+)%/.exec(text);
+    if (forecast_match === null || volatility_match === null) {
+      continue;
+    }
+    const volatility = parseFloat(volatility_match[1]) / 100;
+    // Forecast is in increments of 10 percentage points above or below 50%
+    // Without full API access, we can only approximate this as + ~55%, ++ being ~65%, and - being ~45%, -- being 35%, etc.
+    const forecast = (forecast_match[1][0] === '+' ? 45 + forecast_match[1].length * 10 : 55 - forecast_match[1].length * 10) / 100;
+    return [forecast, volatility];
+  }
+  return [undefined, undefined];
+}
+
 function get_stock_info(ns: NS): StockInfo[] {
   const symbols = ns.stock.getSymbols();
   const stocks: StockInfo[] = [];
-  const has_4s = ns.stock.has4SDataTIXAPI();
+  const has_4s = ns.stock.has4SData();
+  const has_4s_api = has_4s && ns.stock.has4SDataTIXAPI();
   for (const symbol of symbols) {
-    const forecast = has_4s ? ns.stock.getForecast(symbol) : undefined;
-    const volatility = has_4s ? ns.stock.getVolatility(symbol) : undefined;
+    const [forecast, volatility] = has_4s_api
+      // Use precise values when available
+      ? [ns.stock.getForecast(symbol), ns.stock.getVolatility(symbol)]
+      : has_4s
+        // Otherwise, try to guess whenever the user has the stock page open
+        ? scrape_4s(ns, symbol)
+        : [undefined, undefined];
     const ask_price = ns.stock.getAskPrice(symbol);
     const bid_price = ns.stock.getBidPrice(symbol);
     const maxShares = ns.stock.getMaxShares(symbol);
@@ -78,10 +119,16 @@ export async function main(ns: NS): Promise<void> {
     ns.tprint('Why am I still alive?');
     return;
   }
-  const has_4s = ns.stock.has4SDataTIXAPI();
-  // Only valid to call when has_4s is true
-  const forecast_sorter = (a: StockInfo, b: StockInfo) => b.forecast! - a.forecast!;
+  const has_4s = ns.stock.has4SData();
+  const has_4s_api = ns.stock.has4SDataTIXAPI();
+  const forecast_sorter = (a: StockInfo, b: StockInfo) => (b.forecast ?? 0.5) - (a.forecast ?? 0.5);
   if (ns.args.includes('--info')) {
+    // Give the user a chance to switch to the stock market tab to scrape the forecast/volatility
+    if (!has_4s_api) {
+      const wait = 3000;
+      ns.tprint(`Switch tab to ${colors.fg_cyan}Stock Market${colors.reset} to scrape forecast/volatility. Waiting ${format_duration(wait)}...`);
+      await ns.asleep(wait);
+    }
     // Print out a one-time table of the current state of the market
     const symbols = get_stock_info(ns);
     if (has_4s) {
@@ -135,6 +182,9 @@ export async function main(ns: NS): Promise<void> {
     ns.tprint('This script requires 4S data to run, please install the 4S Market Data TIX API');
     return;
   }
+  const [buy_threshold, sell_threshold] = has_4s_api
+    ? [precise_buy_threshold, precise_sell_threshold]
+    : [fuzzy_buy_threshold, fuzzy_sell_threshold];
   // eslint-disable-next-line no-constant-condition
   while (true) {
     await ns.stock.nextUpdate();
