@@ -1,7 +1,7 @@
 import { AutocompleteData, Multipliers, NS } from '@ns'
 import { SingularityAsync } from '/lib/singu-interface';
 import { singularity_async as singularity_async } from './lib/singu';
-import { colors, format_data, format_number, print_table } from '/lib/colors';
+import { colors, format_data, format_number, format_servername, print_table } from '/lib/colors';
 import { format_currency } from '/lib/format-money';
 import { binary_search } from '/lib/binary-search';
 
@@ -54,11 +54,13 @@ const aug_categories: Map<string, (a: AugData) => boolean> = new Map([
   ['crep', (a) => a.mults.company_rep > 1],
   // Augmentations which improve job payout
   ['job', (a) => a.mults.work_money > 1],
+  // TODO: Handling for Shadows of Anarchy
+  ['ALL', (a) => a.supplier_factions.length !== 1 || a.supplier_factions[0].name !== 'Shadows of Anarchy'],
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
-  return [...aug_categories.keys(), ';'];
+  return ['--live', '--dry-run', ...aug_categories.keys(), ';'];
 }
 
 const plus = `${colors.fg_red}+${colors.reset}`;
@@ -67,6 +69,7 @@ export async function main(ns: NS): Promise<void> {
   ns.ramOverride(4.75);
   const factions: Map<string, FactionData> = new Map();
   const augmentations: Map<string, AugData> = new Map();
+  const categories: Map<string, AugData[]> = new Map(aug_categories.keys().map(d => [d, []]));
 
   const sing: SingularityAsync = singularity_async(ns);
   // Fill out factions/augmentations data
@@ -98,6 +101,9 @@ export async function main(ns: NS): Promise<void> {
             categories: [],
           };
           aug_data.categories = [...aug_categories.entries()].filter(([_, f]) => f(aug_data)).map(([k, _]) => k);
+          for (const cat of aug_data.categories) {
+            categories.get(cat)?.push(aug_data);
+          }
           augmentations.set(aug, aug_data);
         }
       }
@@ -150,4 +156,119 @@ export async function main(ns: NS): Promise<void> {
       );
     }
   }, opts);
+
+  let do_plan = false;
+  let do_commit = false;
+  if (ns.args.includes('--live')) {
+    do_plan = true;
+    do_commit = true;
+  } else if (ns.args.includes('--dry-run')) {
+    do_plan = true;
+  }
+
+  if (!do_plan) {
+    return;
+  }
+
+  // Plan purchases. We try to maximize the number of purchases, by priority order.
+
+  // The user specifies the priorities for a plan by category:
+  //  ./aug.js hskill ; hexp hack ; frep ; cskill ; cexp crime ;bladeburner ; ssocial sexp ; hacknet ; crep ; job
+  // The semicolon denotes a priority separation. Categories not separated by semicolons have the same priority, and
+  // categories separated by semicolons are ordered by highest priority first.
+  // The user can also specify explicit augmentations instead of a category.
+  // This example prioritizes augmentations which improve hacking skill above anything else, then hacking experience and
+  // performance, then faction reputation, then combat skill, and so on.
+
+  // Between each priority separation, we combine all augmentations which are not owned, not already selected, and are
+  // in one of these categories.
+  // We then plan to purchase as many as possible.
+
+  // Each purchase increases the cost of all subsequent purchases by 1.9x.
+  // We select augmentations by cheapest first, preparing to perform the actual purchases by most expensive first.
+  // There are some exceptions where prerequisites are required, but this is the general idea.
+
+  // If nothing more can be selected at this priority level, we move on to the next priority level.
+
+
+  // Parse and structure priorities
+  const p_args = ns.args.map(String).filter(d => !d.startsWith('--'));
+  const priorities: string[][] = p_args.reduce((acc: string[][], d: string) => {
+    if (d === ';') {
+      acc.push([]);
+    } else {
+      acc[acc.length - 1].push(d);
+    }
+    return acc;
+  }, [[]]);
+
+  // Perform selections
+  const selected: AugData[] = [];
+  const selected_set: Set<AugData> = new Set();
+
+  const money_available = ns.getPlayer().money;
+  let money_spent = 0;
+
+  const aug_scaling = 1.9;
+
+  // TODO: Special handling for neuroflux
+  // TODO: Special handling for Shadows of Anarchy
+  for (const priority of priorities) {
+    const available_augmentations = [...new Set(priority.reduce((acc: AugData[], category_or_augname: string) => {
+      // See if this is a category
+      const category_list = categories.get(category_or_augname);
+      if (category_list) {
+        return acc.concat(category_list);
+      }
+      // See if this is an augmentation
+      const aug = augmentations.get(category_or_augname);
+      if (aug === undefined) {
+        ns.tprint(`ERROR Unknown Category or Augmentation: ${format_servername(category_or_augname)}`);
+        return acc;
+      }
+      acc.push(aug);
+      return acc;
+    }, []).filter(d => d && !d.owned && !selected_set.has(d))).values()];
+
+    // Sort by cheapest first
+    available_augmentations.sort((l, r) => l.price - r.price);
+
+    // Select as many as possible
+    for (const aug of available_augmentations) {
+      // TODO: This cost adjustment does not work with multiple priorities, nor does it account for prerequisites
+      // TODO: Faction reputation purchasing is also not implemented, though this is relatively minor
+      const cost = aug.price * aug_scaling ** selected.length;
+      if (cost + money_spent > money_available) {
+        break;
+      }
+      selected.push(aug);
+      selected_set.add(aug);
+      money_spent += aug.price;
+    }
+  }
+
+  // Print out the plan
+  ns.tprint('Purchase plan:');
+  let purchased = 0;
+  opts.length = 0;
+  opts[1] = { left: false };
+  print_table(ns, (ns: NS) => {
+    do {
+      const aug = selected.pop();
+      if (!aug) {
+        break;
+      }
+      const cost = aug.price * aug_scaling ** purchased++;
+      ns.tprintf(` - %s at %s`,
+        `${aug.name}`,
+        format_currency(cost),
+      );
+    } while (selected.length > 0);
+  }, opts);
+
+  // Done
+
+  if (do_commit) {
+    ns.tprint('WARNING --live is not yet implemented!');
+  }
 }
