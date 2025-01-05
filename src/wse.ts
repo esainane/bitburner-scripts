@@ -1,6 +1,6 @@
 import { AutocompleteData, NS } from '@ns'
 import { Colors, colors, format_number, format_servername, nop_colors, print_table } from '/lib/colors';
-import { currency_format } from '/lib/format-money';
+import { format_currency } from '/lib/format-money';
 import { sanitize_for_xpath, xpath_all } from '/lib/xpath';
 import { format_duration } from '/lib/format-duration';
 
@@ -123,7 +123,7 @@ const bright_green = colors.combine(colors.bright, colors.fg_green);
 const bright_red = colors.combine(colors.bright, colors.fg_red);
 
 function print_sell(ns: NS, amount: number, symbol: string, bid_price: number, actual_sell_price: number, long_basis: number): void {
-  ns.tprint(`Selling ${format_number(amount)} shares of ${format_servername(symbol)} for ${currency_format(bid_price * amount)} at ${currency_format(bid_price)} each (actual: ${currency_format(actual_sell_price)} each), realizing a ${currency_format(amount * (bid_price - long_basis))} ${long_basis < bid_price ? `${bright_green}profit${colors.reset}` : `${colors.fg_red}loss${colors.reset}`}`);
+  ns.tprint(`Selling ${format_number(amount)} shares of ${format_servername(symbol)} for ${format_currency(bid_price * amount)} at ${format_currency(bid_price)} each (actual: ${format_currency(actual_sell_price)} each), realizing a ${format_currency(amount * (bid_price - long_basis))} ${long_basis < bid_price ? `${bright_green}profit${colors.reset}` : `${colors.fg_red}loss${colors.reset}`}`);
 }
 
 export async function main(ns: NS): Promise<void> {
@@ -170,8 +170,8 @@ export async function main(ns: NS): Promise<void> {
           format_servername(symbol.symbol),
           symbol.forecast === undefined ? `${colors.fg_red}???${colors.reset}` : format_number(symbol.forecast, { round: 2 }),
           symbol.volatility === undefined ? `${colors.fg_red}???${colors.reset}` : format_number(symbol.volatility, { round: 2 }),
-          currency_format(symbol.ask_price * symbol.maxShares),
-          symbol.long || symbol.short ? currency_format(symbol.long * symbol.bid_price - symbol.short * symbol.ask_price) : `${colors.fg_black}-${colors.reset}`,
+          format_currency(symbol.ask_price * symbol.maxShares),
+          symbol.long || symbol.short ? format_currency(symbol.long * symbol.bid_price - symbol.short * symbol.ask_price) : `${colors.fg_black}-${colors.reset}`,
           symbol.long
             ? symbol.short
               ? `${bright_red}BOTH!?${colors.reset}`
@@ -179,16 +179,16 @@ export async function main(ns: NS): Promise<void> {
             : symbol.short
               ? `${colors.fg_magenta}SHORT${colors.reset}`
               : `${colors.fg_black}-${colors.reset}`,
-          currency_format(symbol.ask_price),
-          currency_format(symbol.bid_price),
+          format_currency(symbol.ask_price),
+          format_currency(symbol.bid_price),
           format_number(symbol.maxShares),
           symbol.long ? `; ${format_number(symbol.long)}` : '',
           symbol.long ? " long, " : '',
-          symbol.long ? currency_format(symbol.long_basis) : '',
+          symbol.long ? format_currency(symbol.long_basis) : '',
           symbol.long ? " long basis" : '',
           symbol.short ? `; ${format_number(symbol.short)}` : '',
           symbol.short ? " short, " : '',
-          symbol.short ? currency_format(symbol.short_basis) : '',
+          symbol.short ? format_currency(symbol.short_basis) : '',
           symbol.short ? " short basis" : '',
         );
         sum_holdings += symbol.long * symbol.bid_price;
@@ -198,10 +198,10 @@ export async function main(ns: NS): Promise<void> {
       }
     });
     if (sum_holdings !== 0) {
-      ns.tprint(`Total cost basis value:  ${currency_format(sum_basis)}`);
-      ns.tprint(`Total value of holdings: ${currency_format(sum_holdings)}`);
+      ns.tprint(`Total cost basis value:  ${format_currency(sum_basis)}`);
+      ns.tprint(`Total value of holdings: ${format_currency(sum_holdings)}`);
     }
-    ns.tprint(`Total market cap: ${currency_format(symbols.reduce((acc, stock) => acc + stock.ask_price * stock.maxShares, 0))}`);
+    ns.tprint(`Total market cap: ${format_currency(symbols.reduce((acc, stock) => acc + stock.ask_price * stock.maxShares, 0))}`);
     return;
   }
   if (!has_4s) {
@@ -260,7 +260,7 @@ export async function main(ns: NS): Promise<void> {
       }
       const actual_price = ns.stock.buyStock(symbol.symbol, shares);
       const spent = shares * actual_price;
-      ns.tprint(`Buying ${format_number(shares)} shares of ${format_servername(symbol.symbol)} for ${currency_format(symbol.ask_price * shares)} at ${currency_format(symbol.ask_price)} each (actual: ${currency_format(actual_price)} each), capped by ${shares === player_buyable ? shares === market_available ? 'both money and available shares' : 'player money' : 'available shares'}`);
+      ns.tprint(`Buying ${format_number(shares)} shares of ${format_servername(symbol.symbol)} for ${format_currency(symbol.ask_price * shares)} at ${format_currency(symbol.ask_price)} each (actual: ${format_currency(actual_price)} each), capped by ${shares === player_buyable ? shares === market_available ? 'both money and available shares' : 'player money' : 'available shares'}`);
       value_in_shares += spent;
       player_money -= spent;
     }

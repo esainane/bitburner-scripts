@@ -3,7 +3,7 @@ import { Colors, colors, nop_colors } from './colors'
 import { assert_all_passed, assert_eq } from '/lib/assert';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const usd_currency_format = (amount: number, colorize=true, simplify=true) => Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+export const format_currency_usd = (amount: number, colorize=true, simplify=true) => Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
 const suffixes_plain = make_suffixes(nop_colors);
 const suffixes_colored = make_suffixes(colors);
@@ -25,7 +25,7 @@ function make_suffixes(colors: Colors): Array<string> {
   ];
 }
 
-export function hm_currency_format(amount: number, { colorize=true, simplify=true, ns = undefined}: { colorize?:boolean, simplify?: boolean, ns?: NS} = {}): string {
+export function format_currency_hm(amount: number, { colorize=true, simplify=true, ns = undefined}: { colorize?:boolean, simplify?: boolean, ns?: NS} = {}): string {
   const [color, suffixes] = colorize ? [colors, suffixes_colored] : [nop_colors, suffixes_plain];
   let str = "";
   let prefix = '';
@@ -58,24 +58,24 @@ export function hm_currency_format(amount: number, { colorize=true, simplify=tru
   return (amount >= 1 ? `${prefix}${color.fg_cyan}$${color.fg_white}${Math.floor(amount)}${suffixes[i]}${str}` : `${str}`) + color.reset;
 }
 
-export const currency_format = hm_currency_format;
+export const format_currency = format_currency_hm;
 
 export async function main(ns: NS): Promise<void> {
   if (ns.args.length > 0) {
-    ns.tprint(currency_format(Number(ns.args[0]), {ns}));
+    ns.tprint(format_currency(Number(ns.args[0]), {ns}));
     return;
   }
 
   const opts = {colorize: false};
   // Test
-  assert_eq(ns, "0", hm_currency_format(0, opts), );
-  assert_eq(ns, "$400", hm_currency_format(400, opts));
-  assert_eq(ns, "$20", hm_currency_format(20, opts));
-  assert_eq(ns, "$4K", hm_currency_format(4000, opts));
-  assert_eq(ns, "$4K10", hm_currency_format(4010, opts));
-  assert_eq(ns, "$4M143K", hm_currency_format(4143010, opts));
-  assert_eq(ns, "-$4M143K", hm_currency_format(-4143010, opts));
-  assert_eq(ns, "$4M143K10", hm_currency_format(4143010, { simplify: false, ...opts }));
+  assert_eq(ns, "0", format_currency_hm(0, opts), );
+  assert_eq(ns, "$400", format_currency_hm(400, opts));
+  assert_eq(ns, "$20", format_currency_hm(20, opts));
+  assert_eq(ns, "$4K", format_currency_hm(4000, opts));
+  assert_eq(ns, "$4K10", format_currency_hm(4010, opts));
+  assert_eq(ns, "$4M143K", format_currency_hm(4143010, opts));
+  assert_eq(ns, "-$4M143K", format_currency_hm(-4143010, opts));
+  assert_eq(ns, "$4M143K10", format_currency_hm(4143010, { simplify: false, ...opts }));
 
   assert_all_passed(ns);
 }

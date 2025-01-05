@@ -1,5 +1,5 @@
 import { NS } from '@ns'
-import { currency_format } from '/lib/format-money';
+import { format_currency } from '/lib/format-money';
 import { format_number } from '/lib/colors';
 import { range } from '/lib/range';
 import { format_duration } from '/lib/format-duration';
@@ -116,7 +116,7 @@ export async function main(ns: NS): Promise<void> {
           cost: cost,
           hash_gain_delta,
           cb: () => ns.hacknet.purchaseNode(),
-          description: `Purchase new node for ${currency_format(cost)}`
+          description: `Purchase new node for ${format_currency(cost)}`
         }
       } else {
         // If we do have any existing nodes, look ahead in case delayed gratification would pay off
@@ -125,7 +125,7 @@ export async function main(ns: NS): Promise<void> {
           cost,
           hash_gain_delta: hash_per_cost * upgrade[3],
           cb: () => ns.hacknet.purchaseNode(),
-          description: `Purchase new node for ${currency_format(cost)}, looking ahead to performance at [${upgrade[0]} levels, ${upgrade[1]}GB RAM, ${upgrade[2]} cores] for ${currency_format(upgrade[3])}`
+          description: `Purchase new node for ${format_currency(cost)}, looking ahead to performance at [${upgrade[0]} levels, ${upgrade[1]}GB RAM, ${upgrade[2]} cores] for ${format_currency(upgrade[3])}`
         }
       }
     }
@@ -184,7 +184,7 @@ export async function main(ns: NS): Promise<void> {
         ns.tprint(`(Performed a total of ${format_number(batched)} hacknet upgrades with available money.)`);
         batched = 0;
       }
-      ns.tprint(`Waiting for more money for the best action: ${best.description} for +${format_number(best.hash_gain_delta, { round: 5 })} h/s (+${currency_format(best.hash_gain_delta * money_per_hash)}/s), costing ${currency_format(best.cost)} (repaid in ${format_duration(best.cost / (best.hash_gain_delta * money_per_hash) * 1000)}).`);
+      ns.tprint(`Waiting for more money for the best action: ${best.description} for +${format_number(best.hash_gain_delta, { round: 5 })} h/s (+${format_currency(best.hash_gain_delta * money_per_hash)}/s), costing ${format_currency(best.cost)} (repaid in ${format_duration(best.cost / (best.hash_gain_delta * money_per_hash) * 1000)}).`);
       announced = true;
     }
     await ns.sleep(3000);

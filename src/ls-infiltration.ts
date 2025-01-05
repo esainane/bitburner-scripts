@@ -1,6 +1,6 @@
 import { NS } from '@ns'
 import { colors, format_number, format_servername, print_table } from '/lib/colors';
-import { currency_format } from '/lib/format-money';
+import { format_currency } from '/lib/format-money';
 
 export async function main(ns: NS): Promise<void> {
     ns.tprint('Infiltration targets:');
@@ -19,7 +19,7 @@ export async function main(ns: NS): Promise<void> {
                 `${colors.fg_cyan}${target.location.city}${colors.reset}`,
                 format_number(target.difficulty, {round: 2}),
                 format_number(target.maxClearanceLevel),
-                currency_format(target.reward.sellCash),
+                format_currency(target.reward.sellCash),
                 format_number(Math.floor(target.reward.tradeRep)),
                 format_number(Math.floor(target.reward.SoARep)),
                 format_number(target.startingSecurityLevel)

@@ -1,6 +1,6 @@
 import { MoneySource, NS } from '@ns'
 import { colors, format_servername, print_table } from '/lib/colors';
-import { currency_format } from '/lib/format-money';
+import { format_currency } from '/lib/format-money';
 import { get_stock_info } from '/wse';
 import { money_per_hash } from '/hacknet';
 
@@ -71,13 +71,13 @@ function print_sources(ns: NS, sources: MoneySource): void {
       }
       ns.tprintf("%s: %s%s%s%s%s%s%s%s",
         name === "total" ? `${colors.fg_cyan}total${colors.reset}` : format_servername(name),
-        currency_format(net),
+        format_currency(net),
         distinct_gain || distinct_cost || stored ? ` net` : '',
-        stored ? ` (${currency_format(stored)}` : '',
+        stored ? ` (${format_currency(stored)}` : '',
         stored ? ' stored) ' : '',
-        distinct_gain ? currency_format(gain) : '',
+        distinct_gain ? format_currency(gain) : '',
         distinct_gain ? ' gain' : '',
-        distinct_cost ? ` ${currency_format(cost)}` : '',
+        distinct_cost ? ` ${format_currency(cost)}` : '',
         distinct_cost ? ' cost' : '',
       );
     }

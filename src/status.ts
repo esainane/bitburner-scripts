@@ -1,7 +1,7 @@
 import { NS } from '@ns'
 
 import { find_servers } from 'lib/find-servers'
-import { currency_format } from 'lib/format-money';
+import { format_currency } from 'lib/format-money';
 import { list_servers } from 'lib/list-servers';
 
 export async function main(ns: NS): Promise<void> {

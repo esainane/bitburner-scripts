@@ -2,7 +2,7 @@ import { NS } from '@ns'
 import { SingularityAsync } from '/lib/singu-interface';
 import { singularity_async as singularity_async } from './lib/singu';
 import { colors, format_data, format_number, print_table } from '/lib/colors';
-import { currency_format } from '/lib/format-money';
+import { format_currency } from '/lib/format-money';
 import { binary_search } from '/lib/binary-search';
 
 // TODO: lib this
@@ -58,7 +58,7 @@ export async function main(ns: NS): Promise<void> {
       const favor_have = favor_by_faction.get(faction)!;
       if (favor_have >= 150) {
         const money_needed = money_for_rep(ns, rep_shortfall);
-        return `${colors.fg_cyan}${aug}${colors.reset}[${currency_format(money_needed)}/${plus}${format_number(rep_shortfall)} rep]`;
+        return `${colors.fg_cyan}${aug}${colors.reset}[${format_currency(money_needed)}/${plus}${format_number(rep_shortfall)} rep]`;
       }
       return `${colors.fg_yellow}${aug}${colors.reset}[${plus}${format_number(rep_shortfall, { round: 1 })} rep]`;
     };
@@ -69,7 +69,7 @@ export async function main(ns: NS): Promise<void> {
       }
       ns.tprintf(`%s${colors.reset} %s %s rep; via %s`,
         `${price_by_augmentation.get(augmentation)! > ns.getPlayer().money ? colors.fg_red : ''}${augmentation}`,
-        currency_format(price_by_augmentation.get(augmentation)!),
+        format_currency(price_by_augmentation.get(augmentation)!),
         format_number(rep_by_augmentation.get(augmentation)!, { round: 0 }),
         `[${factions_by_augmentation.get(augmentation)!.map(d=>`${format_aug_faction(d, rep_by_augmentation.get!(augmentation)!, d)}`).join(', ')}]`,
       );

@@ -2,7 +2,7 @@ import { AutocompleteData, CrimeStats, NS, Person } from '@ns'
 import { format_number, format_servername, print_table, percent, colors } from '/lib/colors';
 import { singularity_async } from '/lib/singu';
 import { format_duration } from '/lib/format-duration';
-import { currency_format } from '/lib/format-money';
+import { format_currency } from '/lib/format-money';
 import { range } from '/lib/range';
 import { ms_per_min } from '/lib/consts';
 
@@ -106,7 +106,7 @@ export async function main(ns: NS): Promise<void> {
         value(crime, crime.stats.agility_exp),
         value(crime, crime.stats.charisma_exp),
         value(crime, crime.stats.intelligence_exp, 5),
-        currency_format(normalize(crime, crime.stats.money) * ms_per_min),
+        format_currency(normalize(crime, crime.stats.money) * ms_per_min),
         value(crime, crime.stats.karma, 3),
         value(crime, crime.stats.hacking_success_weight, 2, false),
         value(crime, crime.stats.strength_success_weight, 2, false),

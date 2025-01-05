@@ -1,5 +1,5 @@
 import { NS, Server } from '@ns'
-import { currency_format } from 'lib/format-money';
+import { format_currency } from 'lib/format-money';
 import { color_pad, colors, format_normalize_state, format_number } from 'lib/colors';
 
 export function list_servers(ns: NS, servers: Array<Server>): void {
@@ -17,8 +17,8 @@ export function list_servers(ns: NS, servers: Array<Server>): void {
       color_pad(format_normalize_state(ns, s.hostname, { pad: true }), 15, { left: false }),
       s.hackDifficulty ?? 1,
       s.minDifficulty ?? 1,
-      color_pad(currency_format(s.moneyAvailable ?? 0), 9),
-      color_pad(currency_format(s.moneyMax ?? 0), 9),
+      color_pad(format_currency(s.moneyAvailable ?? 0), 9),
+      color_pad(format_currency(s.moneyMax ?? 0), 9),
       s.serverGrowth ? format_number(s.serverGrowth) : `${colors.fg_black}-${colors.reset}`
     );
   }
