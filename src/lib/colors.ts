@@ -160,7 +160,7 @@ export function format_normalize_state(ns: NS, server: string, { pad = false} = 
   const server_fullness_percent = Math.floor(100 * ns.getServerMoneyAvailable(server) / max_money);
   const server_min_security = ns.getServerMinSecurityLevel(server);
   const server_security_excess = Math.ceil(10 * (ns.getServerSecurityLevel(server) - server_min_security)) / 10;
-  const fullness_state = max_money > 0 ? `${format_number(server_fullness_percent)}${colors.fg_cyan}%${colors.reset}` : `${colors.fg_black}-${colors.reset}`;
+  const fullness_state = max_money > 0 ? `${format_number(server_fullness_percent)}${percent}` : `${colors.fg_black}-${colors.reset}`;
   const sec_state = pad
     ? `${color_pad(String(server_min_security), 2)}${server_security_excess
       ? `${colors.fg_red}+${format_number(server_security_excess)}`
@@ -172,3 +172,5 @@ export function format_normalize_state(ns: NS, server: string, { pad = false} = 
     ? `{${color_pad(fullness_state, 4)} @ ${color_pad(sec_state, 7, {left: false})}}`
     : `{${fullness_state} @ ${sec_state}}`;
 }
+
+export const percent = `${colors.fg_cyan}%${colors.reset}`;

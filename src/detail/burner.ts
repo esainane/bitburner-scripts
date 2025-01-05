@@ -1,9 +1,7 @@
 import { BladeburnerBlackOpName, NS } from '@ns'
-import { colors, format_number, print_table } from '/lib/colors';
+import { colors, format_number, print_table, percent } from '/lib/colors';
 import { format_duration } from '/lib/format-duration';
 import { ActionEntry, bladeburner_actions_data } from '../lib/burner';
-
-const percent = `${colors.fg_cyan}%${colors.reset}`;
 
 export function print_entry(ns: NS, entry: ActionEntry) {
   const required_rank = entry.type === 'Black Operations'

@@ -6,7 +6,7 @@ import { find_runners, RunnersData } from 'lib/find-runners';
 import { calc_max_prep, PrepPlan } from 'lib/prep-plan';
 import { currency_format } from 'lib/format-money';
 import { format_duration } from 'lib/format-duration';
-import { colors, format_normalize_state, format_number } from 'lib/colors';
+import { colors, format_normalize_state, format_number, percent } from 'lib/colors';
 import { format_servername } from 'lib/colors';
 import { as_normalized } from 'lib/as-normalized';
 
@@ -152,7 +152,7 @@ function same_basis(a: Player, b: Player): boolean {
 }
 
 function format_mult_to_percent(a: number): string {
-  return `${format_number(Math.floor(10000 * (a - 1)) / 100)}${colors.fg_cyan}%${colors.reset}`;
+  return `${format_number(Math.floor(10000 * (a - 1)) / 100)}${percent}`;
 }
 
 function format_player_basis(a: Player): string {
@@ -373,7 +373,7 @@ export async function main(real_ns: NS): Promise<void> {
       for (const plan of plans.slice(0, 3)) {
         const ev_pt_ps = value_per_thread_per_second(plan);
         const threads_per_block = plan_threads_required_per_block(plan);
-        ns.log(`INFO   ${format_servername(plan.server)}: ${ev_pt_ps < 5 ? `${colors.fg_red}$${format_number(Math.floor(1000 * ev_pt_ps) / 1000)}` : currency_format(Math.floor(1000 * ev_pt_ps) / 1000)} EV $/T/sec (H: ${plan.hack_threads}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(threads_per_block)}) over ${format_duration(plan.execution_duration)}, up to ${currency_format(ev_pt_ps * threads_per_block * plan.blocks)} EV $/sec with ${format_number(plan.blocks)} blocks`, (plan.success_rate < 0.999 ? ` (${format_number(Math.floor(plan.success_rate * 100))}${colors.fg_cyan}%${colors.reset} success each block)` : ''));
+        ns.log(`INFO   ${format_servername(plan.server)}: ${ev_pt_ps < 5 ? `${colors.fg_red}$${format_number(Math.floor(1000 * ev_pt_ps) / 1000)}` : currency_format(Math.floor(1000 * ev_pt_ps) / 1000)} EV $/T/sec (H: ${plan.hack_threads}, W1: ${format_number(plan.weaken_1st_threads)}, G: ${format_number(plan.grow_threads)}, W2: ${format_number(plan.weaken_2nd_threads)}; T: ${format_number(threads_per_block)}) over ${format_duration(plan.execution_duration)}, up to ${currency_format(ev_pt_ps * threads_per_block * plan.blocks)} EV $/sec with ${format_number(plan.blocks)} blocks`, (plan.success_rate < 0.999 ? ` (${format_number(Math.floor(plan.success_rate * 100))}${percent} success each block)` : ''));
       }
     }
 
