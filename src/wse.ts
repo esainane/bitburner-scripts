@@ -123,6 +123,7 @@ export async function main(ns: NS): Promise<void> {
       ns.tprint(`Total cost basis value:  ${currency_format(sum_basis)}`);
       ns.tprint(`Total value of holdings: ${currency_format(sum_holdings)}`);
     }
+    ns.tprint(`Total market cap: ${currency_format(symbols.reduce((acc, stock) => acc + stock.ask_price * stock.maxShares, 0))}`);
     return;
   }
   // eslint-disable-next-line no-constant-condition
