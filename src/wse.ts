@@ -1,5 +1,5 @@
 import { AutocompleteData, NS } from '@ns'
-import { colors, format_number, format_servername, print_table } from '/lib/colors';
+import { Colors, colors, format_number, format_servername, nop_colors, print_table } from '/lib/colors';
 import { currency_format } from '/lib/format-money';
 import { sanitize_for_xpath, xpath_all } from '/lib/xpath';
 import { format_duration } from '/lib/format-duration';
@@ -42,6 +42,13 @@ interface StockInfo {
   short_basis: number;
 }
 
+let last_successful_scrape = 0;
+let last_failed_scrape_warning = 0;
+// Warn the user about failed scrapes at most one per minute
+const failed_scrapes_warning_frequency = 60e3;
+// If we hit no scrapes for a full minute, warn the user
+const failed_scrapes_warning_threshold = 60e3;
+
 function scrape_4s(ns: NS, symbol: string): [number?, number?] {
   // Scrape the stock market tab for the symbol's information
   // The resultant forecast is imprecise, and this only works when the tab is opened
@@ -63,7 +70,16 @@ function scrape_4s(ns: NS, symbol: string): [number?, number?] {
     // Forecast is in increments of 10 percentage points above or below 50%
     // Without full API access, we can only approximate this as + ~55%, ++ being ~65%, and - being ~45%, -- being 35%, etc.
     const forecast = (forecast_match[1][0] === '+' ? 45 + forecast_match[1].length * 10 : 55 - forecast_match[1].length * 10) / 100;
+    last_successful_scrape = Date.now();
     return [forecast, volatility];
+  }
+  const now = Date.now();
+  if (now > last_successful_scrape + failed_scrapes_warning_threshold && now > last_failed_scrape_warning + failed_scrapes_warning_frequency) {
+    const message = (colors: Colors, colorize: boolean) => `Repeatedly ${colors.fg_red}failed${colors.reset} to scrape stock market tab for stock information. Last update ${format_duration(now - last_successful_scrape, { abs_threshold: -1, colorize })} ago. Switch tab to ${colors.fg_cyan}Stock Market${colors.reset} ASAP to avoid loss.`;
+    // Market inversions happen frequently, so pop up a long duration warning toast as well
+    ns.tprint(`WARNING ${message(colors, true)}`);
+    ns.toast(`${message(nop_colors, false)}`, ns.enums.ToastVariant.WARNING, 50e3);
+    last_failed_scrape_warning = now;
   }
   return [undefined, undefined];
 }
@@ -122,6 +138,11 @@ export async function main(ns: NS): Promise<void> {
   const has_4s = ns.stock.has4SData();
   const has_4s_api = ns.stock.has4SDataTIXAPI();
   const forecast_sorter = (a: StockInfo, b: StockInfo) => (b.forecast ?? 0.5) - (a.forecast ?? 0.5);
+
+  // Block immediate warnings
+  last_successful_scrape = Date.now();
+  last_failed_scrape_warning = 0;
+
   if (ns.args.includes('--info')) {
     // Give the user a chance to switch to the stock market tab to scrape the forecast/volatility
     if (!has_4s_api) {
@@ -185,6 +206,11 @@ export async function main(ns: NS): Promise<void> {
   const [buy_threshold, sell_threshold] = has_4s_api
     ? [precise_buy_threshold, precise_sell_threshold]
     : [fuzzy_buy_threshold, fuzzy_sell_threshold];
+
+  if (!has_4s_api) {
+    ns.tprint(`WARNING 4S API data is not available! Running in ${colors.fg_white}UI scraping mode${colors.reset}. Please leave the tab on ${colors.fg_cyan}Stock Market${colors.reset} as much as possible.`);
+  }
+
   // eslint-disable-next-line no-constant-condition
   while (true) {
     await ns.stock.nextUpdate();
