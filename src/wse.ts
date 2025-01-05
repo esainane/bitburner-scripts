@@ -21,8 +21,8 @@ export function autocomplete(data : AutocompleteData, args : string[]) : string[
 
 interface StockInfo {
   symbol: string;
-  forecast: number;
-  volatility: number;
+  forecast?: number;
+  volatility?: number;
   ask_price: number;
   bid_price: number;
   maxShares: number;
@@ -36,9 +36,10 @@ interface StockInfo {
 function get_stock_info(ns: NS): StockInfo[] {
   const symbols = ns.stock.getSymbols();
   const stocks: StockInfo[] = [];
+  const has_4s = ns.stock.has4SDataTIXAPI();
   for (const symbol of symbols) {
-    const forecast = ns.stock.getForecast(symbol);
-    const volatility = ns.stock.getVolatility(symbol);
+    const forecast = has_4s ? ns.stock.getForecast(symbol) : undefined;
+    const volatility = has_4s ? ns.stock.getVolatility(symbol) : undefined;
     const ask_price = ns.stock.getAskPrice(symbol);
     const bid_price = ns.stock.getBidPrice(symbol);
     const maxShares = ns.stock.getMaxShares(symbol);
@@ -77,11 +78,15 @@ export async function main(ns: NS): Promise<void> {
     ns.tprint('Why am I still alive?');
     return;
   }
-  const forecast_sorter = (a: StockInfo, b: StockInfo) => b.forecast - a.forecast;
+  const has_4s = ns.stock.has4SDataTIXAPI();
+  // Only valid to call when has_4s is true
+  const forecast_sorter = (a: StockInfo, b: StockInfo) => b.forecast! - a.forecast!;
   if (ns.args.includes('--info')) {
     // Print out a one-time table of the current state of the market
     const symbols = get_stock_info(ns);
-    symbols.sort(forecast_sorter)
+    if (has_4s) {
+      symbols.sort(forecast_sorter)
+    }
     ns.tprint('Stock info:');
     let sum_holdings = 0;
     let sum_basis = 0;
@@ -90,8 +95,8 @@ export async function main(ns: NS): Promise<void> {
         ns.tprintf("%s %s: %s fcst; %s voli; %s market cap; %s %s; %s ask, %s bid, %s max shares%s%s%s%s%s%s%s%s",
           format_servername(symbol.org),
           format_servername(symbol.symbol),
-          format_number(symbol.forecast, { round: 2 }),
-          format_number(symbol.volatility, { round: 2 }),
+          symbol.forecast === undefined ? `${colors.fg_red}???${colors.reset}` : format_number(symbol.forecast, { round: 2 }),
+          symbol.volatility === undefined ? `${colors.fg_red}???${colors.reset}` : format_number(symbol.volatility, { round: 2 }),
           currency_format(symbol.ask_price * symbol.maxShares),
           symbol.long || symbol.short ? currency_format(symbol.long * symbol.bid_price - symbol.short * symbol.ask_price) : `${colors.fg_black}-${colors.reset}`,
           symbol.long
@@ -124,6 +129,10 @@ export async function main(ns: NS): Promise<void> {
       ns.tprint(`Total value of holdings: ${currency_format(sum_holdings)}`);
     }
     ns.tprint(`Total market cap: ${currency_format(symbols.reduce((acc, stock) => acc + stock.ask_price * stock.maxShares, 0))}`);
+    return;
+  }
+  if (!has_4s) {
+    ns.tprint('This script requires 4S data to run, please install the 4S Market Data TIX API');
     return;
   }
   // eslint-disable-next-line no-constant-condition
