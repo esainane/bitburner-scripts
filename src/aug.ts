@@ -147,12 +147,13 @@ export async function main(ns: NS): Promise<void> {
       if (aug_data.owned) {
         continue;
       }
+      const categories = aug_data.categories.filter(d => d !== 'ALL');
       ns.tprintf(`%s${colors.reset} %s %s rep; via %s %s`,
         `${aug_data.price > ns.getPlayer().money ? colors.fg_red : ''}${aug_data.name}`,
         format_currency(aug_data.price),
         format_number(aug_data.rep, { round: 0 }),
         `[${aug_data.supplier_factions.map(d=>`${format_aug_faction(d, aug_data.rep)}`).join(', ')}]`,
-        aug_data.categories.length > 0 ? `(${aug_data.categories.map(d=>`${colors.fg_magenta}${d}${colors.reset}`).join(', ')})` : `(${colors.fg_red}???${colors.reset})`,
+        categories.length > 0 ? `(${categories.map(d=>`${colors.fg_magenta}${d}${colors.reset}`).join(', ')})` : `(${colors.fg_red}???${colors.reset})`,
       );
     }
   }, opts);
