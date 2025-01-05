@@ -89,7 +89,7 @@ export async function main(ns: NS): Promise<void> {
   // friendly way of retrieving money when a script needs to get the player's current money, and nothing else.
   const { sinceStart: since_last_bitnode, sinceInstall: since_last_aug } = ns.getMoneySources();
   const { lastAugReset: last_aug_reset, lastNodeReset: last_node_reset } = ns.getResetInfo();
-  if (last_aug_reset == last_node_reset) {
+  if (last_aug_reset !== last_node_reset) {
     ns.tprint("Since last BitNode:");
     print_sources(ns, since_last_bitnode);
     ns.tprint("Since last augmentation:");
