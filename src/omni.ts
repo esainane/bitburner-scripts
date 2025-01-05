@@ -546,6 +546,10 @@ export async function main(real_ns: NS): Promise<void> {
         // Schedule ourselves to be run again later if we would otherwise not
         if (this_plan_normalization_used == 0) {
           blockQueue.push({ callback: schedule_normalize, startTime: Date.now() + try_later_delay });
+        } else if (this_plan_normalization_used < 0) {
+          ns.tprint("ERROR Negative normalization used threads, this shouldn't happen!");
+          // Reset everything
+          keikaku_doori = false;
         }
       }
       await schedule_normalize();
