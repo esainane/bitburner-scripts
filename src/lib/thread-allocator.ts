@@ -83,7 +83,7 @@ export class ThreadAllocator {
     const threads = options.threads ?? 1;
     // If we're not allowed to use avoided servers, remove them from the list
     let available_runners = this.available_runners;
-    let available_threads = recalculate_threads(this.ns, available_runners, script);
+    let available_threads = recalculate_threads(this.ns, available_runners, script, options);
     if (!allow_avoided_servers) {
       available_runners = available_runners.filter(r => !this.avoid_runners.has(r.server));
       available_threads = available_runners.reduce((acc, r) => acc + r.threads, 0);

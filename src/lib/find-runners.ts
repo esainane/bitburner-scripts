@@ -1,4 +1,4 @@
-import { NS, ProcessInfo } from '@ns'
+import { NS, ProcessInfo, RunOptions } from '@ns'
 
 export interface Runner {
   server: string;
@@ -12,10 +12,11 @@ export interface RunnersData {
   available_threads: number;
 }
 
-export function recalculate_threads(ns: NS, runners: Array<Runner>, script: string): number {
+export function recalculate_threads(ns: NS, runners: Array<Runner>, script: string, options: RunOptions): number {
+  const usage = options?.ramOverride ?? ns.getScriptRam(script, 'home');
   let sum = 0;
   for (const r of runners) {
-    const amount = Math.floor((r.max_ram - r.used_ram) / ns.getScriptRam(script, 'home'));
+    const amount = Math.floor((r.max_ram - r.used_ram) / usage);
     sum += amount;
     r.threads = amount;
   }
