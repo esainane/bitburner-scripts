@@ -36,8 +36,8 @@ export interface Colors {
 // Dim, blink, reverse, and hidden have no effect in the terminal
 export const colors = {
   reset: "\x1b[0m",
-  bright: "\x1b[1;33m",
-  dim: "\x1b[2;33m",
+  bright: "\x1b[1m",
+  dim: "\x1b[2m",
   italic: "\x1b[3m",
   underscore: "\x1b[4m",
   //blink: "\x1b[5m",
@@ -149,12 +149,6 @@ export function format_data(n: unknown, { colorize = true, abbrev = false } = {}
   return `${colorize ? colors.fg_white : ''}${JSON.stringify(n)}${colors.reset}`;
 }
 
-export async function main(ns: NS): Promise<void> {
-  ns.tprint("Colors:");
-  for (const [key, value] of Object.entries(colors)) {
-    ns.tprint(" ", key, ": ", value, "Effect ", colors.bright, " Bright", colors.reset);
-  }
-}
 export function format_normalize_state(ns: NS, server: string, { pad = false} = {}): string {
   const max_money = ns.getServerMaxMoney(server);
   const server_fullness_percent = Math.floor(100 * ns.getServerMoneyAvailable(server) / max_money);
@@ -174,3 +168,12 @@ export function format_normalize_state(ns: NS, server: string, { pad = false} = 
 }
 
 export const percent = `${colors.fg_cyan}%${colors.reset}`;
+
+
+export async function main(ns: NS): Promise<void> {
+  ns.tprint("Colors:");
+  for (const [key, value] of Object.entries(colors)) {
+    if (typeof value !== 'string') continue;
+    ns.tprint(" ", key, ": ", value, "Effect ", colors.combine(colors.dim, value), " Dim ", colors.combine(colors.bright, value), " Bright", colors.reset);
+  }
+}
