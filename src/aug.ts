@@ -250,26 +250,45 @@ export async function main(ns: NS): Promise<void> {
 
   // Print out the plan
   ns.tprint('Purchase plan:');
-  let purchased = 0;
+  const purchased = new Set();
   opts.length = 0;
-  opts[1] = { left: false };
+  opts[1] = opts[4] = { left: false };
+  let ok = true;
   print_table(ns, (ns: NS) => {
     do {
       const aug = selected.pop();
       if (!aug) {
         break;
       }
-      const cost = aug.price * aug_scaling ** purchased++;
-      ns.tprintf(` - %s at %s`,
+      let extra = '';
+      if (aug.prereqs.length > 0) {
+        // Double check we have all prerequisites, either already owned now or earlier in the plan
+        const missing_prereqs = aug.prereqs.filter(d => !purchased.has(d) && augmentations.get(d)?.owned !== true);
+        if (missing_prereqs.length > 0) {
+          extra = ` - ${colors.fg_red}missing${colors.reset} ${missing_prereqs.map(d => format_servername(d)).join(', ')}`;
+          ok = false;
+        }
+      }
+      const scaling = aug_scaling ** purchased.size;
+      const cost = aug.price * scaling;
+      ns.tprintf(` - %s at %s = %s %s%s`,
         `${aug.name}`,
         format_currency(cost),
+        format_currency(aug.price),
+        `x${format_number(scaling, { round: 2 })}`,
+        extra,
       );
+      purchased.add(aug.name);
     } while (selected.length > 0);
   }, opts);
 
   // Done
 
   if (do_commit) {
+    if (!ok) {
+      ns.tprint('ERROR: Created invalid plan, aborting.');
+      return;
+    }
     ns.tprint('WARNING --live is not yet implemented!');
   }
 }
