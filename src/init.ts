@@ -28,7 +28,7 @@ export async function main(ns: NS): Promise<void> {
   }
   // Purchase key programs, as much as we can
   await singu.purchaseTor();
-  for (const prog of ['FTPCrack.exe', 'relaySMTP.exe', 'HTTPWorm.exe', 'SQLInject.exe']) {
+  for (const prog of ['BruteSSH.exe', 'FTPCrack.exe', 'relaySMTP.exe', 'HTTPWorm.exe', 'SQLInject.exe']) {
     await singu.purchaseProgram(prog);
   }
   // Root everything we can
