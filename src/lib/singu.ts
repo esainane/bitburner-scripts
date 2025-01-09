@@ -1,19 +1,10 @@
 import { NS } from '@ns'
 import { ThreadAllocator } from './thread-allocator';
 import { SingularityAsync } from './singu-interface';
+import { mkfifo } from '/lib/mkfifo';
 
 // Small helper for offloading extremely high ram cost functions to serially distinct scripts
-
 // exec a helper script, read the result from a pipe, return the result
-
-export function mkfifo(ns: NS): number {
-  const port_statefile = 'data/port.txt';
-  const last_id = parseInt(ns.read(port_statefile) || '0');
-  const new_id = last_id + 1;
-  ns.clearPort(new_id);
-  ns.write('data/port.txt', String(new_id), 'w');
-  return new_id;
-}
 
 export async function worker_dispatch(ns: NS, name: string, ...args: any[]) {
   const fifo = mkfifo(ns);
