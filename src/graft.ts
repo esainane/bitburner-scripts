@@ -48,8 +48,7 @@ export async function main(ns: NS): Promise<void> {
   ];
   for (const graft of to_graft) {
     await ns.grafting.waitForOngoingGrafting();
-    ns.tprint(`Grafting ${graft}`);
-    while (!ns.grafting.graftAugmentation(graft)) {
+    while (!ns.grafting.graftAugmentation(graft, false)) {
       if (ns.grafting.getGraftableAugmentations().includes(graft)) {
         // This is graftable, we just can't do it yet (not enough money?)
         await ns.asleep(5000);
@@ -58,5 +57,6 @@ export async function main(ns: NS): Promise<void> {
         break;
       }
     }
+    ns.tprint(`Grafting ${graft}`);
   }
 }
