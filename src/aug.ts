@@ -255,6 +255,7 @@ export async function main(ns: NS): Promise<void> {
   opts.length = 0;
   opts[1] = opts[4] = { left: false };
   let ok = true;
+  const purchase_queue: [string, string][] = [];
   print_table(ns, (ns: NS) => {
     do {
       const aug = selected.pop();
@@ -300,6 +301,11 @@ export async function main(ns: NS): Promise<void> {
           ok = false;
         }
       }
+      const purchase_from = aug.supplier_factions[0];
+      if (purchase_from.rep < aug.rep) {
+        extra += ` - ${colors.fg_red}missing${colors.reset} ${format_number(aug.rep - purchase_from.rep, { round: 1 })} ${format_servername(purchase_from.name)} rep`;
+        ok = false;
+      }
       const scaling = aug_scaling ** purchased.size;
       const cost = aug.price * scaling;
       ns.tprintf(` - %s at %s = %s %s%s`,
@@ -310,6 +316,7 @@ export async function main(ns: NS): Promise<void> {
         extra,
       );
       purchased.add(aug.name);
+      purchase_queue.push([purchase_from.name, aug.name]);
     } while (selected.length > 0);
   }, opts);
 
@@ -324,6 +331,10 @@ export async function main(ns: NS): Promise<void> {
       ns.tprint('ERROR: Created invalid plan, aborting.');
       return;
     }
-    ns.tprint('WARNING --live is not yet implemented!');
+    for (const [faction, aug] of purchase_queue) {
+      if (await sing.purchaseAugmentation(faction, aug)) {
+        ns.tprint(`Purchased ${format_servername(aug)}`);
+      }
+    }
   }
 }
