@@ -251,6 +251,7 @@ export async function main(ns: NS): Promise<void> {
   // Print out the plan
   ns.tprint('Purchase plan:');
   const purchased = new Set();
+  const reordering_recovered = new Set();
   opts.length = 0;
   opts[1] = opts[4] = { left: false };
   let ok = true;
@@ -265,6 +266,36 @@ export async function main(ns: NS): Promise<void> {
         // Double check we have all prerequisites, either already owned now or earlier in the plan
         const missing_prereqs = aug.prereqs.filter(d => !purchased.has(d) && augmentations.get(d)?.owned !== true);
         if (missing_prereqs.length > 0) {
+          // FIXME Quick hack: See if the prereq is later in the plan, and if so, move it up
+          // This does not preserve optimality: The cost of a conceptual block is a an exponentially decaying weighted
+          // average of the elements, and should be reinserted accordingly (though it shouldn't be too far off in
+          // practice)
+          // This does not preserve correctness: This increases the cost over what was planned for, and may exceed the
+          // player's available money
+          if (!reordering_recovered.has(aug.name)) {
+            // ...but we'll only do this at most once for any aug, for safety
+            const to_reinsert = [aug];
+            let this_ok = true;
+            for (const missing of missing_prereqs.sort((l, r) => (augmentations.get(l)?.price ?? 0) - (augmentations.get(r)?.price ?? 0))) {
+              const idx = selected.findIndex(d => d.name === missing);
+              if (idx !== -1) {
+                // OK, ish
+                to_reinsert.push(selected.splice(idx, 1)[0]);
+                continue;
+              }
+              // Couldn't recover
+              this_ok = false;
+            }
+
+            // If we could recover all prerequisites, reinsert everything, and restart from our current index
+            if (this_ok) {
+              reordering_recovered.add(aug.name);
+              selected.push(...to_reinsert);
+              continue;
+            }
+          }
+
+          // Otherwise, we can't purchase this augmentation, and this plan is invalid
           extra = ` - ${colors.fg_red}missing${colors.reset} ${missing_prereqs.map(d => format_servername(d)).join(', ')}`;
           ok = false;
         }
@@ -281,6 +312,10 @@ export async function main(ns: NS): Promise<void> {
       purchased.add(aug.name);
     } while (selected.length > 0);
   }, opts);
+
+  if (reordering_recovered.size > 0) {
+    ns.tprint(`WARNING Recovered invalid plan by reordering ${format_number(reordering_recovered.size)} augmentations with prerequisites.`);
+  }
 
   // Done
 
