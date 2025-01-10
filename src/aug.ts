@@ -118,7 +118,7 @@ export async function main(ns: NS): Promise<void> {
         }
         const [lf, rf] = [l.favor >= 150, r.favor >= 150];
         if (lf !== rf) {
-          return lf ? 1 : -1;
+          return lf ? -1 : 1;
         }
         return r.rep - l.rep;
       });
