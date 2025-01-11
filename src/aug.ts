@@ -260,13 +260,14 @@ export async function main(ns: NS): Promise<void> {
     for (const aug of available_augmentations) {
       // TODO: This cost adjustment does not work with multiple priorities, nor does it account for prerequisites
       // TODO: Faction reputation purchasing is also not implemented, though this is relatively minor
-      const cost = aug.price * aug_scaling ** selected.length;
-      if (cost + money_spent > money_available) {
+      const next_cost = money_spent * aug_scaling + aug.price;
+      if (next_cost > money_available) {
+        ns.tprint(`Can't afford including ${format_servername(aug.name)} for ${format_currency(next_cost)} = ${format_currency(aug.price)} + ${format_currency(money_spent)} x ${aug_scaling}; stopping.`);
         break;
       }
       selected.push(aug);
       selected_set.add(aug);
-      money_spent += aug.price;
+      money_spent = next_cost;
     }
   }
 
