@@ -65,6 +65,13 @@ export function autocomplete(data : AutocompleteData, args : string[]) : string[
 
 const plus = `${colors.fg_red}+${colors.reset}`;
 
+function categorize(ns: NS, aug_data: AugData, categories: Map<string, AugData[]>) {
+  aug_data.categories = [...aug_categories.entries().filter(([_, f]) => f(aug_data)).map(([k, _]) => k)];
+  for (const cat of aug_data.categories) {
+    categories.get(cat)?.push(aug_data);
+  }
+}
+
 export async function main(ns: NS): Promise<void> {
   ns.ramOverride(4.75);
   const factions: Map<string, FactionData> = new Map();
@@ -76,6 +83,20 @@ export async function main(ns: NS): Promise<void> {
   {
     const joined_factions = ns.getPlayer().factions;
     const owned_by_player: Set<string> = new Set(await sing.getOwnedAugmentations(true));
+    for (const aug of owned_by_player.values()) {
+      const aug_data = {
+        name: aug,
+        supplier_factions: [],
+        price: await sing.getAugmentationBasePrice(aug),
+        rep: await sing.getAugmentationRepReq(aug),
+        prereqs: await sing.getAugmentationPrereq(aug),
+        mults: await sing.getAugmentationStats(aug),
+        owned: true,
+        categories: [],
+      };
+      categorize(ns, aug_data, categories);
+      augmentations.set(aug, aug_data);
+    }
     for (const faction of joined_factions) {
       const augs = await sing.getAugmentationsFromFaction(faction);
       const fac_data = {
@@ -100,10 +121,7 @@ export async function main(ns: NS): Promise<void> {
             owned: owned_by_player.has(aug),
             categories: [],
           };
-          aug_data.categories = [...aug_categories.entries()].filter(([_, f]) => f(aug_data)).map(([k, _]) => k);
-          for (const cat of aug_data.categories) {
-            categories.get(cat)?.push(aug_data);
-          }
+          categorize(ns, aug_data, categories);
           augmentations.set(aug, aug_data);
         }
       }
