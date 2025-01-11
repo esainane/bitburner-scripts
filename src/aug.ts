@@ -60,7 +60,7 @@ const aug_categories: Map<string, (a: AugData) => boolean> = new Map([
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
-  return ['--live', '--dry-run', ...aug_categories.keys(), ';'];
+  return ['--live', '--dry-run', '--no-cost', ...aug_categories.keys(), ';'];
 }
 
 const plus = `${colors.fg_red}+${colors.reset}`;
@@ -225,10 +225,12 @@ export async function main(ns: NS): Promise<void> {
   const selected: AugData[] = [];
   const selected_set: Set<AugData> = new Set();
 
-  const money_available = ns.getPlayer().money;
+  const money_available = ns.args.includes('--no-cost') ? Infinity : ns.getPlayer().money;
   let money_spent = 0;
 
   const aug_scaling = 1.9;
+
+  let considered_augmentations = new Set<AugData>();
 
   // TODO: Special handling for neuroflux
   // TODO: Special handling for Shadows of Anarchy
@@ -248,6 +250,8 @@ export async function main(ns: NS): Promise<void> {
       acc.push(aug);
       return acc;
     }, []).filter(d => d && !d.owned && !selected_set.has(d))).values()];
+
+    considered_augmentations = considered_augmentations.union(new Set(available_augmentations));
 
     // Sort by cheapest first
     available_augmentations.sort((l, r) => l.price - r.price);
@@ -274,6 +278,7 @@ export async function main(ns: NS): Promise<void> {
   opts[1] = opts[4] = { left: false };
   let ok = true;
   const purchase_queue: [string, string][] = [];
+  let actual_spent = 0;
   print_table(ns, (ns: NS) => {
     do {
       const aug = selected.pop();
@@ -299,6 +304,7 @@ export async function main(ns: NS): Promise<void> {
               const idx = selected.findIndex(d => d.name === missing);
               if (idx !== -1) {
                 // OK, ish
+                // Yank it out of its old position and put it before us
                 to_reinsert.push(selected.splice(idx, 1)[0]);
                 continue;
               }
@@ -326,20 +332,35 @@ export async function main(ns: NS): Promise<void> {
       }
       const scaling = aug_scaling ** purchased.size;
       const cost = aug.price * scaling;
-      ns.tprintf(` - %s at %s = %s %s%s`,
+      ns.tprintf(`%s at %s = %s %s%s`,
         `${aug.name}`,
         format_currency(cost),
         format_currency(aug.price),
         `x${format_number(scaling, { round: 2 })}`,
         extra,
       );
+      actual_spent += cost;
       purchased.add(aug.name);
       purchase_queue.push([purchase_from.name, aug.name]);
     } while (selected.length > 0);
+    // Hack in alignment by making this sort of match the number of arguments used for the proper table:
+    //  <Total co>st: <number>   <>        <>      <>
+    //  <aug name> at <number> = <number> x<number><>
+    ns.tprintf(`%sst${colors.reset}: %s%s%s%s`, `${colors.fg_cyan}Total co`, format_currency(actual_spent), '', '', '');
   }, opts);
 
   if (reordering_recovered.size > 0) {
     ns.tprint(`WARNING Recovered invalid plan by reordering ${format_number(reordering_recovered.size)} augmentations with prerequisites.`);
+  }
+
+  const buying = new Set(purchase_queue.map(d => d[1]));
+  const unpurchased = [...considered_augmentations.values()].filter(d => !d.owned && !buying.has(d.name));
+  if (unpurchased.length > 0) {
+    ns.tprint(`${colors.fg_red}Unpurchased${colors.reset} augmentations: ${unpurchased.map(d=>format_servername(d.name)).join(', ')}`);
+  }
+  const unconsidered = [...augmentations.values()].filter(d => !considered_augmentations.has(d) && !d.owned);
+  if (unconsidered.length > 0) {
+    ns.tprint(`${colors.fg_magenta}Unconsidered${colors.reset} augmentations: ${unconsidered.map(d=>format_servername(d.name)).join(', ')}`);
   }
 
   // Done
