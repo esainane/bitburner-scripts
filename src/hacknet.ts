@@ -71,8 +71,10 @@ function new_server_lookahead(ns: NS): NewServerLookaheadResult {
 }
 
 export async function main(ns: NS): Promise<void> {
+  const p_args = ns.args.filter(a => !String(a).startsWith('--'));
   const do_sell = !ns.args.includes('--no-sell');
   const do_buy = !ns.args.includes('--no-buy');
+  const payoff_window = p_args.length > 0 ? Number(p_args[0]) : Infinity;
   // Greedy algorithm go!
   // Work out the step with the greatest cost efficiency available, and make it, if possible.
   // If the best move cannot be afforded yet, sleep and retry later.
@@ -164,6 +166,13 @@ export async function main(ns: NS): Promise<void> {
 
     // If we have an action to take, and we can afford it, take it.
     if (best && best.cost < ns.getPlayer().money) {
+      // Unless it'll pay off in a time longer than the payoff window we were provided, in which case, wait.
+      // We'll need something to be grafted, or Go games to be won, for cost/payouts to change, which take a while.
+      if (best.cost / (best.hash_gain_delta * money_per_hash) > payoff_window) {
+        ns.print("Best course of action will payoff longer than the configured maximum payoff window, waiting.");
+        await ns.asleep(3000);
+        continue;
+      }
       best.cb();
       // If we haven't announced this specific action, add it to the count of batched actions for when we do announce.
       if (!announced) {
