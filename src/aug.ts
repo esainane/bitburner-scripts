@@ -209,6 +209,7 @@ export async function main(ns: NS): Promise<void> {
 
   // If nothing more can be selected at this priority level, we move on to the next priority level.
 
+  const aug_scaling = 1.9;
 
   // Parse and structure priorities
   const p_args = ns.args.map(String).filter(d => !d.startsWith('--'));
@@ -222,34 +223,43 @@ export async function main(ns: NS): Promise<void> {
   }, [[]]);
 
   // Perform selections
-  const selected: AugData[] = [];
+  let selected: AugData[] = [];
   const selected_set: Set<AugData> = new Set();
 
-  const get_price = (idx: number) => selected.length === 0
+  // Cost helpers
+  const get_aug_price = (idx: number) => selected.length === 0
     ? 0
     : idx >= selected.length
       ? Infinity
       : selected[idx].price;
+  const recalculate_plan_cost = (plan: AugData[]) =>
+    plan.reduce((acc, d) => acc * aug_scaling + d.price, 0);
 
+  // Set a limit on the money available to spend, if applicable
   const money_available = ns.args.includes('--no-cost') ? Infinity : ns.getPlayer().money;
   let money_spent = 0;
 
-  const aug_scaling = 1.9;
-
+  // Track everything we've seen, to report anything we didn't select at the end
   let considered_augmentations = new Set<AugData>();
+
+  // If something goes wrong, flag it to prevent committing
+  let ok = true;
 
   // TODO: Special handling for neuroflux
   // TODO: Special handling for Shadows of Anarchy
   for (const priority of priorities) {
+    // Determine all augmentations available at this priority level
     const available_augmentations = [...new Set(priority.reduce((acc: AugData[], category_or_augname: string) => {
-      // See if this is a category
+      // If this is a category, add everything in it
       const category_list = categories.get(category_or_augname);
       if (category_list) {
         return acc.concat(category_list);
       }
-      // See if this is an augmentation
+      // If this is an exact augmentation name, add exactly that augmentation
       const aug = augmentations.get(category_or_augname);
+      // Otherwise, print an error, but continue
       if (aug === undefined) {
+        ok = false;
         ns.tprint(`ERROR Unknown Category or Augmentation: ${format_servername(category_or_augname)}`);
         return acc;
       }
@@ -257,6 +267,7 @@ export async function main(ns: NS): Promise<void> {
       return acc;
     }, []).filter(d => d && !d.owned && !selected_set.has(d))).values()];
 
+    // Once we know everything available this priority level, add them to the set of what we considered
     considered_augmentations = considered_augmentations.union(new Set(available_augmentations));
 
     // Sort by cheapest first
@@ -268,35 +279,29 @@ export async function main(ns: NS): Promise<void> {
       // TODO: Faction reputation purchasing is also not implemented, though this is relatively minor
       // First, find where we need to insert the aug. The overwhelmingly most common case will be to add it to the
       // end of the list, so we can check against the first to make this faster.
-      const bsearch_result = aug.price > get_price(selected.length - 1)
+      const bsearch_result = aug.price > get_aug_price(selected.length - 1)
         ? selected.length
-        : binary_search((idx: number) => get_price(idx), aug.price, 0, selected.length);
+        : binary_search((idx: number) => get_aug_price(idx), aug.price, 0, selected.length);
       const insertion_point = bsearch_result < 0 ? -(bsearch_result + 1) : bsearch_result;
       // Recalculate the cost. If we're adding to the end, this is just the cost of the new aug plus the cost of
       // everything prior multiplied by the aug_scaling factor.
       // Otherwise, recalculate from the start.
+      const next_selected = insertion_point === selected.length
+        ? [...selected, aug]
+        : [...selected.slice(0, insertion_point), aug, ...selected.slice(insertion_point)];
       const next_cost = insertion_point === selected.length
         ? money_spent * aug_scaling + aug.price
-        : selected.reduce((acc, d, idx) => {
-          // When we hit the position we're inserting the new aug into, add both the aug at this position and the
-          // new aug.
-          if (idx === insertion_point) {
-            return (acc * aug_scaling + aug.price) * aug_scaling + d.price;
-          }
-          // Otherwise, just add the cost of the aug at this position.
-          return acc * aug_scaling + d.price;
-        }, 0);
+        : recalculate_plan_cost(next_selected);
       if (next_cost > money_available) {
         ns.tprint(`Can't afford including ${format_servername(aug.name)} for ${format_currency(next_cost)} = ${format_currency(aug.price)} + ${format_currency(money_spent)} x ${aug_scaling}; stopping.`);
         break;
       }
       if (insertion_point === selected.length) {
         ns.tprint('INFO Appending ', format_servername(aug.name), ' at ', insertion_point);
-        selected.push(aug);
       } else {
         ns.tprint('INFO Inserting ', format_servername(aug.name), ' at ', insertion_point, ' of ', selected.length);
-        selected.splice(insertion_point, 0, aug);
       }
+      selected = next_selected;
       selected_set.add(aug);
       money_spent = next_cost;
     }
@@ -308,7 +313,6 @@ export async function main(ns: NS): Promise<void> {
   const reordering_recovered = new Set();
   opts.length = 0;
   opts[1] = opts[4] = { left: false };
-  let ok = true;
   const purchase_queue: [string, string][] = [];
   let actual_spent = 0;
   print_table(ns, (ns: NS) => {
