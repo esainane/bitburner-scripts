@@ -15,14 +15,49 @@ export function money_for_rep(ns: NS, rep: number) {
   return amount;
 }
 
+type PlanEntry = DepTree | AugData;
+
+// Represent a block of augmentations grouped together as part of a dependency tree
+// These are formed when a dependee is not met and costs less than a selected depender
+interface DepTree {
+  /// For pattern matching as a PlanEntry
+  deptree: true;
+  /// To be purchased before the rest
+  dep: AugData;
+  /// To be purchased after the dependency
+  rest: PlanEntry[];
+  /// Number of entries in this tree total, including the root dependency
+  size: number;
+  /// Used for positioning
+  /// A tree in the simplified form:
+  ///  {rest:[1,2,3],dep:4}
+  /// has amortized_cost = (4*1.9**0 + 3*1.9**1 + 2*1.9**2 + 1*1.9**3) / 4
+  amortized_cost: number;
+  /// Used for cost limit checking
+  total_cost: number;
+}
+
+// Represents a single specific augmentation
 interface AugData {
+  /// For pattrern matching as a PlanEntry
+  deptree: false;
+  /// Augmentation name
   name: string;
+  /// List of factions which supply this augmentation, to be sorted by most suitable first
   supplier_factions: FactionData[];
+  /// Base cost of this augmentation, ignoring all scaling factors
   price: number;
+  /// Reputation before this can be purchased from a faction
   rep: number;
+  /// Augmentations required before this augmentation can be installed
   prereqs: string[];
+  /// Augmentations required before this augmentation can be installed, simplified where possible
+  prereqs_simple: string[];
+  /// The effects of this augmentation. Does not include special effects like CashRoot
   mults: Multipliers;
+  /// Whether or not the player already has this installed (not just queued)
   owned: boolean;
+  /// Which categories this augmentation belongs to
   categories: string[];
 }
 
@@ -84,15 +119,18 @@ export async function main(ns: NS): Promise<void> {
     const joined_factions = ns.getPlayer().factions;
     const owned_by_player: Set<string> = new Set(await sing.getOwnedAugmentations(true));
     for (const aug of owned_by_player.values()) {
-      const aug_data = {
+      const prereqs = await sing.getAugmentationPrereq(aug);
+      const aug_data: AugData = {
         name: aug,
         supplier_factions: [],
         price: await sing.getAugmentationBasePrice(aug),
         rep: await sing.getAugmentationRepReq(aug),
-        prereqs: await sing.getAugmentationPrereq(aug),
+        prereqs,
+        prereqs_simple: prereqs.slice(),
         mults: await sing.getAugmentationStats(aug),
         owned: true,
         categories: [],
+        deptree: false,
       };
       categorize(ns, aug_data, categories);
       augmentations.set(aug, aug_data);
@@ -111,15 +149,18 @@ export async function main(ns: NS): Promise<void> {
         if (aug_data) {
           aug_data.supplier_factions.push(fac_data);
         } else {
+          const prereqs = await sing.getAugmentationPrereq(aug);
           const aug_data: AugData = {
             name: aug,
             supplier_factions: [fac_data],
             price: await sing.getAugmentationBasePrice(aug),
             rep: await sing.getAugmentationRepReq(aug),
-            prereqs: await sing.getAugmentationPrereq(aug),
+            prereqs,
+            prereqs_simple: prereqs.slice(),
             mults: await sing.getAugmentationStats(aug),
             owned: owned_by_player.has(aug),
             categories: [],
+            deptree: false,
           };
           categorize(ns, aug_data, categories);
           augmentations.set(aug, aug_data);
@@ -143,9 +184,54 @@ export async function main(ns: NS): Promise<void> {
     }
   }
 
+
+  // If something goes wrong, flag it to prevent committing
+  let ok = true;
+
+  // Second pass: Simplify augmentation prerequisites
+  // All implemented augmentations are either standalone or form a simple prerequisite chain.
+  // However, some of these are explicit:
+  // "BLADE-51b Tesla Armor: Omnibeam Upgrade" only depends on "BLADE-51b Tesla Armor: Unibeam Upgrade" which itself
+  // only depends on "BLADE-51b Tesla Armor")
+  // While some are implicit:
+  // "Cranial Signal Processors - Gen III" depends on both "Cranial Signal Processors - Gen II", "Cranial Signal
+  // Processors - Gen I"
+  // We want to simplify this to a form which is more readable and usable. Any prerequisite in a prerequisite list
+  // which is implied by any of others is removed from that list.
+
+  // Recursively search a list of prerequisites to see if needle is or is implied by any of them
+  const implied_recursive = (needle: string, prereqs: string[], seen: Set<string> = new Set()) => {
+    for (const prereq of prereqs) {
+      if (needle === prereq) {
+        return true;
+      }
+      if (seen.has(prereq)) {
+        continue;
+      }
+      seen.add(prereq);
+      const prereq_data = augmentations.get(prereq);
+      if (!prereq_data) {
+        ns.tprint(`ERROR Could not look up prerequisite ${format_servername(prereq)} for ${format_servername(needle)}`);
+        ok = false;
+        continue;
+      }
+      return implied_recursive(needle, prereq_data.prereqs, seen);
+    }
+    return false;
+  };
+
+  // Perform the second pass
+  for (const aug_data of augmentations.values()) {
+    aug_data.prereqs_simple = aug_data.prereqs.filter(
+      d => !aug_data.prereqs.map(d => augmentations.get(d)).filter(d => d !== undefined).some(
+        e => implied_recursive(d, e.prereqs)
+      )
+    );
+  }
+
   // Print out the information we've gathered
   const opts = [];
-  opts[3] = opts[4] = { left: false };
+  opts[3] = opts[4] = opts[5] = { left: false };
   print_table(ns, (ns: NS) => {
     const format_aug_faction = (fac_data: FactionData, rep_needed: number) => {
       const rep_have = fac_data.rep;
@@ -166,12 +252,17 @@ export async function main(ns: NS): Promise<void> {
         continue;
       }
       const categories = aug_data.categories.filter(d => d !== 'ALL');
-      ns.tprintf(`%s${colors.reset} %s %s rep; via %s %s`,
+      ns.tprintf(`%s${colors.reset} %s %s rep; via %s %s %s`,
         `${aug_data.price > ns.getPlayer().money ? colors.fg_red : ''}${aug_data.name}`,
         format_currency(aug_data.price),
         format_number(aug_data.rep, { round: 0 }),
-        `[${aug_data.supplier_factions.map(d=>`${format_aug_faction(d, aug_data.rep)}`).join(', ')}]`,
-        categories.length > 0 ? `(${categories.map(d=>`${colors.fg_magenta}${d}${colors.reset}`).join(', ')})` : `(${colors.fg_red}???${colors.reset})`,
+        aug_data.supplier_factions.length > 1 && aug_data.supplier_factions[0].rep > aug_data.rep
+          ? `[${format_aug_faction(aug_data.supplier_factions[0], aug_data.rep)}, +${format_number(aug_data.supplier_factions.length - 1)} more...]`
+          : `[${aug_data.supplier_factions.map(d=>`${format_aug_faction(d, aug_data.rep)}`).join(', ')}]`,
+        aug_data.prereqs_simple.map(d => format_servername(d)).join(', '),
+        categories.length > 0
+          ? `(${categories.map(d=>`${colors.fg_magenta}${d}${colors.reset}`).join(', ')})`
+          : `(${colors.fg_red}???${colors.reset})`,
       );
     }
   }, opts);
@@ -223,17 +314,53 @@ export async function main(ns: NS): Promise<void> {
   }, [[]]);
 
   // Perform selections
-  let selected: AugData[] = [];
+  let selected: PlanEntry[] = [];
   const selected_set: Set<AugData> = new Set();
 
   // Cost helpers
-  const get_aug_price = (idx: number) => selected.length === 0
+  const get_entry_scaling_adjustment = (entry: PlanEntry) => entry.deptree
+    ? aug_scaling ** entry.size
+    : aug_scaling;
+  const get_entry_total_price = (entry: PlanEntry) => entry.deptree
+    ? entry.total_cost
+    : entry.price;
+  const get_entry_amortized_price = (entry: PlanEntry) => entry.deptree
+    ? entry.amortized_cost
+    : entry.price;
+  const get_index_amoritzed_price = (idx: number) => selected.length === 0
     ? 0
     : idx >= selected.length
       ? Infinity
-      : selected[idx].price;
-  const recalculate_plan_cost = (plan: AugData[]) =>
-    plan.reduce((acc, d) => acc * aug_scaling + d.price, 0);
+      : get_entry_amortized_price(selected[idx]);
+  const format_deptree: (deptree: DepTree) => string = (deptree: DepTree) => `{${format_servername(deptree.dep.name)}: [${deptree.rest.map(d => d.deptree ? format_deptree(d) : format_servername(d.name)).join(', ')}]`;
+  const recalculate_plan_cost = (plan: PlanEntry[]) =>
+    plan.reduce((acc, d) => {
+      const ret = d.deptree
+        ? acc * aug_scaling ** d.size + d.total_cost
+        : acc * aug_scaling + d.price;
+      if (d.deptree) {
+        // ns.tprint(`INFO Recalculating cost (${ret} = ${acc} * ${aug_scaling}^${d.size} + ${d.total_cost}) [${format_deptree(d)}]`);
+      } else {
+        // ns.tprint(`INFO Recalculating cost (${ret} = ${acc} * ${aug_scaling} + ${d.price}) [${format_servername(d.name)}]`);
+      }
+      return ret;
+    }, 0);
+  const update_deptree_cost = (deptree: DepTree) => {
+    deptree.total_cost = recalculate_plan_cost(deptree.rest) * aug_scaling + deptree.dep.price;
+    deptree.size = deptree.rest.reduce((acc, d) => acc + (d.deptree
+      ? d.size
+      : 1
+    ), 1);
+    deptree.amortized_cost = deptree.total_cost / deptree.size;
+  };
+  const shallow_clone_deptree = (deptree: DepTree) => ({
+      deptree: true,
+      dep: deptree.dep,
+      rest: deptree.rest.slice(),
+      size: deptree.size,
+      amortized_cost: deptree.amortized_cost,
+      total_cost: deptree.total_cost,
+  } as DepTree)
 
   // Set a limit on the money available to spend, if applicable
   const money_available = ns.args.includes('--no-cost') ? Infinity : ns.getPlayer().money;
@@ -241,9 +368,6 @@ export async function main(ns: NS): Promise<void> {
 
   // Track everything we've seen, to report anything we didn't select at the end
   let considered_augmentations = new Set<AugData>();
-
-  // If something goes wrong, flag it to prevent committing
-  let ok = true;
 
   // TODO: Special handling for neuroflux
   // TODO: Special handling for Shadows of Anarchy
@@ -275,32 +399,158 @@ export async function main(ns: NS): Promise<void> {
 
     // Select as many as possible
     for (const aug of available_augmentations) {
-      // TODO: This cost adjustment does not account for prerequisites
       // TODO: Faction reputation purchasing is also not implemented, though this is relatively minor
-      // First, find where we need to insert the aug. The overwhelmingly most common case will be to add it to the
+      // First, find any unmet dependencies.
+      // 1) Prereqs already part of the plan (to be bought after this) will need to be brought after this in the plan,
+      // so they are purchased first.
+      // 2) Prereqs not yet in the plan will need to be selected later in the planning process, though this is uncommon
+      // (are there any augmentations with a more expensive prerequisite? Maybe something in the Netburner implant tree
+      // if you specify unusual priorities?) and might only happen if the player manually specifies a particular
+      // augmentation as high priority.
+      let local_ok = true;
+      // Augs for case 1)
+      const to_reorder = aug.prereqs_simple.map(d => augmentations.get(d)).filter(d => {
+        if (d === undefined) {
+          ok = local_ok = false;
+          return false;
+        }
+        return !d.owned && selected_set.has(d);
+      }) as AugData[];
+      if (!local_ok) {
+        continue;
+      }
+      // Augs for case 2)
+      // TODO
+      const to_require = aug.prereqs_simple.map(d => augmentations.get(d)).filter(d => {
+        if (d === undefined) {
+          ok = local_ok = false;
+          return false;
+        }
+        return !d.owned && !selected_set.has(d);
+      }) as AugData[];
+      if (!local_ok) {
+        continue;
+      }
+      if (to_require.length) {
+        ns.tprint(`WARNING Augmentation ${format_servername(aug.name)} has prerequisites which would be added later. Ensuring this is the case is not implemented yet: ${to_require.map(d => format_servername(d.name)).join(', ')}`);
+      }
+
+
+      let entry;
+      let to_remove;
+      if (to_reorder.length) {
+        if (to_reorder.length > 1) {
+          ns.tprint(`WARNING ${format_servername(aug.name)} has multiple prior dependencies. Handling dependency diamonds is not implemented yet: ${to_reorder.map(d => format_servername(d.name)).join(', ')}`);
+        }
+
+        // Recursively find a dependency.
+        // Returns the index which would be removed, and a DepTree which would be inserted.
+        const find_dep: (needle: AugData, haystack: PlanEntry[]) => [number, DepTree] | [undefined, undefined] = (needle: AugData, haystack: PlanEntry[]) => {
+          for (const [idx, prior_selected] of haystack.entries()) {
+            if (prior_selected.deptree) {
+              if (prior_selected.dep === needle) {
+                // Dependency is the depended of an existing deptree
+                const to_insert = shallow_clone_deptree(prior_selected);
+                to_insert.rest.push(aug);
+                // FIXME: Crude, could duplicate insertion logic
+                to_insert.rest.sort((l, r) => get_entry_amortized_price(l) - get_entry_amortized_price(r));
+                ns.tprint(`INFO New order: ${to_insert.rest.map(d => format_servername(d.deptree ? d.dep.name :d.name)).join(', ')}`);
+                update_deptree_cost(to_insert);
+                return [idx, to_insert];
+              }
+              const [rec_remove, rec_insert] = find_dep(needle, prior_selected.rest);
+              if (rec_remove !== undefined) {
+                // Dependency was found within an existing deptree
+                const to_insert = shallow_clone_deptree(prior_selected);
+                to_insert.rest.splice(rec_remove, 1, rec_insert);
+                update_deptree_cost(to_insert);
+                return [idx, to_insert];
+              }
+            } else {
+              // Dependency was an ordinary augmentation
+              if (prior_selected.name == needle.name) {
+                const to_insert: DepTree = {
+                  deptree: true,
+                  dep: needle,
+                  rest: [aug],
+                  size: 2,
+                  amortized_cost: Infinity, // placeholder
+                  total_cost: Infinity, // placeholder
+                };
+                update_deptree_cost(to_insert);
+                return [idx, to_insert];
+              }
+            }
+          }
+          // Dependency was not found
+          return [undefined, undefined];
+        };
+        [to_remove, entry] = find_dep(to_reorder[0], selected);
+        if (!entry) {
+          // Shouldn't happen, but for the sake of defensiveness
+          ok = false;
+          ns.tprint(`ERROR Could not find supposedly selected (via selected_set) dependency ${format_servername(to_reorder[0].name)} in selected augmentations`);
+          continue;
+        }
+      } else {
+        entry = aug;
+      }
+      // Then, find where we need to insert the aug. The overwhelmingly most common case will be to add it to the
       // end of the list, so we can check against the first to make this faster.
-      const bsearch_result = aug.price > get_aug_price(selected.length - 1)
+      const entry_price = get_entry_amortized_price(entry);
+      const bsearch_result = entry_price > get_index_amoritzed_price(selected.length - 1)
         ? selected.length
-        : binary_search((idx: number) => get_aug_price(idx), aug.price, 0, selected.length);
+        : binary_search((idx: number) => get_index_amoritzed_price(idx), entry_price, 0, selected.length);
       const insertion_point = bsearch_result < 0 ? -(bsearch_result + 1) : bsearch_result;
-      // Recalculate the cost. If we're adding to the end, this is just the cost of the new aug plus the cost of
+      // Construct the new plan. If it's at the end, we just add it to the end, removing to_remove if set.
+      const next_selected = insertion_point === selected.length
+        ? to_remove === undefined
+          ? [...selected, entry]
+          : [...selected.slice(0, to_remove), ...selected.slice(to_remove + 1), entry]
+        : (() => {
+            // Otherwise, make a new list, inserting entry at the insertion point, and removing to_remove if set,
+            // both relative to the original list's indices.
+            if (to_remove === undefined) {
+              return [...selected.slice(0, insertion_point), entry, ...selected.slice(insertion_point)];
+            }
+            if (to_remove >= insertion_point) {
+              return [...selected.slice(0, insertion_point), entry, ...selected.slice(insertion_point, to_remove), ...selected.slice(to_remove + 1)];
+            } else {
+              return [...selected.slice(0, to_remove), ...selected.slice(to_remove + 1, insertion_point), entry, ...selected.slice(insertion_point)];
+            }
+          })();
+      // Recalculate the cost. If we're only adding to the end, this is just the cost of the new aug plus the cost of
       // everything prior multiplied by the aug_scaling factor.
       // Otherwise, recalculate from the start.
-      const next_selected = insertion_point === selected.length
-        ? [...selected, aug]
-        : [...selected.slice(0, insertion_point), aug, ...selected.slice(insertion_point)];
-      const next_cost = insertion_point === selected.length
-        ? money_spent * aug_scaling + aug.price
+      const next_cost = insertion_point === selected.length && to_remove === undefined
+        ? money_spent * get_entry_scaling_adjustment(entry) + get_entry_total_price(entry)
         : recalculate_plan_cost(next_selected);
+      // With the addition of dependency handling, the order of available augmentations is no longer the exact cost.
+      // If it's a normal augmentation, then the position is exact, and there's no point in looking further.
+      // If it's a deptree, then it's an underestimate of cost; it can still be excluded if we meet a non-deptree
+      // augmentation which is cheaper and can't be added, but we can't necessarily exclude later options yet.
+      // FIXME: Note that this also means that selections are not necessarily optimal, as we might exclude a cheaper
+      // augmentation by selecting an augmentation whose dependencies make its selection more expensive.
+      // This could be solved by putting deptrees in a separate queue effectively running merge sort as we go,
+      // putting any deptrees we make in the subqueue, and then merging the subqueue into the main queue when we hit a
+      // normal augmentation which would cost more.
       if (next_cost > money_available) {
-        ns.tprint(`Can't afford including ${format_servername(aug.name)} for ${format_currency(next_cost)} = ${format_currency(aug.price)} + ${format_currency(money_spent)} x ${aug_scaling}; stopping.`);
-        break;
+        const prefix = `INFO Can't afford inclusion of ${format_servername(aug.name)} for ${format_currency(next_cost)} = ${format_currency(aug.price)} + ${format_currency(money_spent)} x ${aug_scaling};`;
+        if (entry.deptree) {
+          ns.tprint(prefix, ' checking alternatives.');
+          continue;
+        } else {
+          ns.tprint(prefix, ' stopping.');
+          break;
+        }
       }
+      // DEBUG: Annouce the changes.
       if (insertion_point === selected.length) {
-        ns.tprint('INFO Appending ', format_servername(aug.name), ' at ', insertion_point);
+        // ns.tprint('INFO Appending ', format_servername(aug.name), ' at ', insertion_point, '; new cost: ', format_currency(next_cost));
       } else {
-        ns.tprint('INFO Inserting ', format_servername(aug.name), ' at ', insertion_point, ' of ', selected.length);
+        // ns.tprint('INFO Inserting ', format_servername(aug.name), ' at ', insertion_point, ' of ', selected.length, '; new cost: ', format_currency(next_cost));
       }
+      // Finally, apply the changes.
       selected = next_selected;
       selected_set.add(aug);
       money_spent = next_cost;
@@ -309,63 +559,61 @@ export async function main(ns: NS): Promise<void> {
 
   // Print out the plan
   ns.tprint('Purchase plan:');
-  const purchased = new Set();
-  const reordering_recovered = new Set();
+  // Track the overall set of what we've purchased
+  const purchased = new Set<string>();
+  // Create a purchase queue as we go, containing the faction and the aug we're purchasing from them
+  const purchase_queue: [string, string][] = [];
+  // Track the actual amount of money spent
+  let actual_spent = 0;
+  // Stack of deptrees, deepest last
+  const current_deptree: DepTree[] = [];
   opts.length = 0;
   opts[1] = opts[4] = { left: false };
-  const purchase_queue: [string, string][] = [];
-  let actual_spent = 0;
   print_table(ns, (ns: NS) => {
     do {
-      const aug = selected.pop();
-      if (!aug) {
+      // Fetch the next element to be purchased: Either the next element in the deepest deptree, depth first, or the
+      // next element in the overall selected list
+      const next = current_deptree.length
+        ? current_deptree[current_deptree.length - 1].rest.pop()
+        : selected.pop();
+      // If there wasn't anything there...
+      if (!next) {
+        // ...and we were in a deptree, pop that deptree and continue higher up
+        if (current_deptree.length) {
+          //ns.tprintf('%s%s%s%s%s', ']', '', '', '', '');
+          current_deptree.pop();
+          continue;
+        }
+        // ...and we were at the top level, we're done
         break;
+      }
+      let aug: AugData;
+      if (next.deptree) {
+        // If the next element is a deptree, take the dep and push the new deptree onto the stack
+        //ns.tprintf('%s%s%s%s%s', '[', '', '', '', '');
+        aug = next.dep;
+        current_deptree.push(next);
+      } else {
+        // Otherwise, it's a normal aug
+        aug = next;
       }
       let extra = '';
       if (aug.prereqs.length > 0) {
-        // Double check we have all prerequisites, either already owned now or earlier in the plan
+        // Double check we have all prerequisites, either already owned now or purchased earlier
         const missing_prereqs = aug.prereqs.filter(d => !purchased.has(d) && augmentations.get(d)?.owned !== true);
         if (missing_prereqs.length > 0) {
-          // FIXME Quick hack: See if the prereq is later in the plan, and if so, move it up
-          // This does not preserve optimality: The cost of a conceptual block is a an exponentially decaying weighted
-          // average of the elements, and should be reinserted accordingly (though it shouldn't be too far off in
-          // practice)
-          // This does not preserve correctness: This increases the cost over what was planned for, and may exceed the
-          // player's available money
-          if (!reordering_recovered.has(aug.name)) {
-            // ...but we'll only do this at most once for any aug, for safety
-            const to_reinsert = [aug];
-            let this_ok = true;
-            for (const missing of missing_prereqs.sort((l, r) => (augmentations.get(l)?.price ?? 0) - (augmentations.get(r)?.price ?? 0))) {
-              const idx = selected.findIndex(d => d.name === missing);
-              if (idx !== -1) {
-                // OK, ish
-                // Yank it out of its old position and put it before us
-                to_reinsert.push(selected.splice(idx, 1)[0]);
-                continue;
-              }
-              // Couldn't recover
-              this_ok = false;
-            }
-
-            // If we could recover all prerequisites, reinsert everything, and restart from our current index
-            if (this_ok) {
-              reordering_recovered.add(aug.name);
-              selected.push(...to_reinsert);
-              continue;
-            }
-          }
-
-          // Otherwise, we can't purchase this augmentation, and this plan is invalid
+          // We can't purchase this augmentation, this plan is invalid
           extra = ` - ${colors.fg_red}missing${colors.reset} ${missing_prereqs.map(d => format_servername(d)).join(', ')}`;
           ok = false;
         }
       }
+      // Check we can actually purchase from the best supplier faction
       const purchase_from = aug.supplier_factions[0];
       if (purchase_from.rep < aug.rep) {
         extra += ` - ${colors.fg_red}missing${colors.reset} ${format_number(aug.rep - purchase_from.rep, { round: 1 })} ${format_servername(purchase_from.name)} rep`;
         ok = false;
       }
+      // And print the result
       const scaling = aug_scaling ** purchased.size;
       const cost = aug.price * scaling;
       ns.tprintf(`%s at %s = %s %s%s`,
@@ -375,6 +623,7 @@ export async function main(ns: NS): Promise<void> {
         `x${format_number(scaling, { round: 2 })}`,
         extra,
       );
+      // Track what this plan would do
       actual_spent += cost;
       purchased.add(aug.name);
       purchase_queue.push([purchase_from.name, aug.name]);
@@ -385,15 +634,29 @@ export async function main(ns: NS): Promise<void> {
     ns.tprintf(`%sst${colors.reset}: %s%s%s%s`, `${colors.fg_cyan}Total co`, format_currency(actual_spent), '', '', '');
   }, opts);
 
-  if (reordering_recovered.size > 0) {
-    ns.tprint(`WARNING Recovered invalid plan by reordering ${format_number(reordering_recovered.size)} augmentations with prerequisites.`);
+  // TODO: Refactor this out
+  const approx_equal = (a: number, b: number, epsilon = 1e-3) => Math.abs(a - b) < epsilon;
+
+  // Summarize the validation process
+
+  // Check the money we would spend is what we expected it to be
+  if (!approx_equal(actual_spent, money_spent, 0.4)) {
+    ns.tprint(`WARNING Plan cost mismatch: Actual purchase cost ${format_currency(actual_spent)} (${actual_spent}) != incrementally calculated cost ${format_currency(money_spent)} (${money_spent})`);
+    ok = false;
+  }
+  // Also check the amount we would spend is less than what is available
+  if (actual_spent > money_available) {
+    ns.tprint(`ERROR Would spend more than available, plan unrecoverable.`);
+    ok = false;
   }
 
+  // Remark on which augmentations could not be purchased
   const buying = new Set(purchase_queue.map(d => d[1]));
   const unpurchased = [...considered_augmentations.values()].filter(d => !d.owned && !buying.has(d.name));
   if (unpurchased.length > 0) {
     ns.tprint(`${colors.fg_red}Unpurchased${colors.reset} augmentations: ${unpurchased.map(d=>format_servername(d.name)).join(', ')}`);
   }
+  // Remark on which augmentations were not considered for purchasing at any priority level
   const unconsidered = [...augmentations.values()].filter(d => !considered_augmentations.has(d) && !d.owned);
   if (unconsidered.length > 0) {
     ns.tprint(`${colors.fg_magenta}Unconsidered${colors.reset} augmentations: ${unconsidered.map(d=>format_servername(d.name)).join(', ')}`);
@@ -401,15 +664,21 @@ export async function main(ns: NS): Promise<void> {
 
   // Done
 
-  if (do_commit) {
+  if (!do_commit) {
     if (!ok) {
-      ns.tprint('ERROR: Created invalid plan, aborting.');
-      return;
+      ns.tprint(`WARNING: Plan is invalid.`);
     }
-    for (const [faction, aug] of purchase_queue) {
-      if (await sing.purchaseAugmentation(faction, aug)) {
-        ns.tprint(`Purchased ${format_servername(aug)}`);
-      }
+    return;
+  }
+  if (!ok) {
+    ns.tprint('ERROR: Created invalid plan, aborting.');
+    return;
+  }
+  for (const [faction, aug] of purchase_queue) {
+    if (await sing.purchaseAugmentation(faction, aug)) {
+      ns.tprint(`Purchased ${format_servername(aug)}`);
+    } else {
+      ns.tprint(`ERROR Failed to purchase ${format_servername(aug)} from ${format_servername(faction)}`);
     }
   }
 }
