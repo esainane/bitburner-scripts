@@ -225,6 +225,12 @@ export async function main(ns: NS): Promise<void> {
   const selected: AugData[] = [];
   const selected_set: Set<AugData> = new Set();
 
+  const get_price = (idx: number) => selected.length === 0
+    ? 0
+    : idx >= selected.length
+      ? Infinity
+      : selected[idx].price;
+
   const money_available = ns.args.includes('--no-cost') ? Infinity : ns.getPlayer().money;
   let money_spent = 0;
 
@@ -258,14 +264,39 @@ export async function main(ns: NS): Promise<void> {
 
     // Select as many as possible
     for (const aug of available_augmentations) {
-      // TODO: This cost adjustment does not work with multiple priorities, nor does it account for prerequisites
+      // TODO: This cost adjustment does not account for prerequisites
       // TODO: Faction reputation purchasing is also not implemented, though this is relatively minor
-      const next_cost = money_spent * aug_scaling + aug.price;
+      // First, find where we need to insert the aug. The overwhelmingly most common case will be to add it to the
+      // end of the list, so we can check against the first to make this faster.
+      const bsearch_result = aug.price > get_price(selected.length - 1)
+        ? selected.length
+        : binary_search((idx: number) => get_price(idx), aug.price, 0, selected.length);
+      const insertion_point = bsearch_result < 0 ? -(bsearch_result + 1) : bsearch_result;
+      // Recalculate the cost. If we're adding to the end, this is just the cost of the new aug plus the cost of
+      // everything prior multiplied by the aug_scaling factor.
+      // Otherwise, recalculate from the start.
+      const next_cost = insertion_point === selected.length
+        ? money_spent * aug_scaling + aug.price
+        : selected.reduce((acc, d, idx) => {
+          // When we hit the position we're inserting the new aug into, add both the aug at this position and the
+          // new aug.
+          if (idx === insertion_point) {
+            return (acc * aug_scaling + aug.price) * aug_scaling + d.price;
+          }
+          // Otherwise, just add the cost of the aug at this position.
+          return acc * aug_scaling + d.price;
+        }, 0);
       if (next_cost > money_available) {
         ns.tprint(`Can't afford including ${format_servername(aug.name)} for ${format_currency(next_cost)} = ${format_currency(aug.price)} + ${format_currency(money_spent)} x ${aug_scaling}; stopping.`);
         break;
       }
-      selected.push(aug);
+      if (insertion_point === selected.length) {
+        ns.tprint('INFO Appending ', format_servername(aug.name), ' at ', insertion_point);
+        selected.push(aug);
+      } else {
+        ns.tprint('INFO Inserting ', format_servername(aug.name), ' at ', insertion_point, ' of ', selected.length);
+        selected.splice(insertion_point, 0, aug);
+      }
       selected_set.add(aug);
       money_spent = next_cost;
     }
