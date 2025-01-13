@@ -95,7 +95,7 @@ const aug_categories: Map<string, (a: AugData) => boolean> = new Map([
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
-  return ['--live', '--dry-run', '--no-cost', ...aug_categories.keys(), ';'];
+  return ['--live', '--dry-run', '--ignore-cost', '--ignore-rep', ...aug_categories.keys(), ";"];
 }
 
 const plus = `${colors.fg_red}+${colors.reset}`;
@@ -229,23 +229,23 @@ export async function main(ns: NS): Promise<void> {
     );
   }
 
+  const format_aug_faction = (fac_data: FactionData, rep_needed: number) => {
+    const rep_have = fac_data.rep;
+    const rep_shortfall = rep_needed - rep_have;
+    if (rep_shortfall <= 0) {
+      return `${colors.fg_white}${fac_data.name}${colors.reset}`;
+    }
+    const favor_have = fac_data.favor;
+    if (favor_have >= 150) {
+      const money_needed = money_for_rep(ns, rep_shortfall);
+      return `${colors.fg_cyan}${fac_data.name}${colors.reset}[${format_currency(money_needed)}/${plus}${format_number(rep_shortfall)} rep]`;
+    }
+    return `${colors.fg_yellow}${fac_data.name}${colors.reset}[${plus}${format_number(rep_shortfall, { round: 1 })} rep]`;
+  };
   // Print out the information we've gathered
   const opts = [];
   opts[3] = opts[4] = opts[5] = { left: false };
   print_table(ns, (ns: NS) => {
-    const format_aug_faction = (fac_data: FactionData, rep_needed: number) => {
-      const rep_have = fac_data.rep;
-      const rep_shortfall = rep_needed - rep_have;
-      if (rep_shortfall <= 0) {
-        return `${colors.fg_white}${fac_data.name}${colors.reset}`;
-      }
-      const favor_have = fac_data.favor;
-      if (favor_have >= 150) {
-        const money_needed = money_for_rep(ns, rep_shortfall);
-        return `${colors.fg_cyan}${fac_data.name}${colors.reset}[${format_currency(money_needed)}/${plus}${format_number(rep_shortfall)} rep]`;
-      }
-      return `${colors.fg_yellow}${fac_data.name}${colors.reset}[${plus}${format_number(rep_shortfall, { round: 1 })} rep]`;
-    };
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     for (const aug_data of [...augmentations.values()].sort((l, r) => r.price - l.price)) {
       if (aug_data.owned) {
@@ -363,17 +363,21 @@ export async function main(ns: NS): Promise<void> {
   } as DepTree)
 
   // Set a limit on the money available to spend, if applicable
-  const money_available = ns.args.includes('--no-cost') ? Infinity : ns.getPlayer().money;
+  const money_available = ns.args.includes('--ignore-cost') ? Infinity : ns.getPlayer().money;
   let money_spent = 0;
+  const ignore_rep = ns.args.includes('--ignore-rep');
 
   // Track everything we've seen, to report anything we didn't select at the end
   let considered_augmentations = new Set<AugData>();
+  const unpurchasable_augmentations: AugData[] = [];
+  const unpurchasable_augmentations_set = new Set<AugData>();
 
   // TODO: Special handling for neuroflux
   // TODO: Special handling for Shadows of Anarchy
   for (const priority of priorities) {
     // Determine all augmentations available at this priority level
-    const available_augmentations = [...new Set(priority.reduce((acc: AugData[], category_or_augname: string) => {
+    const available_augmentations = [];
+    for (const aug of new Set(priority.reduce((acc: AugData[], category_or_augname: string) => {
       // If this is a category, add everything in it
       const category_list = categories.get(category_or_augname);
       if (category_list) {
@@ -389,7 +393,17 @@ export async function main(ns: NS): Promise<void> {
       }
       acc.push(aug);
       return acc;
-    }, []).filter(d => d && !d.owned && !selected_set.has(d))).values()];
+    }, []).filter(d => d && !d.owned && !selected_set.has(d)))) {
+      if (ignore_rep || aug.rep <= (aug.supplier_factions[0]?.rep ?? 0)) {
+        available_augmentations.push(aug);
+      } else {
+        if (!unpurchasable_augmentations_set.has(aug)) {
+          //ns.tprint(`INFO Augmentation ${format_servername(aug.name)} requires ${plus}${format_number(aug.rep)} reputation with ${format_servername(aug.supplier_factions[0].name)} to purchase`);
+          unpurchasable_augmentations.push(aug);
+          unpurchasable_augmentations_set.add(aug);
+        }
+      }
+    }
 
     // Once we know everything available this priority level, add them to the set of what we considered
     considered_augmentations = considered_augmentations.union(new Set(available_augmentations));
@@ -654,12 +668,16 @@ export async function main(ns: NS): Promise<void> {
   const buying = new Set(purchase_queue.map(d => d[1]));
   const unpurchased = [...considered_augmentations.values()].filter(d => !d.owned && !buying.has(d.name));
   if (unpurchased.length > 0) {
-    ns.tprint(`${colors.fg_red}Unpurchased${colors.reset} augmentations: ${unpurchased.map(d=>format_servername(d.name)).join(', ')}`);
+    ns.tprint(`${colors.fg_red}Unpurchased${colors.reset} augmentations: ${unpurchased.map(d=>`${colors.fg_cyan}${d.name}${colors.reset}`).join(', ')}`);
+  }
+  // Remark on which augmentations could not be purchased due to reputation
+  if (unpurchasable_augmentations.length > 0) {
+    ns.tprint(`${colors.fg_red}Unpurchasable${colors.reset} augmentations: ${unpurchasable_augmentations.map(d=>`${colors.fg_cyan}${d.name}${colors.reset}[${d.supplier_factions.map(f => format_aug_faction(f, d.rep))}]`).join(', ')}`);
   }
   // Remark on which augmentations were not considered for purchasing at any priority level
-  const unconsidered = [...augmentations.values()].filter(d => !considered_augmentations.has(d) && !d.owned);
+  const unconsidered = [...augmentations.values()].filter(d => !d.owned && !considered_augmentations.has(d) && !unpurchasable_augmentations_set.has(d));
   if (unconsidered.length > 0) {
-    ns.tprint(`${colors.fg_magenta}Unconsidered${colors.reset} augmentations: ${unconsidered.map(d=>format_servername(d.name)).join(', ')}`);
+    ns.tprint(`${colors.fg_magenta}Unconsidered${colors.reset} augmentations: ${unconsidered.map(d=>`${colors.fg_cyan}${d.name}${colors.reset}`).join(', ')}`);
   }
 
   // Done
