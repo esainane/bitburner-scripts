@@ -9,6 +9,7 @@ import { format_duration } from 'lib/format-duration';
 import { colors, format_normalize_state, format_number, percent } from 'lib/colors';
 import { format_servername } from 'lib/colors';
 import { as_normalized } from 'lib/as-normalized';
+import { binary_search } from '/lib/binary-search';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
@@ -71,7 +72,13 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
   // Given a server which is fully weakened and fully grown...
   // Calculate the required thread counts to perform one HWGW cycle, leaving the server fully weakened and grown
   let best: PlanData | null = null;
-  for (let hack_threads = 1; hack_threads < threads_available; ++hack_threads) {
+  // Perform a binary search over the implicit search space. This is still monovariate optimization over a (locally)
+  // bivariate problem, as there can be a solution which avoids overhacking excluded by this search, and this is still
+  // using heuristics over a very expansive global optimization problem. Perhaps I'll implement a full simplex solver
+  // here one day.
+  // The trick with this binary search is to target 0, return a negative reciprical of the fitness for a working
+  // solution, and return a positive value for constraint violation.
+  const bsearch_result = binary_search((hack_threads: number) => {
     // Calculate the security increase caused by this many hack threads
     const hack_security_increase = ns.hackAnalyzeSecurity(hack_threads);
     // Calculate the weaken threads needed to finish just after this to fully weaken it again
@@ -81,12 +88,13 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
     // Check that we've left something we can grow back
     if (hack_stolen > hack_limit) {
       // Infeasible in practice, here be lumpy numbers
-      hack_threads -= 1;
-      break;
+      return 1;
     }
     const money_after = max_money * (1 - hack_stolen);
     const growth_required = 1/(1-hack_stolen);
     //ns.log("INFO For: ", server, " want to see ", growth_required, " growth");
+    // If the formulas API is available, obtain an exact result. Otherwise, use the current state to estimate.
+    // Neither of these will account for the additive growth factor.
     const grow_threads = forumlas_api_available
       ? Math.ceil(ns.formulas.hacking.growThreads({ ...as_normalized(ns, server), moneyAvailable: money_after }, ns.getPlayer(), max_money, cores))
       : Math.ceil(ns.growthAnalyze(server, growth_required, cores));
@@ -96,19 +104,18 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
     // Calculate the weaken threads required to finish just after growth to fully weaken it again
     const weaken_2nd_threads = Math.ceil(growth_security_increase / weaken_security_decrease_per_thread);
 
-    // Check that we're under the limit
+    // Check that we're not using more threads than available
     if (hack_threads + weaken_1st_threads + grow_threads + weaken_2nd_threads > threads_available) {
-      // Infeasible, stop incrementing and revert to the last value
-      hack_threads -= 1;
-      break;
+      // Infeasible
+      return 1;
     }
     if (largest_2_contiguous[0] < grow_threads + hack_threads && (
       largest_2_contiguous[0] < Math.max(grow_threads, hack_threads) || largest_2_contiguous[1] < Math.min(grow_threads, hack_threads)
     )) {
-      // No unfragmented configuration large enough
-      hack_threads -= 1;
-      break;
+      // Infeasible: No unfragmented configuration large enough
+      return 1;
     }
+    // TODO: This all can be derived from the found hack_threads parameter, once, after the search
     // Relaive to the end of the HWGW block
     const hack_start = -hack_duration - 4 * gap;
     const weaken_1st_start = -weaken_duration - 3 * gap;
@@ -125,13 +132,39 @@ function plan_schedule(ns: NS, server: string, cycle_time: number, threads_avail
 
     const success_payout = max_money * hack_stolen;
 
-    best = {
+    const candidate = {
       hack_threads, weaken_1st_threads, grow_threads, weaken_2nd_threads,
       hack_delay, weaken_1st_delay, grow_delay, weaken_2nd_delay,
       execution_duration,
       success_rate, success_payout,
       server,
-    };
+    } as PlanData;
+
+    if (candidate.hack_threads > (best?.hack_threads ?? 0)) {
+      best = candidate;
+    }
+
+    // Closest to 0 (goal) is maximum number of hack_threads
+    return -1 / hack_threads;
+  }, 0, 1, threads_available);
+
+  if (bsearch_result >= 0) {
+    const msg = 'How did we find an exact match over the implicit search space to maximize threads?';
+    ns.tprint(`ERROR ${msg}`);
+    throw new Error(msg);
+  }
+  if (best === null) {
+    // No feasible solution
+    return null;
+  }
+  // Insertion index is -bsearch_result - 1; we want the previous index as the final viable result
+  const hack_threads = -bsearch_result - 2;
+  // Typescript thinks `best` is always null here. It's wrong.
+  const cached_hack_threads = (best as PlanData).hack_threads;
+  if (hack_threads !== cached_hack_threads) {
+    const msg = `bsearch_result (${format_number(hack_threads)}) and cached best candidate (${format_number(cached_hack_threads)}) do not agree on the optimal number of hack_threads!?`;
+    ns.tprint(`ERROR ${msg}`);
+    throw new Error(msg);
   }
 
   return best;
