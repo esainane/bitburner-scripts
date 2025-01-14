@@ -22,6 +22,6 @@ export async function main(ns: NS): Promise<void> {
     killall(ns, servers, 'worker/hack1.js');
     // Not currently managed by our omniscript
     // killall(ns, servers, 'worker/share1.js');
-    killall(ns, servers, 'go.js');
+    killall(ns, servers, 'omni.js');
   }
 }
