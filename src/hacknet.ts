@@ -5,7 +5,7 @@ import { range } from '/lib/range';
 import { format_duration } from '/lib/format-duration';
 
 export function autocomplete(data: string[], args: string[]): string[] {
-  return ['--no-sell', '--no-buy', '--sell'];
+  return ['--no-sell', '--no-buy', '--sell', '--corp', '--cct', '--hack'];
 }
 
 /**
@@ -139,12 +139,58 @@ function new_server_lookahead(ns: NS): NewServerLookaheadResult {
   return [best, best_hash_per_cost];
 }
 
+function sell_money(ns: NS): boolean {
+  const hashes = ns.hacknet.numHashes();
+  for (const i of range(Math.floor(hashes / 4))) {
+    ns.hacknet.spendHashes('Sell for Money');
+  }
+  return false;
+}
+
+function sell_upgrades(upgrades: string[][]) {
+  return (ns: NS): boolean => {
+    const max_hashes = ns.hacknet.hashCapacity();
+    let costs;
+    do {
+      costs = upgrades.map(d => [d, ns.hacknet.hashCost(d[0])] satisfies [string[], number]).sort(
+        (a, b) => a[1] - b[1]
+      );
+      const [ next_params, next_cost ] = costs[0];
+      if (next_cost > max_hashes) {
+        return true;
+      }
+      if (next_cost > ns.hacknet.numHashes()) {
+        return false;
+      }
+      if (next_params.length > 1
+        ? !ns.hacknet.spendHashes(next_params[0], next_params[1])
+        : !ns.hacknet.spendHashes(next_params[0])
+      ) {
+        ns.tprint('ERROR Failed to spend hashes when we expected to be able to.');
+        return false;
+      }
+      // eslint-disable-next-line no-constant-condition
+    } while (true);
+  }
+}
+
+const sell_ccts = sell_upgrades([['Generate Coding Contract']]);
+const sell_corp = sell_upgrades([['Corporation Funds', 'Corporation Research']]);
+const sell_hack = sell_upgrades([['Reduce Minimum Security', 'ecorp'], ['Increase Maximum Money', 'ecorp']]);
+
 export async function main(ns: NS): Promise<void> {
   const p_args = ns.args.filter(a => !String(a).startsWith('--'));
   const do_sell = !ns.args.includes('--no-sell');
   const do_buy = !ns.args.includes('--no-buy');
   const only_sell = ns.args.includes('--sell');
   const payoff_window = p_args.length > 0 ? Number(p_args[0]) : Infinity;
+  const sell_strategy = ns.args.includes('--hack')
+    ? sell_hack
+    : ns.args.includes('--cct')
+      ? sell_ccts
+      : ns.args.includes('--corp')
+        ? sell_corp
+        : sell_money;
   // Greedy algorithm go!
   // Work out the step with the greatest cost efficiency available, and make it, if possible.
   // If the best move cannot be afforded yet, sleep and retry later.
@@ -163,11 +209,7 @@ export async function main(ns: NS): Promise<void> {
   // eslint-disable-next-line no-constant-condition
   while (true) {
     if (do_sell) {
-      // HN Server payoff, simple approach: Just sell all hashes for money for now
-      const hashes = ns.hacknet.numHashes();
-      for (const i of range(Math.floor(hashes / 4))) {
-        ns.hacknet.spendHashes('Sell for Money');
-      }
+      sell_strategy(ns);
     }
 
     if (only_sell) {
