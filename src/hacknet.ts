@@ -5,7 +5,7 @@ import { range } from '/lib/range';
 import { format_duration } from '/lib/format-duration';
 
 export function autocomplete(data: string[], args: string[]): string[] {
-  return ['--no-sell', '--no-buy'];
+  return ['--no-sell', '--no-buy', '--sell'];
 }
 
 /**
@@ -143,6 +143,7 @@ export async function main(ns: NS): Promise<void> {
   const p_args = ns.args.filter(a => !String(a).startsWith('--'));
   const do_sell = !ns.args.includes('--no-sell');
   const do_buy = !ns.args.includes('--no-buy');
+  const only_sell = ns.args.includes('--sell');
   const payoff_window = p_args.length > 0 ? Number(p_args[0]) : Infinity;
   // Greedy algorithm go!
   // Work out the step with the greatest cost efficiency available, and make it, if possible.
@@ -167,6 +168,10 @@ export async function main(ns: NS): Promise<void> {
       for (const i of range(Math.floor(hashes / 4))) {
         ns.hacknet.spendHashes('Sell for Money');
       }
+    }
+
+    if (only_sell) {
+      return;
     }
 
     if (!do_buy) {
