@@ -2,6 +2,7 @@ import { NS, ReactNode } from "@ns";
 import { ring_buffer_size, SymbolHistory, SymbolTimeSeries, with_history } from "/archive-stock";
 import { React } from "/lib/react";
 import { ms_per_min } from "/lib/consts";
+import { range } from "/lib/range";
 
 const { useState, useEffect } = React;
 
@@ -89,13 +90,16 @@ function HistoryGraphInner({ ns }: { ns: NS }): React.JSX.Element {
         const yUpper = rowYScale.call(idx);
         const yLower = rowYScale.call(idx + 0.9);
 
-        const yScale = new Scale().domain([Math.min(...series.ask, ...series.bid), Math.max(...series.ask, ...series.bid)]).range([yLower, yUpper]);
+        const sane_ask = Array.from(range(series.ask.length).map(d => series.ask[d] ?? series.ask[history.index]));
+        const sane_bid = Array.from(range(series.bid.length).map(d => series.bid[d] ?? series.bid[history.index]));
+
+        const yScale = new Scale().domain([Math.min(...sane_ask, ...sane_bid), Math.max(...sane_ask, ...sane_bid)]).range([yLower, yUpper]);
 
         return (
           <g key={symbol}>
             <text style={{stroke: "white"}} transform={`translate(0, ${yLower})`}>{symbol}</text>
-            <path style={{stroke: "white", fill: "none"}} d={`M${series.ask.map((price, i) => `${xScale.call(i)},${yScale.call(price)}`).join('L')}`} />
-            <path style={{stroke: "white", fill: "none"}} d={`M${series.bid.map((price, i) => `${xScale.call(i)},${yScale.call(price)}`).join('L')}`} />
+            <path style={{stroke: "white", fill: "none"}} d={`M${sane_ask.map((price, i) => `${xScale.call(i)},${yScale.call(price)}`).join('L')}`} />
+            <path style={{stroke: "white", fill: "none"}} d={`M${sane_bid.map((price, i) => `${xScale.call(i)},${yScale.call(price)}`).join('L')}`} />
           </g>
         );
       })}
