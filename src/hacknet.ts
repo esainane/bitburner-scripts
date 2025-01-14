@@ -8,6 +8,75 @@ export function autocomplete(data: string[], args: string[]): string[] {
   return ['--no-sell', '--no-buy'];
 }
 
+/**
+ * Underestimate of money value per hash, using the "fallback"/"capped" usage of hashes where they are directly turned
+ * into 1M per 4 hashes.
+ *
+ * Generally, if one is prepared to wait, coding contracts are much better value per hash.
+ * If the player hasn't joined any hacking factions or companies, a coding contract is guaranteed to be a money reward.
+ * The base value of a contract money reward is 75M, and the base cost of a contract is 200 hashes. If spent directly,
+ * we would only get 50M for 200 hashes!
+ *
+ * This reward only increases if a contract generated with a higher difficulty. The current distribution of contract
+ * type difficulty is as follows (`grep -oEe 'difficulty: *[0-9\.]+' codingcontracttypes.ts | sort -n | uniq -c`):
+ *  -  1:     x4
+ *  -  1.5:   x1
+ *  -  2:     x5
+ *  -  2.5:   x1
+ *  -  3:     x4
+ *  -  4:     x1
+ *  -  5:     x5
+ *  -  7:     x2
+ *  -  8:     x2
+ *  - 10:     x3
+ *
+ * Or more machine-parseably:
+ *  dist = {1: 4, 1.5: 1, 10: 3, 2: 5, 2.5: 1, 3: 4, 4: 1, 5: 5, 7: 2, 8: 2}
+ * for an average of 4.25 (`sum(k*v for k,v in dist.items()) / sum(dist.values())`) difficulty, or 318.75M per
+ * contract.
+ *
+ * With contract generation costs increasing by 200 for every contract generated, this means contracts continue to
+ * offer more value per hash than direct hash spending until the cost reaches 1400.
+ *
+ * The chance of getting a 300M+ coding contract early on (46%) is probably too significant to pass up, as that would
+ * be enough to immediately buy all port crackers and skip the painful bootstrap process. A 225M coding contract has a
+ * similar impact, and the chance of getting one of those or better is 61%.
+ * For completeness, assuming no hacking factions joined, and no companies joined:
+ *
+ *   Difficulty | Payout  | Cumulative chance  | Individual | Problem type | Example
+ *              |         | (payout or better) | chance     | count        |
+ *  ----------------------|--------------------|----------------------------------------------
+ *   1          | 75M     | 100%               |  14.28%    |  4           | Find Largest Prime Factor
+ *   1.5        | 112.5M  |  85.71%            |   3.57%    |  1           | Total Ways to Sum
+ *   2          | 150M    |  82.14%            |  17.86%    |  5           | Spiralize Matrix
+ *   2.5        | 187.5M  |  64.29%            |   3.57%    |  1           | Find Largest Prime Factor
+ *   3          | 225M    |  60.71%            |  14.28%    |  4           | Array Jumping Game
+ *   4          | 300M    |  46.43%            |   3.57%    |  1           | Compression II: LZ Decompression
+ *   5          | 375M    |  42.86%            |  17.86%    |  5           | Minimum Path Sum in a Triangle
+ *   7          | 525M    |  25%               |   7.14%    |  2           | Proper 2-Coloring of a Graph
+ *   8          | 600M    |  17.86%            |   7.14%    |  2           | HammingCodes: Encoded Binary to Integer
+ *  10          | 750M    |  10.71%            |  10.71%    |  3           | Compression III: LZ Compression
+ *
+ * - `sum(v for k,v in dist.items() if k >= D)/sum(dist.values()`
+ * - `sum(v for k,v in dist.items() if k == D)/sum(dist.values()`
+ *
+ * Early on, you still need to consider payoff time, and the value of the first few million is much higher than
+ * later. If 1M means you can unlock your first port cracker, on any bitnode where hacking is the main means of
+ * currency generation (most of them), then spending your first 4 hashes on 1M money is a good deal which will more
+ * than pay for itself in the time it would take to reach enough hashes for a coding contract.
+ *
+ * At 0.5M and 1.5M for the first two port crackers, I would want to cash out immediately. At 30M and 250M for the last
+ * two port crackers, I would want to wait for a coding contract. I'm not sure what strategy should be used for the
+ * third port cracker at 5M.
+ *
+ * Specifically on the hacknet node, you probably want to sell early and often to build up hash power for a good while.
+ *
+ *
+ * In the late game, boosting hacking payoff by reducing minimum server security or server money capacity leads to
+ * significant permanent revenue, and is easily the best use of hashes. There's a good argument that the hacknet should
+ * be spending hashes exclusively on boosting hacking performance in this way if the bitnode has non-trivial hacking
+ * payoff, or otherwise has sufficient revenue for the early game.
+ */
 export const money_per_hash = 1e6 / 4;
 
 // Cache the result of the lookahead function to avoid recalculating it every tick.
