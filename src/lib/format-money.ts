@@ -13,7 +13,7 @@ function make_suffixes(colors: Colors): Array<string> {
     '',
     `${colors.fg_cyan}K`,
     `${colors.reset}${colors.fg_green}M`,
-    `${colors.fg_yellow}B`,
+    `${colors.combine(colors.bright, colors.fg_yellow)}B`,
     `${colors.fg_magenta}T`,
     `${colors.fg_red}Q`,
     `${colors.combine(colors.bright, colors.fg_blue)}P`,
