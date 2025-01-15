@@ -1,6 +1,7 @@
 import { NS, RunOptions, ScriptArg } from '@ns'
 import { find_servers } from './find-servers';
-import { find_runners, recalculate_threads, Runner } from './find-runners';
+import { find_runners, home_ram_reservation, recalculate_threads, Runner } from './find-runners';
+
 
 export class ThreadAllocator {
   constructor(private ns: NS, private exclude_runners: Set<string>, private avoid_runners: Set<string>) {
@@ -53,7 +54,7 @@ export class ThreadAllocator {
       const newly_using = threads * (options.ramOverride ?? this.ns.getScriptRam(script, 'home'));
       if (is_home) {
         const home_actual_available = this.ns.getServerMaxRam('home') - this.ns.getServerUsedRam('home');
-        if (home_actual_available >= 82 && home_actual_available - newly_using < 82) {
+        if (home_actual_available >= home_ram_reservation && home_actual_available - newly_using < home_ram_reservation) {
           // Going below the soft threshold, raise a warning if we're meant to normally exclude home
           if (this.exclude_runners.has('home')) {
             this.ns.tprint('ERROR Home server is running low on memory');

@@ -23,6 +23,9 @@ export function recalculate_threads(ns: NS, runners: Array<Runner>, script: stri
   return sum;
 }
 
+
+export const home_ram_reservation = 82;
+
 export function find_runners(ns: NS, servers: Array<string>, script: string, exclude_runners: Set<string> = new Set(), ignore_scripts: null | ((process: ProcessInfo) => boolean) = null): RunnersData {
   const available_runners: Array<Runner> = [];
   let total_available_threads = 0;
@@ -40,7 +43,7 @@ export function find_runners(ns: NS, servers: Array<string>, script: string, exc
       }
       // Spare a little from home
       // FIXME: What a hack
-      reserved = 82;
+      reserved = home_ram_reservation;
     }
     // FIXME: Also a hack
     if (s.startsWith('hacknet-server') && exclude_runners.has('HACKNET')) {
