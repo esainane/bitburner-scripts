@@ -257,7 +257,7 @@ export async function main(ns: NS): Promise<void> {
       const shares = Math.min(market_available, player_buyable);
       // Don't buy if the transaction would be too small
       if (shares * symbol.ask_price < minimum_transaction) {
-        break;
+        continue;
       }
       const actual_price = ns.stock.buyStock(symbol.symbol, shares);
       const spent = shares * actual_price;
