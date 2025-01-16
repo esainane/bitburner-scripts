@@ -34,6 +34,19 @@ export async function main(ns: NS): Promise<void> {
     ns.corporation.purchaseUnlock('Smart Supply');
   }
 
+  const optimize_price = (division: string, city: CityName, material: CorpMaterialName) => {
+    // Safe markup, equivalent to Market-TA1
+    // TODO: Calculate opimal price, equivalent to Market-TA2
+    const material_data = ns.corporation.getMaterial(division, city, material);
+    const material_const_data = ns.corporation.getMaterialData(material);
+    const markup = material_const_data.baseMarkup;
+
+    const { quality } = material_data;
+    const markup_limit = quality / markup;
+
+    return `MP+${markup_limit}`;
+  };
+
   /**
    * Set net buy/sell amount for a material
    *
@@ -44,8 +57,7 @@ export async function main(ns: NS): Promise<void> {
       if (amount !== 'MAX') {
         panic(ns, `The only string that should be passed to set_buysell_material as amount is "MAX", received "${amount}"!`);
       }
-      // TODO: Calculate a proper sale price rather than just using market price
-      ns.corporation.sellMaterial(division, city, material, 'MAX', 'MP');
+      ns.corporation.sellMaterial(division, city, material, 'MAX', optimize_price(division, city, material));
       return;
     }
 
@@ -56,8 +68,7 @@ export async function main(ns: NS): Promise<void> {
     }
     if (amount < 0) {
       ns.corporation.buyMaterial(division, city, material, 0);
-      // TODO: Calculate a proper sale price rather than just using market price
-      ns.corporation.sellMaterial(division, city, material, `${-amount}`, 'MP');
+      ns.corporation.sellMaterial(division, city, material, `${-amount}`, optimize_price(division, city, material));
     } else {
       ns.corporation.sellMaterial(division, city, material, '0', 'MP');
       ns.corporation.buyMaterial(division, city, material, amount);
@@ -249,8 +260,13 @@ export async function main(ns: NS): Promise<void> {
       ai_size * inventory['AI Cores'];
   };
 
+  // Track state for debugging purposes
   const expected_multiplier = new Map<string, number[]>();
 
+
+  /**
+   * Import cache and helpers
+   */
   // Import division, import city, material -> export present
   const active_imports = new Map<string, boolean>();
 
@@ -284,6 +300,11 @@ export async function main(ns: NS): Promise<void> {
     }
   };
 
+  /**
+   * Main division handling.
+   *
+   * Returns a handler which sets near-optimal I/O amounts for all materials.
+   */
   const io_optimizer = (industry: CorpIndustryName, boost_solver: (available_space: number) => [BoostSolution, number]) => {
     const industry_data: CorpIndustryData = ns.corporation.getIndustryData(industry);
     if (!industry_data.makesMaterials) {
@@ -439,6 +460,9 @@ export async function main(ns: NS): Promise<void> {
 
   const division_ios = new Map<string, {(city: CityName): void, division: string}>();
 
+  /**
+   * Main loop
+   */
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const state: CorpStateName = await ns.corporation.nextUpdate();
