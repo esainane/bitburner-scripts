@@ -1,10 +1,14 @@
-import { CorpStateName, NS } from '@ns'
+import { CityName, CorpIndustryData, CorpIndustryName, CorpMaterialName, CorpStateName, Division, Material, NS, Office } from '@ns'
+import { binary_search } from '/lib/binary-search';
+import { panic } from '/lib/panic';
 
 /**
  * Corporation management script
  *
  * Very simple early strategy managing an Agriculture division.
  */
+
+const seconds_per_cycle = 10;
 
 export async function main(ns: NS): Promise<void> {
   if (!ns.corporation.hasCorporation()) {
@@ -30,47 +34,102 @@ export async function main(ns: NS): Promise<void> {
     ns.corporation.purchaseUnlock('Smart Supply');
   }
 
-  // If we're not in six cities yet, expand to them
-  for (const city of Object.values(ns.enums.CityName)) {
-    await ns.asleep(200);
-    let office;
-    try {
-      office = ns.corporation.getOffice(division_name, city);
-    } catch (e) {
-      ns.corporation.expandCity(division_name, city);
-      office = ns.corporation.getOffice(division_name, city);
+  /**
+   * Set net buy/sell amount for a material
+   *
+   * @param amount Negative to sell, positive to buy, 'MAX' to sell all. Defaults to 'MAX'.
+   */
+  const set_buysell_material = (division: string, city: CityName, material: CorpMaterialName, amount: number | string = 'MAX') => {
+    if (typeof amount === 'string') {
+      if (amount !== 'MAX') {
+        panic(ns, `The only string that should be passed to set_buysell_material as amount is "MAX", received "${amount}"!`);
+      }
+      // TODO: Calculate a proper sale price rather than just using market price
+      ns.corporation.sellMaterial(division, city, material, 'MAX', 'MP');
+      return;
     }
-    // Ensure we have at least four positions in each office
-    while (office.size < 4) {
-      await ns.asleep(200);
-      ns.corporation.upgradeOfficeSize(division_name, city, 1);
-      office = ns.corporation.getOffice(division_name, city);
+
+    if (amount === 0) {
+      ns.corporation.sellMaterial(division, city, material, '0', 'MP');
+      ns.corporation.buyMaterial(division, city, material, 0);
+      return;
     }
-    // Ensure we have at least four employees in each office
-    while (office.numEmployees < 4) {
-      await ns.asleep(200);
-      ns.corporation.hireEmployee(division_name, city);
-      office = ns.corporation.getOffice(division_name, city);
+    if (amount < 0) {
+      ns.corporation.buyMaterial(division, city, material, 0);
+      // TODO: Calculate a proper sale price rather than just using market price
+      ns.corporation.sellMaterial(division, city, material, `${-amount}`, 'MP');
+    } else {
+      ns.corporation.sellMaterial(division, city, material, '0', 'MP');
+      ns.corporation.buyMaterial(division, city, material, amount);
     }
-    // Ensure at least one in each critical position
-    for (const position of ns.corporation.getConstants().employeePositions) {
-      // First, free up spaces
-      ns.corporation.setAutoJobAssignment(division_name, city, position, 0);
+  };
+
+  const ensure_sane_division = (division_name: string) => {
+    // If we're not in six cities yet, expand to them
+    for (const city of Object.values(ns.enums.CityName)) {
+      let office;
+      try {
+        office = ns.corporation.getOffice(division_name, city);
+      } catch (e) {
+        ns.corporation.expandCity(division_name, city);
+        office = ns.corporation.getOffice(division_name, city);
+      }
+      // Ensure we have at least four positions in each office
+      while (office.size < 4) {
+        const old_size = office.size;
+        ns.corporation.upgradeOfficeSize(division_name, city, 1);
+        office = ns.corporation.getOffice(division_name, city);
+        if (office.size === old_size) {
+          // No money?
+          // We should wait until the next cycle to try again
+          return false;
+        }
+      }
+      // Ensure we have at least four employees in each office
+      while (office.numEmployees < 4) {
+        const old_count = office.numEmployees;
+        ns.corporation.hireEmployee(division_name, city);
+        office = ns.corporation.getOffice(division_name, city);
+        if (office.numEmployees === old_count) {
+          // No money?
+          // We should wait until the next cycle to try again
+          return false;
+        }
+      }
+      // Ensure at least one in each critical position
+      for (const position of ns.corporation.getConstants().employeePositions) {
+        // First, free up spaces
+        ns.corporation.setAutoJobAssignment(division_name, city, position, 0);
+      }
+      // Then assign 1 to engineering, business, and management, and the rest to operations
+      ns.corporation.setAutoJobAssignment(division_name, city, 'Operations', office.numEmployees - 3);
+      ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', 1);
+      ns.corporation.setAutoJobAssignment(division_name, city, 'Business', 1);
+      ns.corporation.setAutoJobAssignment(division_name, city, 'Management', 1);
+      // If we don't have a warehouse, buy one
+      if (!ns.corporation.hasWarehouse(division_name, city)) {
+        ns.corporation.purchaseWarehouse(division_name, city);
+        if (!ns.corporation.hasWarehouse(division_name, city)) {
+          // No money?
+          // We should wait until the next cycle to try again
+          return false;
+        }
+      }
+      // Make sure smart supply is enabled
+      ns.corporation.setSmartSupply(division_name, city, true);
+      // Make sure all output materials are set to sell Maximum at best price
+      const output_materials = ns.corporation.getIndustryData(division_name as CorpIndustryName).producedMaterials;
+      if (output_materials) {
+        for (const material of output_materials) {
+          set_buysell_material(division_name, city, material);
+        }
+      }
     }
-    // Then assign 1 to engineering, business, and management, and the rest to operations
-    ns.corporation.setAutoJobAssignment(division_name, city, 'Operations', office.numEmployees - 3);
-    ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', 1);
-    ns.corporation.setAutoJobAssignment(division_name, city, 'Business', 1);
-    ns.corporation.setAutoJobAssignment(division_name, city, 'Management', 1);
-    // If we don't have a warehouse, buy one
-    if (!ns.corporation.hasWarehouse(division_name, city)) {
-      ns.corporation.purchaseWarehouse(division_name, city);
-    }
-    // Make sure smart supply is enabled
-    ns.corporation.setSmartSupply(division_name, city, true);
-    // Set smart supply to sell plants and food at market price
-    ns.corporation.sellMaterial(division_name, city, 'Plants', 'MAX', 'MP');
-    ns.corporation.sellMaterial(division_name, city, 'Food', 'MAX', 'MP');
+    return true;
+  }
+
+  while (!ensure_sane_division(division_name)) {
+    await ns.asleep(10000);
   }
 
   // We're now in all cities, and have a warehouse in each
@@ -82,6 +141,247 @@ export async function main(ns: NS): Promise<void> {
     agriculture_division = ns.corporation.getDivision(division_name);
   }
 
+  // Precalculate boost material ratios
+  const re_size = ns.corporation.getMaterialData('Real Estate').size;
+  const hw_size = ns.corporation.getMaterialData('Hardware').size;
+  const robo_size = ns.corporation.getMaterialData('Robots').size;
+  const ai_size = ns.corporation.getMaterialData('AI Cores').size;
+  const storage_per_material = Object.fromEntries(ns.corporation.getConstants().materialNames.map((name) =>
+    [name, ns.corporation.getMaterialData(name).size]
+  ));
+
+  type BoostMaterial = 'Real Estate' | 'Hardware' | 'Robots' | 'AI Cores';
+  type BoostSolution = {
+    [key in BoostMaterial]: number;
+  }
+  const empty_boost_solution: BoostSolution = {
+    'Real Estate': 0,
+    'Hardware': 0,
+    'Robots': 0,
+    'AI Cores': 0,
+  }
+  const boost_optimizer = (industry: CorpIndustryName)=> {
+    const data: CorpIndustryData = ns.corporation.getIndustryData(industry);
+    let {realEstateFactor: re_coeff, hardwareFactor: hw_coeff, robotFactor: robo_coeff, aiCoreFactor: ai_coeff} = data;
+    [re_coeff, hw_coeff, robo_coeff, ai_coeff] = [re_coeff, hw_coeff, robo_coeff, ai_coeff].map((x) => x ?? 0);
+
+    const boosters: readonly { name:string, size:number, coeff: number }[]= [{
+      name: 'Real Estate',
+      size: re_size,
+      coeff: re_coeff,
+    }, {
+      name: 'Hardware',
+      size: hw_size,
+      coeff: hw_coeff,
+    }, {
+      name: 'Robots',
+      size: robo_size,
+      coeff: robo_coeff,
+    }, {
+      name: 'AI Cores',
+      size: ai_size,
+      coeff: ai_coeff,
+    }];
+    const booster_sum_size = boosters.reduce((acc, d) => acc + d.size, 0);
+    const booster_sum_coeff = boosters.reduce((acc, d) => acc + d.coeff, 0);
+
+    /**
+     * Given the available space, return the optimal solution and maximised boost multiplier.
+     *
+     * Note that this optimizes for maximum boost multiplier per space. This is not necessarily the solution which
+     * maximises profit, given that AI Cores have a secondary catalytic effect which boosts quality.
+     */
+    // TODO: Come up with something which does optimise for profit. Eventually. The supply chain gets very complicated
+    // once exports are involved, but quality tends to have compounding returns so would only become more important.
+    // This heuristic is very inexpensive to calculate, and is a good starting point. It may be that a full solution
+    // would be too expensive to calculate in real time.
+    return (available_space: number): [BoostSolution, number] => {
+      let sum_size = booster_sum_size;
+      let sum_coeff = booster_sum_coeff;
+      const terms = boosters.slice();
+      do {
+        // Multiplier effect is proportional to:
+        //  (1+0.002*re_count)**re_coeff * (1+0.002*hw_count)**hw_coeff * (1+0.002*robo_count)**robo_coeff * (1+0.002*ai_count)**ai_coeff
+        const result_entries = terms.map(d =>
+          [d.name, Math.floor(
+            (
+              d.coeff * available_space -
+              500 * (d.size * (sum_coeff - d.coeff) - d.coeff * (sum_size - d.size))
+            ) / (sum_coeff * d.size)
+          )] satisfies [string, number]
+        );
+        const idx = result_entries.findIndex(([name, amount]) => amount <= 0);
+        if (idx >= 0) {
+          // If we get a negative result for any term, remove it and restart
+          const excluded_term = terms.splice(idx, 1)[0];
+          sum_size -= excluded_term.size;
+          sum_coeff -= excluded_term.coeff;
+          continue;
+        }
+        const result = Object.assign({}, empty_boost_solution, Object.fromEntries(result_entries));
+        return [
+          result,
+          6 * (
+            (1 + (0.002 * result['Real Estate'])**re_coeff) *
+            (1 + (0.002 * result['Hardware'])**hw_coeff) *
+            (1 + (0.002 * result['Robots'])**robo_coeff) *
+            (1 + (0.002 * result['AI Cores'])**ai_coeff)
+          ) ** 0.73
+        ];
+        // eslint-disable-next-line no-constant-condition
+      } while (true);
+    };
+  };
+
+  const storage_used = (inventory: BoostSolution) => {
+    return re_size * inventory['Real Estate'] +
+      hw_size * inventory['Hardware'] +
+      robo_size * inventory['Robots'] +
+      ai_size * inventory['AI Cores'];
+  }
+
+  const io_optimizer = (industry: CorpIndustryName, boost_solver: (available_space: number) => [BoostSolution, number]) => {
+    const industry_data: CorpIndustryData = ns.corporation.getIndustryData(industry);
+    if (!industry_data.makesMaterials) {
+      panic(ns, 'Non-materials industries not implemented yet');
+    }
+    // Inputs per production unit
+    const inputs = industry_data.requiredMaterials;
+    // Outputs per production unit
+    const outputs = industry_data.producedMaterials;
+    if (!outputs) {
+      panic(ns, 'Material making industry has undefined producedMaterials!?');
+    }
+
+    const relevant_materials = new Set<CorpMaterialName>([...Object.keys(inputs) as CorpMaterialName[], ...outputs, ...Object.keys(empty_boost_solution) as CorpMaterialName[]]);
+
+    // Determine how much storage space changes per production unit
+    const input_storage_per_unit = Object.entries(inputs).reduce((acc, [name, amount]) =>
+      acc + storage_per_material[name] * amount,
+      0
+    );
+    // XXX: Are outputs always one unit per production?
+    const output_storage_per_unit = outputs.reduce((acc, name) =>
+      acc + storage_per_material[name],
+      0
+    );
+    return (city: CityName) => {
+      const division = industry;
+      const office = ns.corporation.getOffice(division_name, city);
+      // These three factors are fixed
+      const office_mult = calculate_office_production(office);
+      const upgrade_mult = 1.03 ** ns.corporation.getUpgradeLevel('Smart Factories');
+      let research_mult = 1;
+      if (ns.corporation.hasResearched(division, 'Drones - Assembly')) {
+        research_mult *= 1.2;
+      }
+      if (ns.corporation.hasResearched(division, 'Self-Correcting Assemblers')) {
+        research_mult *= 1.1;
+      }
+      const const_mult = office_mult * upgrade_mult * research_mult;
+      // However the boost multiplier changes based on how much we allocate to "boost" material
+      // We could find an exact solution, or we could be lazy and binary search over the implicit search space
+      const warehouse = ns.corporation.getWarehouse(division, city);
+      const total_storage = warehouse.size;
+      const bsearch_result = binary_search((x: number) => {
+        // Determine what storage is allocated to storage and what storage is allocated to active production
+        const boost_storage = Math.floor(x / 100 * total_storage);
+        const active_storage = total_storage - boost_storage;
+        // Solve for maximum boost multiplier for the given boost storage allocation
+        const [boost_solution, boost_mult] = boost_solver(boost_storage);
+
+        // Overall production multiplier
+        const production_multiplier = const_mult * boost_mult;
+
+        // Production per full cycle
+        const production_per_cycle = production_multiplier * seconds_per_cycle;
+
+        const input_storage = production_per_cycle * input_storage_per_unit;
+        const output_storage = production_per_cycle * output_storage_per_unit;
+
+        const active_storage_required = Math.max(input_storage, output_storage);
+
+        if (active_storage < active_storage_required) {
+          // Constraint violation
+          return 1;
+        }
+
+        if (storage_used(boost_solution) > boost_storage) {
+          panic(ns, 'boost_solver returned a solution that used more storage than allocated!?');
+        }
+
+        // Maximise viable production multiplier (result closest to 0)
+        return -1/production_multiplier;
+      }, 0, 0, 100);
+      if (bsearch_result >= 0) {
+        panic(ns, 'storage_assigner binary search found an exact solution!?');
+      }
+      if (bsearch_result === -1) {
+        // bsearch would have us "insert" before the 0% candiate; that is, even allocating no storage to boost material
+        // is infeasible for full production.
+        // We need to remove all boost material, and cap the amount of production to levels which can be supported.
+        const active_storage = total_storage;
+        // boost_mult is 1 with no boost material
+        const production_multiplier = const_mult;
+
+        // Theoretical production capacity with no storage constraints
+        const uncapped_production_per_cycle = production_multiplier * seconds_per_cycle;
+
+
+        const uncapped_input_storage = uncapped_production_per_cycle * input_storage_per_unit;
+        const uncapped_output_storage = uncapped_production_per_cycle * output_storage_per_unit;
+        const uncapped_active_storage = Math.max(uncapped_input_storage, uncapped_output_storage);
+
+        const capping_multiplier = active_storage / uncapped_active_storage;
+
+        const production_per_cycle = capping_multiplier * uncapped_production_per_cycle;
+
+        // Sell everything, less what is needed for a production cycle
+        for (const material of ns.corporation.getConstants().materialNames) {
+          const desired = (inputs[material] ?? 0) * production_per_cycle;
+          const data: Material = ns.corporation.getMaterial(division, city, material);
+          const current = data.stored;
+          set_buysell_material(division, city, material, (desired - current) / seconds_per_cycle);
+        }
+        return;
+      }
+      // We want the solution before the insertion point, as the insertion point is the first infeasible solution
+      const boost_storage_pct = -bsearch_result - 2;
+      // Determine what storage is allocated to storage and what storage is allocated to active production
+      const boost_storage = Math.floor(boost_storage_pct / 100 * total_storage);
+      // Solve for maximum boost multiplier for the given boost storage allocation
+      const [boost_solution, boost_mult] = boost_solver(boost_storage);
+
+      // Overall production multiplier
+      const production_multiplier = const_mult * boost_mult;
+      const production_per_cycle = production_multiplier * seconds_per_cycle;
+
+      // Buy what is necessary to reach our ideal boost numbers plus what is required for production
+      for (const material of relevant_materials) {
+        const desired =
+          // Boost materials
+          (Object.hasOwn(boost_solution, material) ? boost_solution[material as BoostMaterial] : 0) +
+          // Input materials
+          (inputs[material] ?? 0) * production_per_cycle;
+        const data: Material = ns.corporation.getMaterial(division, city, material);
+        const current = data.stored;
+        set_buysell_material(division, city, material, (desired - current) / seconds_per_cycle);
+      }
+    };
+  };
+
+  const calculate_office_production = (office: Office) => {
+    const ops_prod = office.employeeProductionByJob.Operations;
+    const eng_prod = office.employeeProductionByJob.Engineer;
+    const mgt_prod = office.employeeProductionByJob.Management;
+    const sum_prod = ops_prod + eng_prod + mgt_prod;
+    const mgt_factor = 1 + mgt_prod / (1.2*sum_prod);
+    const employee_factor = (ops_prod ** 0.4 + ops_prod ** 0.3) * mgt_factor;
+    return 0.05 * employee_factor;
+  };
+
+  const division_ios = new Map<string, (city: CityName) => void>();
+
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const state: CorpStateName = await ns.corporation.nextUpdate();
@@ -92,23 +392,51 @@ export async function main(ns: NS): Promise<void> {
         break;
       case 'PRODUCTION':
         break;
-      case 'EXPORT':
-        break;
-      case 'SALE':
-        // Examine all offices.
-        for (const city of Object.values(ns.enums.CityName)) {
-          const office = ns.corporation.getOffice(division_name, city);
-          // If the average morale is low, throw a party.
-          if (office.avgMorale < 99) {
-            // 1M per employee boosts morale by ~1%
-            ns.corporation.throwParty(division_name, city, 1e6);
+      case 'EXPORT': {
+        const divisions = ns.corporation.getCorporation().divisions;
+        for (const division of divisions as CorpIndustryName[]) {
+          // If we don't have a division tracked yet, add it
+          if (!division_ios.has(division)) {
+            if (!ensure_sane_division(division)) {
+              continue;
+            }
+            ns.tprint(`Setting up I/O for ${division} (sanity ensured)`);
+            division_ios.set(division, io_optimizer(division, boost_optimizer(division)));
           }
-          // If the average energy is low, buy tea.
-          if (office.avgEnergy < 99) {
-            ns.corporation.buyTea(division_name, city);
+        }
+        // The trick for I/O handling is to do everything after a cycle's production is complete, and divisons have
+        // taken any exports.
+        // We sell everything we don't need to retain as a catalyst for boost multiplication or for production.
+        // We also set what we want to buy at this point.
+        // Note, Employees will gain experience and adjust production slight after the START phase, so actual
+        // production in the next cycle can differ slightly. Early game, we don't worry about it.
+        // Later, we let Smart Supply handle any variation.
+        for (const city of Object.values(ns.enums.CityName)) {
+          for (const division_io of division_ios.values()) {
+            division_io(city);
           }
         }
         break;
+      } case 'SALE': {
+        // Examine all divisions, including unsanitized ones.
+        const divisions = ns.corporation.getCorporation().divisions;
+        for (const division of divisions as CorpIndustryName[]) {
+          // Examine all offices.
+          for (const city of ns.corporation.getDivision(division).cities) {
+            const office = ns.corporation.getOffice(division, city);
+            // If the average morale is low, throw a party.
+            if (office.avgMorale < office.maxMorale / 1.01) {
+              // 1M per employee boosts morale by ~1%
+              ns.corporation.throwParty(division, city, 1e6);
+            }
+            // If the average energy is low, buy tea.
+            if (office.avgEnergy < office.maxEnergy - 0.5) {
+              ns.corporation.buyTea(division, city);
+            }
+          }
+        }
+        break;
+      }
     }
   }
 }
