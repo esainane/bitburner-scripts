@@ -175,7 +175,7 @@ function sell_upgrades(upgrades: string[][]) {
 }
 
 const sell_ccts = sell_upgrades([['Generate Coding Contract']]);
-const sell_corp = sell_upgrades([['Corporation Funds', 'Corporation Research']]);
+const sell_corp = sell_upgrades([['Sell for Corporation Funds'], ['Exchange for Corporation Research']]);
 const sell_hack = sell_upgrades([['Reduce Minimum Security', 'ecorp'], ['Increase Maximum Money', 'ecorp']]);
 
 export async function main(ns: NS): Promise<void> {
