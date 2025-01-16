@@ -251,6 +251,39 @@ export async function main(ns: NS): Promise<void> {
 
   const expected_multiplier = new Map<string, number[]>();
 
+  // Import division, import city, material -> export present
+  const active_imports = new Map<string, boolean>();
+
+  const import_cache_string = (division: string, city: CityName, material: CorpMaterialName) => `${division}:${city}:${material}`;
+
+  const is_importing = (division: string, city: CityName, material: CorpMaterialName) => {
+    return active_imports.has(import_cache_string(division, city, material));
+  };
+
+  const update_import_cache = () => {
+    active_imports.clear();
+    // For every division we have...
+    for (const export_division_name of ns.corporation.getCorporation().divisions) {
+      const export_division = ns.corporation.getDivision(export_division_name);
+      const outputs = ns.corporation.getIndustryData(export_division.type).producedMaterials;
+      // provided we make output materials
+      if (!outputs) {
+        continue;
+      }
+      // examine each city it operates in
+      for (const export_city of export_division.cities) {
+        // and the list of export orders for every output material produced here
+        for (const output of outputs) {
+          const material_data = ns.corporation.getMaterial(export_division_name, export_city, output);
+          // If we're sending material, cache this for the division and city it's being imported to
+          for (const export_order of material_data.exports) {
+            active_imports.set(import_cache_string(export_order.division, export_order.city, output), true);
+          }
+        }
+      }
+    }
+  };
+
   const io_optimizer = (industry: CorpIndustryName, boost_solver: (available_space: number) => [BoostSolution, number]) => {
     const industry_data: CorpIndustryData = ns.corporation.getIndustryData(industry);
     if (!industry_data.makesMaterials) {
@@ -294,6 +327,15 @@ export async function main(ns: NS): Promise<void> {
       // We could find an exact solution, or we could be lazy and binary search over the implicit search space
       const warehouse = ns.corporation.getWarehouse(division, city);
       const total_storage = warehouse.size;
+
+      // Dynamic: We export materials before the sell phase, which means warehouses receiving imports needs to reserve
+      // enough space to have all of their imported inputs and all of their outputs at once.
+      // Exports are set dynamically, so we can't precache this the way we could inputs and outputs.
+      const import_storage_per_unit = (Object.entries(inputs) as [CorpMaterialName, number][]).reduce((acc, [name, amount]) =>
+        acc + (is_importing(division, city, name) ? acc + storage_per_material[name] * amount : 0),
+        0
+      );
+
       const bsearch_result = binary_search((x: number) => {
         // Determine what storage is allocated to storage and what storage is allocated to active production
         const boost_storage = Math.floor(x / 100 * total_storage);
@@ -307,8 +349,8 @@ export async function main(ns: NS): Promise<void> {
         // Production per full cycle
         const production_per_cycle = production_multiplier * seconds_per_cycle;
 
-        const input_storage = production_per_cycle * input_storage_per_unit;
-        const output_storage = production_per_cycle * output_storage_per_unit;
+        const input_storage = production_per_cycle * (input_storage_per_unit + import_storage_per_unit);
+        const output_storage = production_per_cycle * (output_storage_per_unit + import_storage_per_unit);
 
         const active_storage_required = Math.max(input_storage, output_storage);
 
@@ -419,6 +461,7 @@ export async function main(ns: NS): Promise<void> {
             division_ios.set(division, io_optimizer(division, boost_optimizer(division)));
           }
         }
+        update_import_cache();
         // The trick for I/O handling is to do everything after a cycle's production is complete, and divisons have
         // taken any exports.
         // We sell everything we don't need to retain as a catalyst for boost multiplication or for production.
