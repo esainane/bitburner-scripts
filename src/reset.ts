@@ -10,6 +10,7 @@ async function wait_for_script_finish(ns: NS, script: FilenameOrPID, host?: stri
 
 
 export async function main(ns: NS): Promise<void> {
+  ns.ramOverride(6.05);
   const skip_finalize = ns.args.includes('--skip-finalize');
 
   const singu = singularity_async(ns);
@@ -78,6 +79,6 @@ export async function main(ns: NS): Promise<void> {
   ns.tprint('SUCCESS See you on the other side!');
   await ns.asleep(3000);
   // Prestige
-  ns.singularity.softReset('init.js');
+  await singu.softReset('init.js');
   ns.tprint('ERROR Script still running after reset?');
 }
