@@ -10,6 +10,9 @@ import { panic } from '/lib/panic';
 
 const seconds_per_cycle = 10;
 
+// Head city for Products industries, selected arbitrarily
+const head_city = 'Sector-12';
+
 export async function main(ns: NS): Promise<void> {
   if (!ns.corporation.hasCorporation()) {
     const isBN3 = ns.getResetInfo().currentNode === 3;
@@ -118,6 +121,7 @@ export async function main(ns: NS): Promise<void> {
   };
 
   const ensure_sane_division = (division_name: string) => {
+    const division_data = ns.corporation.getDivision(division_name);
     // If we're not in six cities yet, expand to them
     for (const city of Object.values(ns.enums.CityName)) {
       let office;
@@ -154,11 +158,35 @@ export async function main(ns: NS): Promise<void> {
         // First, free up spaces
         ns.corporation.setAutoJobAssignment(division_name, city, position, 0);
       }
-      // Then assign 1 to engineering, business, and management, and the rest to operations
-      ns.corporation.setAutoJobAssignment(division_name, city, 'Operations', office.numEmployees - 3);
-      ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', 1);
-      ns.corporation.setAutoJobAssignment(division_name, city, 'Business', 1);
-      ns.corporation.setAutoJobAssignment(division_name, city, 'Management', 1);
+      if (division_data.makesProducts) {
+        // If we make products, assign everything to R&D in support cities, and most to engineering in the head city
+        if (city === head_city) {
+          // Head city, selected arbitrarily
+          ns.corporation.setAutoJobAssignment(division_name, city, 'Business', 1);
+          ns.corporation.setAutoJobAssignment(division_name, city, 'Management', 1);
+          const frontline = office.numEmployees - 2;
+          const ops = Math.floor(frontline / 4);
+          ns.corporation.setAutoJobAssignment(division_name, city, 'Operations', ops);
+          ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', frontline - ops);
+          // Make sure smart supply is enabled
+          ns.corporation.setSmartSupply(division_name, city, true);
+        } else {
+          // Support city
+          ns.corporation.setAutoJobAssignment(division_name, city, 'Research & Development', office.numEmployees);
+          // Make sure smart supply is *disabled*
+          ns.corporation.setSmartSupply(division_name, city, false);
+        }
+      } else {
+        // Then assign 1 to engineering, business, and management, and the rest m operations
+        ns.corporation.setAutoJobAssignment(division_name, city, 'Business', 1);
+        ns.corporation.setAutoJobAssignment(division_name, city, 'Management', 1);
+        const frontline = office.numEmployees - 2;
+        const ops = Math.ceil(frontline / 2);
+        ns.corporation.setAutoJobAssignment(division_name, city, 'Operations', ops);
+        ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', frontline - ops);
+        // Make sure smart supply is enabled
+        ns.corporation.setSmartSupply(division_name, city, true);
+      }
       // If we don't have a warehouse, buy one
       if (!ns.corporation.hasWarehouse(division_name, city)) {
         ns.corporation.purchaseWarehouse(division_name, city);
@@ -168,8 +196,6 @@ export async function main(ns: NS): Promise<void> {
           return false;
         }
       }
-      // Make sure smart supply is enabled
-      ns.corporation.setSmartSupply(division_name, city, true);
       // Make sure all output materials are set to sell Maximum at best price
       const output_materials = ns.corporation.getIndustryData(division_name as CorpIndustryName).producedMaterials;
       if (output_materials) {
@@ -349,16 +375,35 @@ export async function main(ns: NS): Promise<void> {
    */
   const io_optimizer = (industry: CorpIndustryName, boost_solver: (available_space: number) => [BoostSolution, number]) => {
     const industry_data: CorpIndustryData = ns.corporation.getIndustryData(industry);
+
+    // Inputs per production unit
+    const inputs = industry_data.requiredMaterials;
+
     if (!industry_data.makesMaterials) {
       console.warn('Non-materials industries not implemented yet');
+      const relevant_materials = new Set<CorpMaterialName>([...Object.keys(inputs) as CorpMaterialName[], ...Object.keys(empty_boost_solution) as CorpMaterialName[]]);
       const ret =  (city: CityName) => {
-        // Do nothing
+        const division = industry;
+        // Do nothing in head city
+        // TODO: Implement
+        if (city === head_city) {
+          return;
+        }
+        // In support cities, use all available storage to maximise the boost multiplier
+        const warehouse = ns.corporation.getWarehouse(division, city);
+        const [boost_solution, boost_mult] = boost_solver(warehouse.size);
+        for (const material of relevant_materials) {
+          const desired =
+          // Boost materials only
+          (Object.hasOwn(boost_solution, material) ? boost_solution[material as BoostMaterial] : 0);
+          const data: Material = ns.corporation.getMaterial(division, city, material);
+          const current = data.stored;
+          set_buysell_material(division, city, material, (desired - current) / seconds_per_cycle);
+        }
       };
       ret.division = industry;
       return ret;
     }
-    // Inputs per production unit
-    const inputs = industry_data.requiredMaterials;
     // Outputs per production unit
     const outputs = industry_data.producedMaterials;
     if (!outputs) {
