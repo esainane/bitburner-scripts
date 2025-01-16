@@ -185,6 +185,20 @@ export async function main(ns: NS): Promise<void> {
     const booster_sum_size = boosters.reduce((acc, d) => acc + d.size, 0);
     const booster_sum_coeff = boosters.reduce((acc, d) => acc + d.coeff, 0);
 
+    // FIXME: Assumes all warehouses have the same available boost space and take the same solution.
+    // warehouses may have different sizes, and as offices have different office multipliers, they may make
+    // different amounts of storage available as boosts space.
+    // This is still "close enough" for now, especially with Smart Storage handling any discrepancies.
+    const calc_boost_mult = (inventory: BoostSolution) => {
+      const result = 6 * (
+        (1 + 0.002 * inventory['Real Estate'])**re_coeff *
+        (1 + 0.002 * inventory['Hardware'])**hw_coeff *
+        (1 + 0.002 * inventory['Robots'])**robo_coeff *
+        (1 + 0.002 * inventory['AI Cores'])**ai_coeff
+      ) ** 0.73;
+      return result;
+    };
+
     /**
      * Given the available space, return the optimal solution and maximised boost multiplier.
      *
@@ -221,12 +235,7 @@ export async function main(ns: NS): Promise<void> {
         const result = Object.assign({}, empty_boost_solution, Object.fromEntries(result_entries));
         return [
           result,
-          6 * (
-            (1 + (0.002 * result['Real Estate'])**re_coeff) *
-            (1 + (0.002 * result['Hardware'])**hw_coeff) *
-            (1 + (0.002 * result['Robots'])**robo_coeff) *
-            (1 + (0.002 * result['AI Cores'])**ai_coeff)
-          ) ** 0.73
+          calc_boost_mult(result),
         ];
         // eslint-disable-next-line no-constant-condition
       } while (true);
@@ -238,7 +247,9 @@ export async function main(ns: NS): Promise<void> {
       hw_size * inventory['Hardware'] +
       robo_size * inventory['Robots'] +
       ai_size * inventory['AI Cores'];
-  }
+  };
+
+  const expected_multiplier = new Map<string, number[]>();
 
   const io_optimizer = (industry: CorpIndustryName, boost_solver: (available_space: number) => [BoostSolution, number]) => {
     const industry_data: CorpIndustryData = ns.corporation.getIndustryData(industry);
@@ -265,7 +276,7 @@ export async function main(ns: NS): Promise<void> {
       acc + storage_per_material[name],
       0
     );
-    return (city: CityName) => {
+    const optimize_io = (city: CityName) => {
       const division = industry;
       const office = ns.corporation.getOffice(division_name, city);
       // These three factors are fixed
@@ -343,6 +354,7 @@ export async function main(ns: NS): Promise<void> {
           const current = data.stored;
           set_buysell_material(division, city, material, (desired - current) / seconds_per_cycle);
         }
+        expected_multiplier.get(division)!.push(1);
         return;
       }
       // We want the solution before the insertion point, as the insertion point is the first infeasible solution
@@ -367,7 +379,10 @@ export async function main(ns: NS): Promise<void> {
         const current = data.stored;
         set_buysell_material(division, city, material, (desired - current) / seconds_per_cycle);
       }
+      expected_multiplier.get(division)!.push(boost_mult);
     };
+    optimize_io.division = industry;
+    return optimize_io;
   };
 
   const calculate_office_production = (office: Office) => {
@@ -376,11 +391,11 @@ export async function main(ns: NS): Promise<void> {
     const mgt_prod = office.employeeProductionByJob.Management;
     const sum_prod = ops_prod + eng_prod + mgt_prod;
     const mgt_factor = 1 + mgt_prod / (1.2*sum_prod);
-    const employee_factor = (ops_prod ** 0.4 + ops_prod ** 0.3) * mgt_factor;
+    const employee_factor = (ops_prod ** 0.4 + eng_prod ** 0.3) * mgt_factor;
     return 0.05 * employee_factor;
   };
 
-  const division_ios = new Map<string, (city: CityName) => void>();
+  const division_ios = new Map<string, {(city: CityName): void, division: string}>();
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -411,10 +426,13 @@ export async function main(ns: NS): Promise<void> {
         // Note, Employees will gain experience and adjust production slight after the START phase, so actual
         // production in the next cycle can differ slightly. Early game, we don't worry about it.
         // Later, we let Smart Supply handle any variation.
-        for (const city of Object.values(ns.enums.CityName)) {
-          for (const division_io of division_ios.values()) {
+        for (const division_io of division_ios.values()) {
+          const arr = [] satisfies number[];
+          expected_multiplier.set(division_io.division, arr);
+          for (const city of Object.values(ns.enums.CityName)) {
             division_io(city);
           }
+          // console.log(`Expected ${division_io.division} multipliers: [${arr.join(', ')}], avg: x${arr.reduce((acc, d) => acc + d, 0) / arr.length}, last cycle: x${ns.corporation.getDivision(division_io.division).productionMult}`);
         }
         break;
       } case 'SALE': {
