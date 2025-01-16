@@ -208,8 +208,11 @@ export async function main(ns: NS): Promise<void> {
   let batched = 0;
   // eslint-disable-next-line no-constant-condition
   while (true) {
+    let must_upgrade_capacity = false;
     if (do_sell) {
-      sell_strategy(ns);
+      // If we cannot spend anything due to a lack of capacity, we must upgrade it.
+      // No other upgrades should be considered in this case.
+      must_upgrade_capacity = sell_strategy(ns);
     }
 
     if (only_sell) {
@@ -225,18 +228,35 @@ export async function main(ns: NS): Promise<void> {
     const player_mult = ns.getPlayer().mults.hacknet_node_money;
     const nodes = ns.hacknet.numNodes();
     let best: Action | null = null;
+    if (nodes > 0 && must_upgrade_capacity) {
+      // Find the first available node with less than maximum cache level
+      for (const idx of range(nodes)) {
+        const cost = ns.hacknet.getCacheUpgradeCost(idx);
+        if (cost === Infinity) {
+          // Already at max level
+          continue;
+        }
+        best = {
+          cost,
+          hash_gain_delta: Infinity,
+          cb: () => ns.hacknet.upgradeCache(idx),
+          description: `Upgrade node ${format_number(idx)} cache`
+        };
+        break;
+      }
+    }
     if (nodes < ns.hacknet.maxNumNodes()) {
       const hash_gain_delta = ns.formulas.hacknetServers.hashGainRate(1, 0, 1, 1, player_mult);
       const cost = ns.hacknet.getPurchaseNodeCost();
-      if (nodes === 0) {
+      if (nodes === 0 || (must_upgrade_capacity && best === null)) {
         // If we don't have any existing nodes, don't overcomplicate the calculations
         best = {
-          cost: cost,
+          cost,
           hash_gain_delta,
           cb: () => ns.hacknet.purchaseNode(),
           description: `Purchase new node for ${format_currency(cost)}`
         }
-      } else {
+      } else if (!must_upgrade_capacity){
         // If we do have any existing nodes, look ahead in case delayed gratification would pay off
         const [upgrade, hash_per_cost] = new_server_lookahead(ns);
         best = {
@@ -248,36 +268,38 @@ export async function main(ns: NS): Promise<void> {
       }
     }
     // Then, examine the effect of each available single upgrade for every existing node
-    const add_candidate: (c: Action) => void = (c: Action) => {
-      if (best == null) {
-        best = c;
-        return;
+    if (!must_upgrade_capacity) {
+      const add_candidate: (c: Action) => void = (c: Action) => {
+        if (best == null) {
+          best = c;
+          return;
+        }
+        if (best.hash_gain_delta / best.cost < c.hash_gain_delta / c.cost) {
+          best = c;
+        }
       }
-      if (best.hash_gain_delta / best.cost < c.hash_gain_delta / c.cost) {
-        best = c;
+      for (const idx of range(nodes)) {
+        const stats = ns.hacknet.getNodeStats(idx);
+        const current_rate = ns.formulas.hacknetServers.hashGainRate(stats.level, 0, stats.ram, stats.cores, player_mult);
+        add_candidate({
+          cost: ns.hacknet.getLevelUpgradeCost(idx),
+          hash_gain_delta: ns.formulas.hacknetServers.hashGainRate(stats.level + 1, 0, stats.ram, stats.cores, player_mult) - current_rate,
+          cb: () => ns.hacknet.upgradeLevel(idx),
+          description: `Upgrade node ${format_number(idx)} to level ${format_number(stats.level + 1)}`
+        });
+        add_candidate({
+          cost: ns.hacknet.getRamUpgradeCost(idx),
+          hash_gain_delta: ns.formulas.hacknetServers.hashGainRate(stats.level, 0, stats.ram * 2, stats.cores, player_mult) - current_rate,
+          cb: () => ns.hacknet.upgradeRam(idx),
+          description: `Upgrade node ${format_number(idx)} RAM to ${format_number(stats.ram * 2)}GB`
+        });
+        add_candidate({
+          cost: ns.hacknet.getCoreUpgradeCost(idx),
+          hash_gain_delta: ns.formulas.hacknetServers.hashGainRate(stats.level, 0, stats.ram, stats.cores + 1, player_mult) - current_rate,
+          cb: () => ns.hacknet.upgradeCore(idx),
+          description: `Upgrade node ${format_number(idx)} cores to ${format_number(stats.cores + 1)}`
+        });
       }
-    }
-    for (const idx of range(nodes)) {
-      const stats = ns.hacknet.getNodeStats(idx);
-      const current_rate = ns.formulas.hacknetServers.hashGainRate(stats.level, 0, stats.ram, stats.cores, player_mult);
-      add_candidate({
-        cost: ns.hacknet.getLevelUpgradeCost(idx),
-        hash_gain_delta: ns.formulas.hacknetServers.hashGainRate(stats.level + 1, 0, stats.ram, stats.cores, player_mult) - current_rate,
-        cb: () => ns.hacknet.upgradeLevel(idx),
-        description: `Upgrade node ${format_number(idx)} to level ${format_number(stats.level + 1)}`
-      });
-      add_candidate({
-        cost: ns.hacknet.getRamUpgradeCost(idx),
-        hash_gain_delta: ns.formulas.hacknetServers.hashGainRate(stats.level, 0, stats.ram * 2, stats.cores, player_mult) - current_rate,
-        cb: () => ns.hacknet.upgradeRam(idx),
-        description: `Upgrade node ${format_number(idx)} RAM to ${format_number(stats.ram * 2)}GB`
-      });
-      add_candidate({
-        cost: ns.hacknet.getCoreUpgradeCost(idx),
-        hash_gain_delta: ns.formulas.hacknetServers.hashGainRate(stats.level, 0, stats.ram, stats.cores + 1, player_mult) - current_rate,
-        cb: () => ns.hacknet.upgradeCore(idx),
-        description: `Upgrade node ${format_number(idx)} cores to ${format_number(stats.cores + 1)}`
-      });
     }
 
     // If we have an action to take, and we can afford it, take it.
