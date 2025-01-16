@@ -34,17 +34,59 @@ export async function main(ns: NS): Promise<void> {
     ns.corporation.purchaseUnlock('Smart Supply');
   }
 
-  const optimize_price = (division: string, city: CityName, material: CorpMaterialName) => {
-    // Safe markup, equivalent to Market-TA1
-    // TODO: Calculate opimal price, equivalent to Market-TA2
+  const optimize_price = (division: string, city: CityName, material: CorpMaterialName, sell_amount?: number) => {
+    // Optimal markup, equivalent to Market-TA2
+    const division_data = ns.corporation.getDivision(division);
+    const industry_data = ns.corporation.getIndustryData(division_data.type);
     const material_data = ns.corporation.getMaterial(division, city, material);
     const material_const_data = ns.corporation.getMaterialData(material);
     const markup = material_const_data.baseMarkup;
 
+    if (sell_amount === undefined) {
+      sell_amount = material_data.stored;
+    }
+
     const { quality } = material_data;
     const markup_limit = quality / markup;
 
-    return `MP+${markup_limit}`;
+    const item_factor = quality + 0.001;
+
+    const office = ns.corporation.getOffice(division, city);
+    const business_production = 1 + office.employeeProductionByJob.Business;
+    // Advanced documentation incorrectly claims that the multiplier is 0.001; the actual code divides by 10000 (10e3)
+    // Perhaps they were confused by 10e3 !== 10**3 (1e3 === 10**3)?
+    const business_factor = business_production ** 0.26 + business_production / 10e3;
+
+    const awareness_component = (division_data.awareness + 1) ** (industry_data.advertisingFactor ?? 0);
+    const popularity_component = (division_data.popularity + 1) ** (industry_data.advertisingFactor ?? 0);
+    const ratio_component = division_data.awareness === 0
+      ? 0.01
+      : Math.max(0.01, (division_data.popularity + 0.001) / division_data.awareness);
+
+    const advert_factor = (awareness_component * popularity_component * ratio_component) ** 0.85;
+
+    // Note:
+    // - material_data.demand is only filled out if we have "Market Research - Demand" unlocked.
+    // - material_data.competition is only filled out if we have "Market Research - Competition" unlocked.
+    // TA2 is still so much better than TA1 that it's worth going through with this calculation using the most
+    // pessimistic possible parameters here, underestimating the net penalized threshold. We won't always come up with
+    // a price that improves on TA1 without these values - 0.1 can be much less than a real factor of eg 34, but
+    // sometimes we will.
+    const market_factor = Math.max(0.1, (material_data.demand ?? 0) * (100 - (material_data.competition ?? 100)) * 0.01);
+
+    const bots_factor = (1 + 0.01) ** ns.corporation.getUpgradeLevel('ABC SalesBots');
+
+    const total_factor = item_factor * business_factor * advert_factor * market_factor * bots_factor;
+
+    let extra = markup_limit * Math.sqrt(total_factor / sell_amount);
+
+    // Safety net: If something has gone wrong, or if the error from market_factor not having data (with upgrades
+    // unavailble) dropped the sale value that low, use the safe value from Market-TA1 like pricing instead.
+    if (isNaN(extra) || !isFinite(extra) || extra < markup_limit) {
+      extra = markup_limit;
+    }
+
+    return `MP+${extra}`;
   };
 
   /**
@@ -68,7 +110,7 @@ export async function main(ns: NS): Promise<void> {
     }
     if (amount < 0) {
       ns.corporation.buyMaterial(division, city, material, 0);
-      ns.corporation.sellMaterial(division, city, material, `${-amount}`, optimize_price(division, city, material));
+      ns.corporation.sellMaterial(division, city, material, `${-amount}`, optimize_price(division, city, material, -amount));
     } else {
       ns.corporation.sellMaterial(division, city, material, '0', 'MP');
       ns.corporation.buyMaterial(division, city, material, amount);
