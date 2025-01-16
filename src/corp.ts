@@ -159,6 +159,15 @@ export async function main(ns: NS): Promise<void> {
         ns.corporation.setAutoJobAssignment(division_name, city, position, 0);
       }
       if (division_data.makesProducts) {
+      // If we don't have a warehouse, buy one
+      if (!ns.corporation.hasWarehouse(division_name, city)) {
+        ns.corporation.purchaseWarehouse(division_name, city);
+        if (!ns.corporation.hasWarehouse(division_name, city)) {
+          // No money?
+          // We should wait until the next cycle to try again
+          return false;
+        }
+      }
         // If we make products, assign everything to R&D in support cities, and most to engineering in the head city
         if (city === head_city) {
           // Head city, selected arbitrarily
@@ -186,15 +195,6 @@ export async function main(ns: NS): Promise<void> {
         ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', frontline - ops);
         // Make sure smart supply is enabled
         ns.corporation.setSmartSupply(division_name, city, true);
-      }
-      // If we don't have a warehouse, buy one
-      if (!ns.corporation.hasWarehouse(division_name, city)) {
-        ns.corporation.purchaseWarehouse(division_name, city);
-        if (!ns.corporation.hasWarehouse(division_name, city)) {
-          // No money?
-          // We should wait until the next cycle to try again
-          return false;
-        }
       }
       // Make sure all output materials are set to sell Maximum at best price
       const output_materials = ns.corporation.getIndustryData(division_name as CorpIndustryName).producedMaterials;
