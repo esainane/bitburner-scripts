@@ -2,30 +2,11 @@ import { AutocompleteData, NS } from '@ns'
 import { singularity_async } from '/lib/singu';
 import { format_currency } from '/lib/format-money';
 import { format_servername } from '/lib/colors';
+import { async_map } from '/lib/collection-async';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
   return ['--auto', '--rep'];
-}
-
-// Helper function which allows an async filter call while respecting bitburner's async limitations
-// (no concurrent calls to ns functions, aside from ns.asleep)
-async function async_filter<T>(array: T[], predicate: (elm: T) => Promise<boolean>): Promise<T[]> {
-  const results = [];
-  for (const item of array) {
-    if (await predicate(item)) {
-      results.push(item);
-    }
-  }
-  return results;
-}
-
-async function async_map<T, U>(array: T[], mapper: (elm: T) => Promise<U>): Promise<U[]> {
-  const results = [];
-  for (const item of array) {
-    results.push(await mapper(item));
-  }
-  return results;
 }
 
 async function simple_dump(ns: NS, singu: ReturnType<typeof singularity_async>, donatable_factions: Map<string, {favor: number, rep: number}>): Promise<void> {
