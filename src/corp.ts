@@ -13,6 +13,40 @@ const seconds_per_cycle = 10;
 // Head city for Products industries, selected arbitrarily
 const head_city = 'Sector-12';
 
+// Export string for a city to move output materials as input materials to a sister city
+const export_material_to_material = '(IPROD+IINV/10)*(-1)';
+// Export string for each city to move output materials as input materials to the head city
+const export_material_to_product_head_city = '(IPROD+IINV/10)*(-1)/6';
+
+type ExportConfig = [string, string[]]
+
+// Exporting Industry -> [Product -> [Importing Industries]]
+const supply_chain = new Map<string, ExportConfig[]>([
+  ['Agriculture', [['Plants', ['Tobacco', 'Chemical']]]],
+  ['Chemical', [['Chemicals', ['Agriculture']]]],
+  ['Water Utilities', [['Water', ['Agriculture', 'Chemical']]]],
+  ['Computer Hardware', [['Hardware', ['Water Utilities']]]],
+  ['Refinery', [['Metal', ['Computer Hardware']]]],
+]);
+
+// Precompute the inverse of the supply chain too - importer to a list of exporters
+const importers = new Map<string, string[]>(
+  supply_chain.entries().reduce((acc: [string, string[]][], [exporter, exports]) => {
+    for (const [product, importers] of exports) {
+      for (const importer of importers) {
+        const idx = acc.findIndex(([name]) => name === importer);
+        if (idx !== -1) {
+          const [_, exporters] = acc[idx];
+          exporters.push(exporter);
+        } else {
+          acc.push([importer, [exporter]]);
+        }
+      }
+    }
+    return acc;
+  }, [] satisfies [string, string[]][]));
+
+
 export async function main(ns: NS): Promise<void> {
   if (!ns.corporation.hasCorporation()) {
     const isBN3 = ns.getResetInfo().currentNode === 3;
@@ -121,8 +155,7 @@ export async function main(ns: NS): Promise<void> {
   };
 
   const ensure_sane_division = (division_name: string) => {
-    const division_data = ns.corporation.getDivision(division_name);
-    const industry = division_name;
+    const industry = division_name as CorpIndustryName;
     const industry_data = ns.corporation.getIndustryData(industry);
     // If we're not in six cities yet, expand to them
     for (const city of Object.values(ns.enums.CityName)) {
@@ -145,7 +178,7 @@ export async function main(ns: NS): Promise<void> {
         }
       }
       // Ensure we have at least four employees in each office
-      while (office.numEmployees < 4) {
+      while (office.numEmployees < office.size) {
         const old_count = office.numEmployees;
         ns.corporation.hireEmployee(division_name, city);
         office = ns.corporation.getOffice(division_name, city);
@@ -208,6 +241,81 @@ export async function main(ns: NS): Promise<void> {
     }
     return true;
   }
+
+  const sanitized_divisions = new Set<CorpIndustryName>();
+
+  const reflow_exports = (exporter: string) => {
+    const division_data = ns.corporation.getDivision(exporter);
+    const industry_data = ns.corporation.getIndustryData(division_data.type);
+    for (const city of division_data.cities) {
+      if (!industry_data.makesMaterials) {
+        panic(ns, `Exporter configured, but industry ${division_data.type} does not make materials!?`);
+      }
+      const outputs = industry_data.producedMaterials;
+      if (!outputs) {
+        panic(ns, `Exporter configured, but industry ${division_data.type} does not have outputs!?`);
+      }
+      // Cancel all existing exports
+      for (const material of outputs) {
+        const material_data: Material = ns.corporation.getMaterial(exporter, city, material);
+        for (const export_order of material_data.exports) {
+          ns.corporation.cancelExportMaterial(exporter, city, export_order.division, export_order.city, material);
+        }
+      }
+      // Recreate all exports, in exactly the order/priority configured
+      const config = supply_chain.get(exporter);
+      if (!config) {
+        // Nothing to do
+        return;
+      }
+      for (const [material, importers] of config) {
+        for (const importer of importers) {
+          if (!sanitized_divisions.has(importer as CorpIndustryName)) {
+            continue;
+          }
+          const importer_is_product_kind = !ns.corporation.getIndustryData(importer as CorpIndustryName).makesMaterials;
+          if (importer_is_product_kind) {
+            // For a product, each exporter exports 1/6th of demand to the head city
+            ns.corporation.exportMaterial(exporter, city, importer, head_city, material, export_material_to_product_head_city);
+          } else {
+            // For materials, each division exports to its sister division in the same city
+            ns.corporation.exportMaterial(exporter, city, importer, city, material, export_material_to_material);
+          }
+        }
+      }
+    }
+  };
+
+  const add_sanitized_division = (industry: CorpIndustryName) => {
+    if (sanitized_divisions.has(industry)) {
+      return;
+    }
+    sanitized_divisions.add(industry);
+
+    // If we don't exporting available, nothing further to do
+    if (!ns.corporation.hasUnlock('Export')) {
+      return;
+    }
+
+    // Otherwise, see if this completes an edge in any part of our configured supply chain
+
+    // See if we ourselves are an exporter
+    const exports = supply_chain.get(industry);
+    if (exports) {
+      reflow_exports(industry);
+    }
+
+    // See what industries would export to us
+    const exporters = importers.get(industry);
+    if (exporters) {
+      for (const exporter of exporters) {
+        if (!sanitized_divisions.has(exporter as CorpIndustryName)) {
+          continue;
+        }
+        reflow_exports(exporter);
+      }
+    }
+  };
 
   while (!ensure_sane_division(division_name)) {
     await ns.asleep(10000);
@@ -576,6 +684,7 @@ export async function main(ns: NS): Promise<void> {
               continue;
             }
             ns.tprint(`Setting up I/O for ${division} (sanity ensured)`);
+            add_sanitized_division(division);
             division_ios.set(division, io_optimizer(division, boost_optimizer(division)));
           }
         }
