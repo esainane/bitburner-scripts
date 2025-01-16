@@ -208,8 +208,9 @@ export async function main(ns: NS): Promise<void> {
           // Head city, selected arbitrarily
           ns.corporation.setAutoJobAssignment(division_name, city, 'Business', 1);
           ns.corporation.setAutoJobAssignment(division_name, city, 'Management', 1);
+          // Primarily engineering once we get big
           const frontline = office.numEmployees - 2;
-          const ops = Math.floor(frontline / 4);
+          const ops = Math.ceil(frontline ** 0.4);
           ns.corporation.setAutoJobAssignment(division_name, city, 'Operations', ops);
           ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', frontline - ops);
           // Make sure smart supply is enabled
@@ -224,8 +225,9 @@ export async function main(ns: NS): Promise<void> {
         // Then assign 1 to engineering, business, and management, and the rest m operations
         ns.corporation.setAutoJobAssignment(division_name, city, 'Business', 1);
         ns.corporation.setAutoJobAssignment(division_name, city, 'Management', 1);
+        // Primarily engineering once we get big
         const frontline = office.numEmployees - 2;
-        const ops = Math.ceil(frontline / 2);
+        const ops = Math.ceil(frontline ** 0.4);
         ns.corporation.setAutoJobAssignment(division_name, city, 'Operations', ops);
         ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', frontline - ops);
         // Make sure smart supply is enabled
@@ -686,6 +688,8 @@ export async function main(ns: NS): Promise<void> {
             ns.tprint(`Setting up I/O for ${division} (sanity ensured)`);
             add_sanitized_division(division);
             division_ios.set(division, io_optimizer(division, boost_optimizer(division)));
+          } else {
+            ensure_sane_division(division);
           }
         }
         update_import_cache();
