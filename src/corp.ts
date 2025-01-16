@@ -350,7 +350,12 @@ export async function main(ns: NS): Promise<void> {
   const io_optimizer = (industry: CorpIndustryName, boost_solver: (available_space: number) => [BoostSolution, number]) => {
     const industry_data: CorpIndustryData = ns.corporation.getIndustryData(industry);
     if (!industry_data.makesMaterials) {
-      panic(ns, 'Non-materials industries not implemented yet');
+      console.warn('Non-materials industries not implemented yet');
+      const ret =  (city: CityName) => {
+        // Do nothing
+      };
+      ret.division = industry;
+      return ret;
     }
     // Inputs per production unit
     const inputs = industry_data.requiredMaterials;
