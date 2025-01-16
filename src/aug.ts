@@ -4,6 +4,7 @@ import { singularity_async as singularity_async } from './lib/singu';
 import { colors, format_data, format_number, format_servername, print_table } from '/lib/colors';
 import { format_currency } from '/lib/format-money';
 import { binary_search } from '/lib/binary-search';
+import { async_filter } from '/lib/collection-async';
 
 // TODO: lib this
 export function money_for_rep(ns: NS, rep: number) {
@@ -423,13 +424,14 @@ export async function main(ns: NS): Promise<void> {
       // augmentation as high priority.
       let local_ok = true;
       // Augs for case 1)
-      const to_reorder = aug.prereqs_simple.map(d => augmentations.get(d)).filter(d => {
+      const to_reorder = (await async_filter(aug.prereqs_simple.map(d => [d, augmentations.get(d)] satisfies [string, AugData?]), async ([name, d]) => {
         if (d === undefined) {
+          ns.tprint(`ERROR Could not find prerequisite ${format_servername(name)} for ${format_servername(aug.name)}. (Perhaps join ${(await sing.getAugmentationFactions(name)).map(d => format_servername(d)).join(', ')}?)`);
           ok = local_ok = false;
           return false;
         }
         return !d.owned && selected_set.has(d);
-      }) as AugData[];
+      })).map(d => d[1]) as AugData[];
       if (!local_ok) {
         continue;
       }
@@ -684,7 +686,7 @@ export async function main(ns: NS): Promise<void> {
 
   if (!do_commit) {
     if (!ok) {
-      ns.tprint(`WARNING: Plan is invalid.`);
+      ns.tprint(`ERROR: Plan is invalid.`);
     }
     return;
   }
