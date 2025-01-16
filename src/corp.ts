@@ -122,6 +122,8 @@ export async function main(ns: NS): Promise<void> {
 
   const ensure_sane_division = (division_name: string) => {
     const division_data = ns.corporation.getDivision(division_name);
+    const industry = division_name;
+    const industry_data = ns.corporation.getIndustryData(industry);
     // If we're not in six cities yet, expand to them
     for (const city of Object.values(ns.enums.CityName)) {
       let office;
@@ -158,7 +160,6 @@ export async function main(ns: NS): Promise<void> {
         // First, free up spaces
         ns.corporation.setAutoJobAssignment(division_name, city, position, 0);
       }
-      if (division_data.makesProducts) {
       // If we don't have a warehouse, buy one
       if (!ns.corporation.hasWarehouse(division_name, city)) {
         ns.corporation.purchaseWarehouse(division_name, city);
@@ -168,6 +169,7 @@ export async function main(ns: NS): Promise<void> {
           return false;
         }
       }
+      if (!industry_data.makesMaterials) {
         // If we make products, assign everything to R&D in support cities, and most to engineering in the head city
         if (city === head_city) {
           // Head city, selected arbitrarily
