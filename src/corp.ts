@@ -205,22 +205,35 @@ export async function main(ns: NS): Promise<void> {
         }
       }
       if (!industry_data.makesMaterials && city !== head_city) {
-        // If we make products, assign everything to R&D in support cities, and most to engineering in the head city
-        // Support city
-        ns.corporation.setAutoJobAssignment(division_name, city, 'Research & Development', office.numEmployees);
-        // Make sure smart supply is *disabled*
-        ns.corporation.setSmartSupply(division_name, city, false);
+        //if (city !== head_city) {
+          // If we make products, assign everything to R&D in support cities, and most to engineering in the head city
+          // Support city
+          ns.corporation.setAutoJobAssignment(division_name, city, 'Research & Development', office.numEmployees);
+          // Make sure smart supply is *disabled*
+          ns.corporation.setSmartSupply(division_name, city, false);
+        /*} else {
+          // Head city, selected arbitrarily
+
+          // Constraint: O+E+B+M <= numEmployees
+          // To maximise product development speed:
+          //  Maximise f(O,E,B,M) = (E**0.34 + O**0.2) * (1+M/(1.2*(O+E+B+M)))
+
+          // To maximise product quality:
+
+          // TODO: Solve and implement; Use below logic for now
+        }*/
       } else {
         // Regular material industry; or products in the Head city, selected arbitrarily
-        const support_staff = Math.floor(office.numEmployees ** 0.4);
-        const business = Math.ceil(support_staff / 2);
-        ns.corporation.setAutoJobAssignment(division_name, city, 'Business', business);
-        ns.corporation.setAutoJobAssignment(division_name, city, 'Management', support_staff - business);
+        const excess = office.numEmployees - 4;
         // Primarily engineering once we get big
-        const frontline = office.numEmployees - support_staff;
-        const ops = Math.ceil(frontline ** 0.4);
-        ns.corporation.setAutoJobAssignment(division_name, city, 'Operations', ops);
-        ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', frontline - ops);
+        const nongineers = Math.floor(excess ** 0.67);
+        const sales = Math.floor(nongineers / 3);
+        const management = Math.floor((nongineers - sales) / 2);
+        const ops = nongineers - sales - management;
+        ns.corporation.setAutoJobAssignment(division_name, city, 'Business', 1 + sales);
+        ns.corporation.setAutoJobAssignment(division_name, city, 'Management', 1 + management);
+        ns.corporation.setAutoJobAssignment(division_name, city, 'Operations', 1 + ops);
+        ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', 1 + excess - nongineers);
         // Make sure smart supply is enabled
         ns.corporation.setSmartSupply(division_name, city, true);
       }
