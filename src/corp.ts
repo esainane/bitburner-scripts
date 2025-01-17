@@ -12,7 +12,7 @@ import { PriorityQueue } from '/lib/priority-queue';
 const seconds_per_cycle = 10;
 
 // Head city for Products industries, selected arbitrarily
-const head_city = 'Sector-12';
+const head_city: `${CityName}` = 'Sector-12';
 
 // Export string for a city to move output materials as input materials to a sister city
 const export_material_to_material = '(IPROD+IINV/10)*(-1)';
@@ -48,6 +48,38 @@ const importers = new Map<string, string[]>(
     return acc;
   }, [] satisfies [string, string[]][]));
 
+// Define key sink industry. This should be an industry capable of making products
+const key_sink_industry = 'Tobacco';
+
+// Precompute the rank of all industries involved in the supply chain from distance to the key sink industry
+const industry_rank = new Map<string, number>(
+  // Use a generator function to perform breadth first search via importers starting from key_sink_industry
+  (function* () {
+    let queue = [key_sink_industry];
+    // Cycles and diamonds are expected, so we need to track what we've seen
+    const seen = new Set<string>();
+    let rank = 0;
+    // BFS
+    while (queue.length > 0) {
+      const next_queue = [];
+      for (const industry of queue) {
+        if (seen.has(industry)) {
+          continue;
+        }
+        seen.add(industry);
+        yield [industry, rank];
+        // Find all supplies, add them for the next rank
+        const exporters = importers.get(industry);
+        if (exporters) {
+          next_queue.push(...exporters);
+        }
+      }
+      // Move on to the next rank
+      queue = next_queue;
+      rank++;
+    }
+  })());
+
 
 export async function main(ns: NS): Promise<void> {
   if (!ns.corporation.hasCorporation()) {
@@ -60,7 +92,7 @@ export async function main(ns: NS): Promise<void> {
   }
   const division_name = 'Agriculture';
   // If we don't have an agriculture divison yet, create it
-  let agriculture_division;
+  let agriculture_division: Division;
   try{
    agriculture_division = ns.corporation.getDivision(division_name);
   } catch (e) {
@@ -157,6 +189,7 @@ export async function main(ns: NS): Promise<void> {
   };
 
   const ensure_sane_division = (division_name: string) => {
+    const division_data = ns.corporation.getDivision(division_name);
     const industry = division_name as CorpIndustryName;
     const industry_data = ns.corporation.getIndustryData(industry);
     // If we're not in six cities yet, expand to them
@@ -238,11 +271,30 @@ export async function main(ns: NS): Promise<void> {
         ns.corporation.setSmartSupply(division_name, city, true);
       }
       // Make sure all output materials are set to sell Maximum at best price
-      const output_materials = ns.corporation.getIndustryData(division_name as CorpIndustryName).producedMaterials;
+      const output_materials = industry_data.producedMaterials;
       if (output_materials) {
         for (const material of output_materials) {
           set_buysell_material(division_name, city, material);
         }
+      }
+    }
+    // Make sure all output products are set to sell Maximum, via TA2 or a reusing a currently configured price
+    const output_products = division_data.products;
+    const has_ta2 = ns.corporation.hasResearched(division_name, 'Market-TA.II');
+    for (const product_name of output_products) {
+      if (has_ta2) {
+        // sellProduct will assign to all cities if the last parameter is true
+        ns.corporation.sellProduct(division_name, head_city, product_name, 'MAX', 'MP', true);
+        ns.corporation.setProductMarketTA2(division_name, product_name, true);
+      } else {
+        // Copy the configuration from head_city, even if we don't have a head city for this type
+        // (I don't want to deal with setting multiple configurations at once while experimenting)
+        const product = ns.corporation.getProduct(division_name, head_city, product_name);
+        const old_price = product.desiredSellPrice;
+        const price = typeof old_price === "string" && old_price.length > 2 && old_price.startsWith('MP') && ['+', '*'].includes(old_price[2])
+          ? old_price
+          : 'MP';
+        ns.corporation.sellProduct(division_name, head_city, product_name, 'MAX', price, true);
       }
     }
     return true;
@@ -685,8 +737,9 @@ export async function main(ns: NS): Promise<void> {
 
   const division_ios = new Map<string, {(city: CityName): void, division: string}>();
 
-  // Mean exponential average profit
+  // Mean exponential average profit and funds
   let mea_profit = 0;
+  let mea_funds = 0;
 
   /**
    * Main loop
@@ -722,6 +775,7 @@ export async function main(ns: NS): Promise<void> {
         // Make sure this isn't a fluke/one-off excess dumping cycle by tracking revenue via moving exponential average
         const profit_this_cycle = corp.revenue - corp.expenses;
         mea_profit = 0.95 * mea_profit + 0.05 * profit_this_cycle;
+        mea_funds = 0.95 * mea_funds + 0.05 * corp.funds;
         if (corp.revenue - corp.expenses > 1e8) {
           // Top priority: If we can upgrade Wilsons, do so, repeatedly
           while (ns.corporation.getCorporation().funds > ns.corporation.getUpgradeLevelCost('Wilson Analytics')) {
@@ -750,7 +804,80 @@ export async function main(ns: NS): Promise<void> {
             // eslint-disable-next-line no-constant-condition
             } while (true);
           }
-          // TODO: Auto buy advertisements for main product industry, maybe upgrade offices and warehouses and hire staff?
+          const upgrade_office_size = (division: CorpIndustryName, city: CityName | `${CityName}`) => {
+            ns.corporation.upgradeOfficeSize(division, city, 1);
+            // Hire any employees to match
+            let office = ns.corporation.getOffice(division, city);
+            while (office.numEmployees < office.size) {
+              const last_size = office.numEmployees;
+              ns.corporation.hireEmployee(division, city);
+              office = ns.corporation.getOffice(division, city);
+              if (office.numEmployees === last_size) {
+                break;
+              }
+            }
+          };
+          // Auto buy advertisements, upgrade offices (hiring staff along the way) and warehouses
+          // We liberally buy upgrades based on distance from the key sink of our supply chain, precomputed at the top
+          // of the file. Industries not part of the supply chain ("dummy" divisions) are ignored.
+          const ranked_divisions = new PriorityQueue<[CorpIndustryName, number]>((l, r) => l[1] - r[1]);
+          ranked_divisions.heapify(...sanitized_divisions.values().map(d => [d, industry_rank.get(d)] satisfies [CorpIndustryName, number?]).filter(d => d[1] !== undefined) as IteratorObject<[CorpIndustryName, number]>);
+          do {
+            const entry = ranked_divisions.pop();
+            if (!entry) {
+              break;
+            }
+            const [division, rank] = entry;
+            const coeff = 0.68 ** rank;
+            // Helper: use either the nominal amount of funds available this cycle, or the current corporate funds,
+            // whichever is lower. If uniform is specified, also checks that we have enough current funds to cover this
+            // the specified number of times.
+            const funds = (cycle_nominal_ratio: number, uniform=1) => Math.min(cycle_nominal_ratio * coeff * mea_funds, ns.corporation.getCorporation().funds / uniform);
+            const division_data = ns.corporation.getDivision(division);
+            const industry_data = ns.corporation.getIndustryData(division);
+            const is_product_kind = !industry_data.makesMaterials;
+
+            const uniform_cities = division_data.cities.slice();
+
+            if (is_product_kind) {
+              division_data.cities.splice(division_data.cities.findIndex(d => d === head_city), 1);
+
+              // Aggressively increase the size of head office (10%)
+              while (ns.corporation.getOfficeSizeUpgradeCost(division, head_city, 1) < funds(0.1)) {
+                upgrade_office_size(division, head_city);
+              }
+
+              // Aggressively buy marketing: (15%)
+              while (ns.corporation.getHireAdVertCost(division) < funds(0.15)) {
+                ns.corporation.hireAdVert(division);
+              }
+              // Don't really bother with head office warehouse upgrades while we don't buy boost materials in it, but
+              // we'll take them if they're very cheap to avoid capping production (0.02%)
+              while (ns.corporation.getUpgradeWarehouseCost(division, head_city, 1) < funds(0.0002)) {
+                ns.corporation.upgradeWarehouse(division, head_city, 1);
+              }
+            } else {
+              // Buy marketing normally (3%)
+              while (ns.corporation.getHireAdVertCost(division) < funds(0.03)) {
+                ns.corporation.hireAdVert(division);
+              }
+            }
+
+            // Upgrade all offices to the same size (1%)
+            for (const [idx, city] of uniform_cities.entries()) {
+              while (ns.corporation.getOfficeSizeUpgradeCost(division, city, 1) < funds(0.01, uniform_cities.length - idx)) {
+                upgrade_office_size(division, city);
+              }
+            }
+
+            // Upgrade all warehouses to the same size (1%)
+            for (const [idx, city] of uniform_cities.entries()) {
+              while (ns.corporation.getUpgradeWarehouseCost(division, city, 1) < funds(0.01, uniform_cities.length - idx)) {
+                ns.corporation.upgradeWarehouse(division, city, 1);
+              }
+            }
+          // eslint-disable-next-line no-constant-condition
+          } while (true);
         }
         update_import_cache();
         // The trick for I/O handling is to do everything after a cycle's production is complete, and divisons have
