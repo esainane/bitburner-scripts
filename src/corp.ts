@@ -25,8 +25,9 @@ const supply_chain = new Map<string, ExportConfig[]>([
   ['Agriculture', [['Plants', ['Tobacco', 'Chemical']]]],
   ['Chemical', [['Chemicals', ['Agriculture']]]],
   ['Water Utilities', [['Water', ['Agriculture', 'Chemical']]]],
-  ['Computer Hardware', [['Hardware', ['Water Utilities']]]],
+  ['Computer Hardware', [['Hardware', ['Water Utilities', 'Mining']]]],
   ['Refinery', [['Metal', ['Computer Hardware']]]],
+  ['Mining', [['Ore', ['Refinery']]]],
 ]);
 
 // Precompute the inverse of the supply chain too - importer to a list of exporters
