@@ -933,7 +933,10 @@ export async function main(ns: NS): Promise<void> {
               }
 
               // Aggressively buy marketing: (15%)
-              while (ns.corporation.getHireAdVertCost(division) < funds(0.15)) {
+              while (
+                division_data.awareness !== Number.MAX_VALUE || division_data.popularity !== Number.MAX_VALUE
+                && ns.corporation.getHireAdVertCost(division) < funds(0.15)
+              ) {
                 ns.corporation.hireAdVert(division);
               }
               // Don't really bother with head office warehouse upgrades while we don't buy boost materials in it, but
@@ -943,7 +946,10 @@ export async function main(ns: NS): Promise<void> {
               }
             } else {
               // Buy marketing normally (3%)
-              while (ns.corporation.getHireAdVertCost(division) < funds(0.03)) {
+              while (
+                division_data.awareness !== Number.MAX_VALUE || division_data.popularity !== Number.MAX_VALUE
+                && ns.corporation.getHireAdVertCost(division) < funds(0.03)
+              ) {
                 ns.corporation.hireAdVert(division);
               }
             }
