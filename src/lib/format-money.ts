@@ -45,17 +45,18 @@ export function format_currency_hm(amount: number, { colorize=true, simplify=tru
     amount = Math.floor(amount / (1000 ** i));
     magnitude -= i * 3;
   }
+  const get_suffix = (i: number) => suffixes[i] ?? `${color.combine(color.bright, color.fg_red)}E${i*3}`;
   while (magnitude >= 3) {
     const fragment = Math.floor(amount % 1000);
     if (fragment) {
-      const this_str = `${color.fg_white}${fragment}${suffixes[i] ?? `${color.combine(color.bright, color.fg_red)}E${i*3}`}${color.reset}`;
+      const this_str = `${color.fg_white}${fragment}${get_suffix(i)}${color.reset}`;
       str = `${this_str}${str}`;
     }
     amount /= 1000;
     magnitude -= 3;
     i++;
   }
-  return (amount >= 1 ? `${prefix}${color.fg_cyan}$${color.fg_white}${Math.floor(amount)}${suffixes[i]}${str}` : `${str}`) + color.reset;
+  return (amount >= 1 ? `${prefix}${color.fg_cyan}$${color.fg_white}${Math.floor(amount)}${get_suffix(i)}${str}` : `${str}`) + color.reset;
 }
 
 export const format_currency = format_currency_hm;
@@ -76,6 +77,8 @@ export async function main(ns: NS): Promise<void> {
   assert_eq(ns, "$4M143K", format_currency_hm(4143010, opts));
   assert_eq(ns, "-$4M143K", format_currency_hm(-4143010, opts));
   assert_eq(ns, "$4M143K10", format_currency_hm(4143010, { simplify: false, ...opts }));
+  // This doesn't look so good without colors... maybe come up with an alternative?
+  assert_eq(ns, "$2E36292D", format_currency_hm(2292e33, opts));
 
   assert_all_passed(ns);
 }
