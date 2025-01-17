@@ -543,7 +543,7 @@ export async function main(ns: NS): Promise<void> {
       const office = ns.corporation.getOffice(division_name, city);
       // These three factors are fixed
       const office_mult = calculate_office_production(office);
-      const upgrade_mult = 1.03 ** ns.corporation.getUpgradeLevel('Smart Factories');
+      const upgrade_mult = 1 + .03 ** ns.corporation.getUpgradeLevel('Smart Factories');
       let research_mult = 1;
       if (ns.corporation.hasResearched(division, 'Drones - Assembly')) {
         research_mult *= 1.2;
