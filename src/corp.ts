@@ -565,9 +565,26 @@ export async function main(ns: NS): Promise<void> {
         0
       );
 
+      // We split the binary search index search space into two, so that we can handle extreme lategame production
+      // ratios:
+      // 0:        Exactly 0 space allocated to boost materials (this should always be feasible)
+      // 1..201:   Exponential scale: 1.8**(n-202) percentage points of storage allocated to boost material
+      //   - At 201, we have 1.8**-1   = 0.555555% of storage allocated to boost material.
+      //   - At 190, we have 1.8**-11  = 0.00155%.
+      //   - At   1, we have 1.8**-201 = 4.90034e-52%.
+      // 202..400: Linear scale:      Percentage points from 1-100% of storage allocated to boost material
+      //   - At 400, we allocate 100% to boost material (this should always be infeasible)
+      //   - At 300, we allocate 50% to boost material
+      //   - At 202, we allocate 1% to boost material
+      const index_to_ratio = (index: number) => index >= 202
+        ? (index - 200) / 200
+        : index === 0
+          ? 0
+          : 1.8 ** (index-202) / 100;
+
       const bsearch_result = binary_search((x: number) => {
         // Determine what storage is allocated to storage and what storage is allocated to active production
-        const boost_storage = Math.floor(x / 100 * total_storage);
+        const boost_storage = Math.floor(index_to_ratio(x) * total_storage);
         const active_storage = total_storage - boost_storage;
         // Solve for maximum boost multiplier for the given boost storage allocation
         const [boost_solution, boost_mult] = boost_solver(boost_storage);
@@ -594,7 +611,7 @@ export async function main(ns: NS): Promise<void> {
 
         // Maximise viable production multiplier (result closest to 0)
         return -1/production_multiplier;
-      }, 0, 0, 100);
+      }, 0, 0, 400);
       if (bsearch_result >= 0) {
         panic(ns, 'storage_assigner binary search found an exact solution!?');
       }
@@ -629,9 +646,9 @@ export async function main(ns: NS): Promise<void> {
         return;
       }
       // We want the solution before the insertion point, as the insertion point is the first infeasible solution
-      const boost_storage_pct = -bsearch_result - 2;
+      const boost_storage_ratio_index = -bsearch_result - 2;
       // Determine what storage is allocated to storage and what storage is allocated to active production
-      const boost_storage = Math.floor(boost_storage_pct / 100 * total_storage);
+      const boost_storage = Math.floor(index_to_ratio(boost_storage_ratio_index) * total_storage);
       // Solve for maximum boost multiplier for the given boost storage allocation
       const [boost_solution, boost_mult] = boost_solver(boost_storage);
 
