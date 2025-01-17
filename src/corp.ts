@@ -270,13 +270,6 @@ export async function main(ns: NS): Promise<void> {
         // Make sure smart supply is enabled
         ns.corporation.setSmartSupply(division_name, city, true);
       }
-      // Make sure all output materials are set to sell Maximum at best price
-      const output_materials = industry_data.producedMaterials;
-      if (output_materials) {
-        for (const material of output_materials) {
-          set_buysell_material(division_name, city, material);
-        }
-      }
     }
     // Make sure all output products are set to sell Maximum, via TA2 or a reusing a currently configured price
     const output_products = division_data.products;
@@ -590,6 +583,47 @@ export async function main(ns: NS): Promise<void> {
       acc + storage_per_material[name],
       0
     );
+
+    // If an output hasn't been moving for a while, it's clogged, and needs to be dumped.
+    const clogged_tracker = new Map<CorpMaterialName, Map<CityName, [number, number]>>(outputs.map(name => [name, new Map<CityName, [number, number]>(Object.values(ns.enums.CityName).map((city) =>
+      [city, [0, 0]] satisfies [CityName, [number, number]]
+    ))]));
+
+    const check_clog = (material_data: Material, city: CityName) => {
+      const clogged_entry = clogged_tracker.get(material_data.name);
+      // If it's not an output we're tracking, ignore it
+      if (clogged_entry === undefined) {
+        return false;
+      }
+      const [clogged_count, last_max] = clogged_entry.get(city) ?? [0, 0];
+      const { desiredSellAmount: desired_sell_raw } = material_data;
+      const desired_sell = eval?.(String(desired_sell_raw)
+        .replace(/MAX/g, String(last_max / 10))
+        .replace(/PROD/g, String(material_data.productionAmount))
+        .replace(/INV/g, String(last_max))
+      );
+      const current_max = material_data.stored;
+      // This script always uses numbers in this space; if the user did something different, ignore it this cycle
+      if (typeof desired_sell !== 'number') {
+        return false;
+      }
+      const maybe_clogged = material_data.actualSellAmount < desired_sell * 0.8;
+      // If not clogged, we're fine
+      if (!maybe_clogged) {
+        clogged_entry.set(city, [0, current_max]);
+        return false;
+      }
+      if (clogged_count >= 5) {
+        // Clogged for five cycles; warn user and dump it all
+        console.warn(`Material ${material_data.name} in ${industry}@${city} has been clogged for five cycles; dumping all`);
+        ns.corporation.sellMaterial(industry, city, material_data.name, 'MAX', '0');
+        clogged_entry.set(city, [clogged_count, current_max]);
+        return true;
+      }
+      clogged_entry.set(city, [clogged_count + 1, current_max]);
+      return false;
+    };
+
     const optimize_io = (city: CityName) => {
       const division = industry;
       const office = ns.corporation.getOffice(division_name, city);
@@ -692,7 +726,9 @@ export async function main(ns: NS): Promise<void> {
           const desired = (inputs[material] ?? 0) * production_per_cycle;
           const data: Material = ns.corporation.getMaterial(division, city, material);
           const current = data.stored;
-          set_buysell_material(division, city, material, (desired - current) / seconds_per_cycle);
+          if (!check_clog(data, city)) {
+            set_buysell_material(division, city, material, (desired - current) / seconds_per_cycle);
+          }
         }
         expected_multiplier.get(division)!.push(1);
         return;
@@ -717,7 +753,9 @@ export async function main(ns: NS): Promise<void> {
           (inputs[material] ?? 0) * production_per_cycle;
         const data: Material = ns.corporation.getMaterial(division, city, material);
         const current = data.stored;
-        set_buysell_material(division, city, material, (desired - current) / seconds_per_cycle);
+        if (!check_clog(data, city)) {
+          set_buysell_material(division, city, material, (desired - current) / seconds_per_cycle);
+        }
       }
       expected_multiplier.get(division)!.push(boost_mult);
     };
