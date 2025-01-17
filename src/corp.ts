@@ -238,6 +238,17 @@ export async function main(ns: NS): Promise<void> {
           return false;
         }
       }
+    }
+
+    division_maintenance(division_name);
+    return true;
+  };
+
+  const division_maintenance = (division_name: string) => {
+    const division_data = ns.corporation.getDivision(division_name);
+    const industry_data = ns.corporation.getIndustryData(division_data.type);
+    for (const city of Object.values(ns.enums.CityName)) {
+      const office = ns.corporation.getOffice(division_name, city);
       if (!industry_data.makesMaterials && city !== head_city) {
         //if (city !== head_city) {
           // If we make products, assign everything to R&D in support cities, and most to engineering in the head city
@@ -291,8 +302,7 @@ export async function main(ns: NS): Promise<void> {
         ns.corporation.sellProduct(division_name, head_city, product_name, 'MAX', price, true);
       }
     }
-    return true;
-  }
+  };
 
   const sanitized_divisions = new Set<CorpIndustryName>();
 
@@ -805,7 +815,7 @@ export async function main(ns: NS): Promise<void> {
             add_sanitized_division(division);
             division_ios.set(division, io_optimizer(division, boost_optimizer(division)));
           } else {
-            ensure_sane_division(division);
+            division_maintenance(division);
           }
         }
         // If we're at a later stage of the game (steady revenue) start working on the upgrade feedback loop
