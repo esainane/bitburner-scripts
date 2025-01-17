@@ -1,7 +1,8 @@
-import { CityName, CorpIndustryData, CorpIndustryName, CorpMaterialName, CorpStateName, Division, Material, NS, Office } from '@ns'
+import { CityName, CorpIndustryData, CorpIndustryName, CorpMaterialName, CorpStateName, Division, Material, NS, Office, Product } from '@ns'
 import { binary_search } from '/lib/binary-search';
 import { panic } from '/lib/panic';
 import { PriorityQueue } from '/lib/priority-queue';
+import { format_currency } from '/lib/format-money';
 
 /**
  * Corporation management script
@@ -818,6 +819,42 @@ export async function main(ns: NS): Promise<void> {
           // Top priority: If we can upgrade Wilsons, do so, repeatedly
           while (ns.corporation.getCorporation().funds > ns.corporation.getUpgradeLevelCost('Wilson Analytics')) {
             ns.corporation.levelUpgrade('Wilson Analytics');
+          }
+          // Then check in on our key industry. If it's present and not designing new products, start this process
+          if (corp.divisions.includes(key_sink_industry)) {
+            const division = ns.corporation.getDivision(key_sink_industry);
+            const max_products = 3 +
+             (ns.corporation.hasResearched(key_sink_industry, 'uPgrade: Capacity.II')
+              ? 2
+              : ns.corporation.hasResearched(key_sink_industry, 'uPgrade: Capacity.I')
+                ? 1
+                : 0);
+            const products = division.products.map(d => [d, parseInt(d.slice(Math.max(d.lastIndexOf('-') + 1, 0))), ns.corporation.getProduct(key_sink_industry, head_city, d)] satisfies [string, number, Product]);
+            const is_making_product = products.some(([name, id, data]) => data.developmentProgress < 100);
+            if (!is_making_product) {
+              let investment_minimum = 0;
+              let to_discontinue;
+              // Discontinue oldest product if we're full
+              if (division.products.length === max_products) {
+                const oldest_id = Math.min(...products.map(d => d[1]));
+                const oldest_product = products.find(d => d[1] === oldest_id);
+                if (!oldest_product) {
+                  panic(ns, `Failed to find oldest product in ${key_sink_industry}@${head_city} despite being full!?`);
+                }
+                investment_minimum = oldest_product[2].designInvestment + oldest_product[2].advertisingInvestment;
+                to_discontinue = oldest_product[0];
+              }
+              // Try to create an new product, using 2% of our funds
+              const investment = 0.02 * mea_funds;
+              const newest_id = Math.max(0, ...products.map(d => d[1]));
+              if (investment >= investment_minimum && ns.corporation.getCorporation().funds >= investment) {
+                if (to_discontinue) {
+                  ns.corporation.discontinueProduct(key_sink_industry, to_discontinue);
+                }
+                const new_product_name = `${key_sink_industry}-${format_currency(investment / 2, { colorize: false })}-${newest_id + 1}`;
+                ns.corporation.makeProduct(key_sink_industry, head_city, new_product_name, investment / 2, investment / 2);
+              }
+            }
           }
           // Then repeatedly buy other upgrades, if they're cheap enough relative to our current funds
           for (const [threshold, upgrades] of [
