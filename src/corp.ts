@@ -202,31 +202,20 @@ export async function main(ns: NS): Promise<void> {
           return false;
         }
       }
-      if (!industry_data.makesMaterials) {
+      if (!industry_data.makesMaterials && city !== head_city) {
         // If we make products, assign everything to R&D in support cities, and most to engineering in the head city
-        if (city === head_city) {
-          // Head city, selected arbitrarily
-          ns.corporation.setAutoJobAssignment(division_name, city, 'Business', 1);
-          ns.corporation.setAutoJobAssignment(division_name, city, 'Management', 1);
-          // Primarily engineering once we get big
-          const frontline = office.numEmployees - 2;
-          const ops = Math.ceil(frontline ** 0.4);
-          ns.corporation.setAutoJobAssignment(division_name, city, 'Operations', ops);
-          ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', frontline - ops);
-          // Make sure smart supply is enabled
-          ns.corporation.setSmartSupply(division_name, city, true);
-        } else {
-          // Support city
-          ns.corporation.setAutoJobAssignment(division_name, city, 'Research & Development', office.numEmployees);
-          // Make sure smart supply is *disabled*
-          ns.corporation.setSmartSupply(division_name, city, false);
-        }
+        // Support city
+        ns.corporation.setAutoJobAssignment(division_name, city, 'Research & Development', office.numEmployees);
+        // Make sure smart supply is *disabled*
+        ns.corporation.setSmartSupply(division_name, city, false);
       } else {
-        // Then assign 1 to engineering, business, and management, and the rest m operations
-        ns.corporation.setAutoJobAssignment(division_name, city, 'Business', 1);
-        ns.corporation.setAutoJobAssignment(division_name, city, 'Management', 1);
+        // Regular material industry; or products in the Head city, selected arbitrarily
+        const support_staff = Math.floor(office.numEmployees ** 0.4);
+        const business = Math.ceil(support_staff / 2);
+        ns.corporation.setAutoJobAssignment(division_name, city, 'Business', business);
+        ns.corporation.setAutoJobAssignment(division_name, city, 'Management', support_staff - business);
         // Primarily engineering once we get big
-        const frontline = office.numEmployees - 2;
+        const frontline = office.numEmployees - support_staff;
         const ops = Math.ceil(frontline ** 0.4);
         ns.corporation.setAutoJobAssignment(division_name, city, 'Operations', ops);
         ns.corporation.setAutoJobAssignment(division_name, city, 'Engineer', frontline - ops);
