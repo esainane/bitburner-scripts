@@ -1,6 +1,7 @@
 import { CityName, CorpIndustryData, CorpIndustryName, CorpMaterialName, CorpStateName, Division, Material, NS, Office } from '@ns'
 import { binary_search } from '/lib/binary-search';
 import { panic } from '/lib/panic';
+import { PriorityQueue } from '/lib/priority-queue';
 
 /**
  * Corporation management script
@@ -654,6 +655,9 @@ export async function main(ns: NS): Promise<void> {
 
   const division_ios = new Map<string, {(city: CityName): void, division: string}>();
 
+  // Mean exponential average profit
+  let mea_profit = 0;
+
   /**
    * Main loop
    */
@@ -681,6 +685,42 @@ export async function main(ns: NS): Promise<void> {
           } else {
             ensure_sane_division(division);
           }
+        }
+        // If we're at a later stage of the game (steady revenue) start working on the upgrade feedback loop
+        const corp = ns.corporation.getCorporation();
+        // Threshold here: 100M
+        // Make sure this isn't a fluke/one-off excess dumping cycle by tracking revenue via moving exponential average
+        const profit_this_cycle = corp.revenue - corp.expenses;
+        mea_profit = 0.95 * mea_profit + 0.05 * profit_this_cycle;
+        if (corp.revenue - corp.expenses > 1e8) {
+          // Top priority: If we can upgrade Wilsons, do so, repeatedly
+          while (ns.corporation.getCorporation().funds > ns.corporation.getUpgradeLevelCost('Wilson Analytics')) {
+            ns.corporation.levelUpgrade('Wilson Analytics');
+          }
+          // Then repeatedly buy other upgrades, if they're cheap enough relative to our current funds
+          for (const [threshold, upgrades] of [
+            // If we can improve the stats of our employees using less than 20% of our funds, do so
+            [0.2, ['Nuoptimal Nootropic Injector Implants', 'Speech Processor Implants', 'Neural Accelerators', 'FocusWires', 'ABC SalesBots']],
+            // If we can improve production factors using less than 10% of our funds, do so
+            [0.1, ['Smart Factories', 'Smart Storage', 'Project Insight']],
+          ] satisfies [number, string[]][]) {
+            const upgrade_costs = new PriorityQueue<[string, number]>((l, r) => l[1] - r [1]);
+            upgrade_costs.heapify(...upgrades.map(d => [d, ns.corporation.getUpgradeLevelCost(d)] satisfies [string, number]));
+            do {
+              const entry = upgrade_costs.pop();
+              if (!entry) {
+                break;
+              }
+              const [upgrade, cost] = entry;
+              if (cost > threshold * ns.corporation.getCorporation().funds) {
+                break;
+              }
+              ns.corporation.levelUpgrade(upgrade);
+              upgrade_costs.push([upgrade, ns.corporation.getUpgradeLevelCost(upgrade)]);
+            // eslint-disable-next-line no-constant-condition
+            } while (true);
+          }
+          // TODO: Auto buy advertisements for main product industry, maybe upgrade offices and warehouses and hire staff?
         }
         update_import_cache();
         // The trick for I/O handling is to do everything after a cycle's production is complete, and divisons have

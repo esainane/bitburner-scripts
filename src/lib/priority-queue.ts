@@ -19,6 +19,13 @@ export class PriorityQueue<T> {
     this.comparator = comparator;
   }
 
+  heapify(...item: T[]): void {
+    this.heap = item;
+    for (let i = this.size() - 1; i >= 0; i--) {
+      this.siftDown();
+    }
+  }
+
   /**
    * Add a new item into the queue
    * @param item The item to push into the queue
