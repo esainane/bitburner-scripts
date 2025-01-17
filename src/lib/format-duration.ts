@@ -52,8 +52,13 @@ export function format_duration(time: number | Date, { relative = true, colorize
   }
   // Add absolute ISO 8601 if more than 30 seconds in the future
   if (abs_threshold >= 0 && delta > abs_threshold) {
-    const iso_str = datetime.toISOString();
-    ret += ` (${iso_str.slice(0, 10)} ${iso_str.slice(11, 19)})`;
+    try {
+      const iso_str = datetime.toISOString();
+      ret += ` (${iso_str.slice(0, 10)} ${iso_str.slice(11, 19)})`;
+    } catch (e) {
+      // But don't explode if given absurd values
+      ret += "???";
+    }
   }
   return ret;
 }
