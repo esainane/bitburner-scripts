@@ -1,0 +1,11 @@
+# .tex intermediates
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.synctex.gz
+*.toc
+
+# Also the output PDF.
+# XXX: Do we want the pdf checked in?
+*.pdf

@@ -1,0 +1,342 @@
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{comment}
+
+\setlength\parindent{0pt}
+
+\begin{document}
+
+\tableofcontents
+
+\section{Problem Statement}
+
+Generalize over the constant $$T$$
+with constraints:
+\[
+O + E + B + M \leq T
+\]
+\[
+O, E, B, M \geq 0
+\]
+
+to maximize:
+\[
+f(O, E, B, M) = \left( E^{0.34} + O^{0.2} \right) \left( 1 + \frac{M}{1.2 \left( O + E + B + M \right)} \right)
+\]
+
+\section{Analysis over O and E}
+
+\subsection{Simplification}
+
+First, observe that B cannot have a positive effect on the objective function, so we assign $B = 0$:
+
+\[
+f(O, E, M) = \left( E^{0.34} + O^{0.2} \right) \left( 1 + \frac{M}{1.2 \left( O + E + M \right)} \right)
+\]
+
+Then observe that increasing $M$ without violating $O + E + B + M \leq T$ can only have a positive effect on the objective function, so we can assume $T = O + E + M$. Use this to simplify the objective function by substituting $M = T - O - E$:
+
+\[
+f(O, E) = \left( E^{0.34} + O^{0.2} \right) \left( 1 + \frac{T - O - E}{1.2 T} \right)
+\]
+
+\subsection{Optimization}
+
+To optimize the objective function, we take the partial derivatives with respect to $O$ and $E$.
+
+\subsubsection{Find partial derivatives}
+
+Useg the product rule $\frac{\partial}{\partial O}(uv) = \frac{\partial u}{\partial O}v \cdot u\frac{\partial v}{\partial O}$. In
+
+\begin{equation}\label{eq:fuv}
+  f(O, E) = u \cdot v
+\end{equation}
+let
+\begin{equation}\label{eq:u}
+  u = E^{0.34} + O^{0.2}
+\end{equation}
+and
+\begin{equation}\label{eq:v}
+  v = 1 + \frac{T - O - E}{1.2 T}
+\end{equation}
+
+First, $\frac{\partial f}{\partial O}$. The derivatives are:
+\begin{equation}\label{eq:dudo}
+  \frac{\partial u}{\partial O} = 0.2O^{-0.8}
+\end{equation}
+and
+\begin{equation}\label{eq:dvdo}
+  \frac{\partial v}{\partial O} = -\frac{1}{1.2T}
+\end{equation}
+
+From \eqref{eq:fuv}, \eqref{eq:u}, and \eqref{eq:v}, we have:
+\begin{equation}
+  \begin{split}
+    f(O, E) & = u \cdot v \\
+    \span \text{Use sloppy notation $\frac{\partial f}{\partial E}$ = $\frac{\partial}{\partial E}f(O,E)$ for brevity} \\
+    \frac{\partial f}{\partial O} & = \frac{\partial u}{\partial O}v \cdot u + u\frac{\partial v}{\partial O}
+  \end{split}
+\end{equation}
+
+Substitute \eqref{eq:dudo}, \eqref{eq:v}, \eqref{eq:u}, and \eqref{eq:dvdo} into the above equation:
+\begin{equation}\label{eq:dfdo}
+  \begin{split}
+  \frac{\partial f}{\partial O} & = 0.2O^{-0.8}\left(1 + \frac{T - O - E}{1.2T}\right) + \left(E^{0.34} + O^{0.2}\right)\frac{-1}{1.2T} \\
+  & = 0.2O^{-0.8}\left(1 + \frac{T - O - E}{1.2T}\right) - \frac{1}{1.2T}\left(E^{0.34} + O^{0.2}\right)
+  \end{split}
+\end{equation}
+
+Repeat this process for $\frac{\partial f}{\partial E}$. The derivatives are:
+\begin{equation}\label{eq:dude}
+  \frac{\partial u}{\partial E} = 0.34E^{-0.66}
+\end{equation}
+and
+\begin{equation}\label{eq:dvde}
+  \frac{\partial v}{\partial E} = -\frac{1}{1.2T}
+\end{equation}
+
+From \eqref{eq:fuv}, \eqref{eq:u}, and \eqref{eq:v}, we have:
+\begin{equation}
+  \begin{split}
+    f(O, E) & = u \cdot v \\
+    \frac{\partial f}{\partial E} & = \frac{\partial u}{\partial E}v \cdot u + u\frac{\partial v}{\partial E}
+  \end{split}
+\end{equation}
+
+Substitute \eqref{eq:dude}, \eqref{eq:v}, \eqref{eq:u}, and \eqref{eq:dvde} into the above equation:
+\begin{equation}\label{eq:dfde}
+  \begin{split}
+  \frac{\partial f}{\partial E} & = 0.34E^{-0.66}\left(1 + \frac{T - O - E}{1.2T}\right) + \left(E^{0.34} + O^{0.2}\right)\frac{-1}{1.2T} \\
+                                & = 0.34E^{-0.66}\left(1 + \frac{T - O - E}{1.2T}\right) - \frac{1}{1.2T}\left(E^{0.34} + O^{0.2}\right)
+  \end{split}
+\end{equation}
+
+%\hrulefill
+
+\subsubsection{Find critical points}
+
+Set the partial derivatives \eqref{eq:dfdo} and \eqref{eq:dfde} to zero:
+\begin{equation}\label{eq:dfdo0}
+  0 = 0.2O^{-0.8}\left(1 + \frac{T - O - E}{1.2T}\right) - \frac{1}{1.2T}\left(E^{0.34} + O^{0.2}\right)
+\end{equation}
+and
+\begin{equation}\label{eq:dfde0}
+  0 = 0.34E^{-0.66}\left(1 + \frac{T - O - E}{1.2T}\right) - \frac{1}{1.2T}\left(E^{0.34} + O^{0.2}\right)
+\end{equation}
+
+Rearrange \eqref{eq:dfdo0} and \eqref{eq:dfde0} and dropping the common second summand:
+\begin{equation}\label{eq:dfdo0r}
+  0.2O^{-0.8}\left(1 + \frac{T - O - E}{1.2T}\right) = 0.34E^{-0.66}\left(1 + \frac{T - O - E}{1.2T}\right)
+\end{equation}
+divide both sides by $\left(1 + \frac{T - O - E}{1.2T}\right)$:
+\begin{equation}\label{eq:dfdo0r2}
+  0.2O^{-0.8} = 0.34E^{-0.66}
+\end{equation}
+divide both sides by $0.2$:
+\begin{equation}\label{eq:dfdo0r3}
+  O^{-0.8} = \frac{0.34E^{-0.66}}{0.2}
+\end{equation}
+Raise both sides to the power of $-1/0.8$, then simplifying:
+\begin{equation}\label{eq:dfdo0r4}
+  \begin{split}
+    O & = \left(\frac{0.34E^{-0.66}}{0.2}\right)^{-1/0.8} \\
+      & = \left(\frac{0.34}{0.2E^{0.66}}\right)^{-1/0.8} \\
+      & = \left(\frac{0.34}{0.2E^{0.66}}\right)^{-1.25} \\
+      & = \left(\frac{0.2E^{0.66}}{0.34}\right)^{1.25} \\
+      & = \left(\frac{0.2}{0.34}\right)^{1.25}E^{0.825} \\
+      \span \text{Let $k = \left(\frac{0.2}{0.34}\right)^{1.25}$, for simplicity} \\
+      O & = kE^{0.825}
+  \end{split}
+\end{equation}
+
+\subsubsection{Attempt to find closed form solution}
+
+Substitute \eqref{eq:dfdo0r4} into \eqref{eq:dfde0}:
+\begin{equation}\label{eq:dfde0r}
+  \begin{split}
+    0 & = 0.34E^{-0.66}\left(1 + \frac{T - O - E}{1.2T}\right) - \frac{1}{1.2T}\left(E^{0.34} + O^{0.2}\right) \\
+      & = 0.34E^{-0.66}\left(1 + \frac{T - kE^{0.825} - E}{1.2T}\right) - \frac{1}{1.2T}\left(E^{0.34} + \left(kE^{0.825}\right)^{0.2}\right) \\
+      & = 0.34E^{-0.66}\left(1 + \frac{T - kE^{0.825} - E}{1.2T}\right) - \frac{1}{1.2T}\left(E^{0.34} + k^{0.2}E^{0.165}\right) \\
+      \span \text{Let $a = 0.34E^{-0.66}\left(1 + \frac{T - kE^{0.825} - E}{1.2T}\right)$,} \\
+      \span \text{and $b=- \frac{1}{1.2T}\left(E^{0.34} + k^{0.2}E^{0.165}\right)$,} \\
+      \span \text{to work with the smaller summands.} \\
+      & = a + b \\
+  \end{split}
+\end{equation}
+
+Expand and simplify $a$:
+\begin{equation}\label{eq:simpa}
+  \begin{split}
+  a & = 0.34E^{-0.66} + \frac{0.34E^{-0.66}\left(T - kE^{0.825} - E\right)}{1.2T} \\
+    & = 0.34E^{-0.66} + \frac{0.34}{1.2}E^{-0.66} - \frac{0.34k}{1.2T}E^{0.165} - \frac{0.34}{1.2T}E^{0.34} \\
+    & = \frac{17}{50}E^{-0.66} + \frac{85}{3}E^{-0.66} - \frac{85k}{3T}E^{0.165} - \frac{85}{3T}E^{0.34} \\
+    & = \frac{51}{150}E^{-0.66} + \frac{4250}{150}E^{-0.66} - \frac{85k}{3T}E^{0.165} - \frac{85}{3T}E^{0.34} \\
+    & = \frac{4301}{150}E^{-0.66} - \frac{85k}{3T}E^{0.165} - \frac{85}{3T}E^{0.34} \\
+  \end{split}
+\end{equation}
+
+Expand and simplify $b$:
+\begin{equation}\label{eq:simpb}
+  \begin{split}
+  b & = - \frac{1}{1.2T}\left(E^{0.34} + k^{0.2}E^{0.165}\right) \\
+    & = - \frac{1}{1.2T}E^{0.34} - \frac{k^{0.2}}{1.2T}E^{0.165} \\
+    & = - \frac{5}{6T}E^{0.34} - \frac{5k^{0.2}}{6T}E^{0.165} \\
+  \end{split}
+\end{equation}
+
+Substitute \eqref{eq:simpa} and \eqref{eq:simpb} into \eqref{eq:dfde0r}:
+\begin{equation}\label{eq:dfde0r2}
+  \begin{split}
+    0 = a & + b \\
+    = \frac{4301}{150}E^{-0.66} - \frac{85k}{3T}E^{0.165} - \frac{85}{3T}E^{0.34} & - \frac{5}{6T}E^{0.34} - \frac{5k^{0.2}}{6T}E^{0.165} \\
+  \end{split}
+\end{equation}
+Gather like terms:
+\begin{equation}\label{eq:dfde0r3}
+  \begin{split}
+  0 & = \frac{4301}{150}E^{-0.66} - \frac{85k}{3T}E^{0.165} - \frac{85}{3T}E^{0.34} - \frac{5}{6T}E^{0.34} - \frac{5k^{0.2}}{6T}E^{0.165} \\
+    & = \frac{4301}{150}E^{-0.66} - \frac{170k + 5k^{0.2}}{6T}E^{0.165} - \frac{175}{6T}E^{0.34} \\
+    \span \text{Let $C_1 = \frac{4301}{150}$, $C_2 = \frac{170k + 5k^{0.2}}{6T}$, and $C_3 = \frac{175}{6T}$} \\
+    & = C_1E^{-0.66} - C_2E^{0.165} - C_3E^{0.34} \\
+    \span \text{Let $E^\prime = E^{0.165}$. Note ${E^\prime}^2 = E^{0.34} \approx E^{0.33}$} \\
+    & = C_1{E^\prime}^{-4} - C_2E^\prime - C_3{E^\prime}^2 \\
+    & = C_1{E^\prime}^{-4} - C_2E^\prime - C_3{E^\prime}^{2*\frac{0.33}{0.34}} \\
+    \span \text{Elide the constant $\frac{0.33}{0.34}$ as very close to $1$} \\
+    & \approx C_1{E^\prime}^{-4} - C_2E^\prime - C_3{E^\prime}^2 \\
+    \span \text{Assume $E^\prime \ne 0$, multiply by ${E^\prime}^4$} \\
+    & = C_1 - C_2{E^\prime}^5 - C_3{E^\prime}^6 \\
+    & = C_3{E^\prime}^6 + C_2{E^\prime}^5 - C_1 \\
+  \end{split}
+\end{equation}
+
+There is no general solution for a sixth degree polynomial. We could use Newton-Raphson to iteratively solve for $E$ and $O$.
+
+\hrulefill
+
+TODO: Analyze an $f(E, M)$ form instead.
+
+\begin{comment}
+Substitute $k = \left(\frac{0.2}{0.34}\right)^{1.25}$:
+\begin{equation}\label{eq:dfde0r4}
+  \begin{split}
+  0 & = \frac{4301}{150}E^{-0.66} - \frac{170\left(\frac{0.2}{0.34}\right)^{1.25} + 5\left(\frac{0.2}{0.34}\right)^{0.25}}{6T}E^{0.165} - \frac{175}{6T}E^{0.34} \\
+    & = \frac{4301}{150}E^{-0.66} - \frac{170\left(\frac{0.2}{0.34}\right)^{1.25} + 5\left(\frac{0.2}{0.34}\right)^{0.25}}{6T}E^{0.165} - \frac{175}{6T}E^{0.34} \\
+  \end{split}
+\end{equation}
+\end{comment}
+
+%\newpage
+
+\section{Analysis over E and M}
+
+\subsection{Simplification}
+
+Again, observe that B cannot have a positive effect on the objective function, and leaving the $T$ budget partially unallocated cannot improve the objective function.
+
+Assign $B = 0$:
+
+\[
+f(E, O, M) = \left( E^{0.34} + O^{0.2} \right) \left( 1 + \frac{M}{1.2 \left( O + E + M \right)} \right)
+\]
+
+Substitute $O = T - E - M$:
+
+\[
+f(E, M) = \left( E^{0.34} + \left( T - E - M \right)^{0.2} \right) \left( 1 + \frac{M}{1.2 T} \right)
+\]
+
+\subsection{Optimization}
+
+Take the partial derivatives with respect to $E$ and $M$.
+
+\subsection{Find partial derivatives}
+
+First, $\frac{\partial f}{\partial E}$:
+\begin{equation}\label{eq:2dfde}
+  \begin{aligned}
+    f(E, M) & = \left( E^{0.34} + \left( T - E - M \right)^{0.2} \right) \left( 1 + \frac{M}{1.2 T} \right) \\
+    \frac{\partial f}{\partial E} & = \frac{\partial}{\partial E}\left[\left( E^{0.34} + \left( T - E - M \right)^{0.2} \right) \left( 1 + \frac{M}{1.2 T} \right)\right] \\
+    & = \frac{\partial}{\partial E}\left[
+      \left( 1 + \frac{M}{1.2 T} \right) E^{0.34} + \left( 1 + \frac{M}{1.2 T} \right) \left( T - E - M \right)^{0.2}
+    \right] \\
+    & = 0.34\left( 1 + \frac{M}{1.2 T} \right)E^{-0.66} - \left( 1 + \frac{M}{1.2 T} \right)0.2\left( T - E - M \right)^{-0.8} \\
+  \end{aligned}
+\end{equation}
+
+Then $\frac{\partial f}{\partial M}$. Using the product rule $\frac{\partial}{\partial M}(uv) = \frac{\partial u}{\partial M}v \cdot u + u\frac{\partial v}{\partial M}$. In:
+
+\begin{equation}\label{eq:2fuv}
+  f(E, M) = u \cdot v
+\end{equation}
+let
+\begin{equation}\label{eq:2u}
+  u = E^{0.34} + \left( T - E - M \right)^{0.2}
+\end{equation}
+and
+\begin{equation}\label{eq:2v}
+  v = 1 + \frac{M}{1.2 T}
+\end{equation}
+
+The derivatives are:
+\begin{equation}\label{eq:2dudm}
+  \frac{\partial u}{\partial M} = - 0.2\left( T - E - M \right)^{-0.8}
+\end{equation}
+and
+\begin{equation}\label{eq:2dvdm}
+  \frac{\partial v}{\partial M} = \frac{1}{1.2 T}
+\end{equation}
+
+From \eqref{eq:2fuv}, \eqref{eq:2u}, and \eqref{eq:2v}, we have:
+\begin{equation}
+  \begin{split}
+    f(E, M) & = u \cdot v \\
+    \frac{\partial f}{\partial M} & = \frac{\partial u}{\partial M}v + u\frac{\partial v}{\partial M}
+  \end{split}
+\end{equation}
+
+Substitute \eqref{eq:2dudm}, \eqref{eq:2v}, \eqref{eq:2u}, and \eqref{eq:2dvdm} into the above equation:
+\begin{equation}\label{eq:2dfdm}
+  \begin{split}
+    \frac{\partial f}{\partial M} & = - 0.2\left( T - E - M \right)^{-0.8}\left( 1 + \frac{M}{1.2 T} \right) + \left( E^{0.34} + \left( T - E - M \right)^{0.2} \right)\frac{1}{1.2 T} \\
+    & = - 0.2\left( T - E - M \right)^{-0.8}\left( 1 + \frac{M}{1.2 T} \right) + \frac{E^{0.34} + \left( T - E - M \right)^{0.2}}{1.2 T} \\
+  \end{split}
+\end{equation}
+
+\subsection{Find critical points}
+
+Set the partial derivatives \eqref{eq:2dfde} and \eqref{eq:2dfdm} to zero:
+
+\begin{equation}\label{eq:2dfde0}
+  \begin{split}
+    0 & = \frac{\partial f}{\partial E} \\
+    & = 0.34\left( 1 + \frac{M}{1.2 T} \right)E^{-0.66} - \left( 1 + \frac{M}{1.2 T} \right)0.2\left( T - E - M \right)^{-0.8} \\
+    & = 0.34\left( 1 + \frac{M}{1.2 T} \right)E^{-0.66} - 0.2\left( 1 + \frac{M}{1.2 T} \right)\left( T - E - M \right)^{-0.8} \\
+    \span \text{$M$ and $T$ are positive, so $1 + \frac{M}{1.2T} \ne 0$} \\
+    & = 0.34E^{-0.66} - 0.2\left( T - E - M \right)^{-0.8} \\
+  \end{split}
+\end{equation}
+and
+\begin{equation}\label{eq:2dfdm0}
+  \begin{split}
+    0 & = \frac{\partial f}{\partial M} \\
+    & = - 0.2\left( T - E - M \right)^{-0.8}\left( 1 + \frac{M}{1.2 T} \right) + \frac{E^{0.34} + \left( T - E - M \right)^{0.2}}{1.2 T} \\
+    & = \frac{E^{0.34} + \left( T - E - M \right)^{0.2}}{1.2 T} - 0.2\left( T - E - M \right)^{-0.8}\left( 1 + \frac{M}{1.2 T} \right) \\
+    & = \frac{E^{0.34} + \left( T - E - M \right)^{0.2}}{1.2 T} - 0.2\left( 1 + \frac{M}{1.2 T} \right)\left( T - E - M \right)^{-0.8} \\
+  \end{split}
+\end{equation}
+
+Rearrange \eqref{eq:2dfde0} and \eqref{eq:2dfdm0}, and dropping the common second summand:
+\begin{equation}\label{eq:2dfde0r}
+  \begin{split}
+    0.34\left( 1 + \frac{M}{1.2 T} \right)E^{-0.66} & = \frac{E^{0.34} + \left( T - E - M \right)^{0.2}}{1.2 T} \\
+    %0.34E^{-0.66} + \frac{0.34M}{1.2T}E^{-0.66} & = \\
+    %1.2T \cdot 0.34E^{-0.66} + 0.34M E^{-0.66} & = E^{0.34} + \left( T - E - M \right)^{0.2} \\
+    0.34\left(1.2T + M\right)E^{-0.66} & = E^{0.34} + \left( T - E - M \right)^{0.2} \\
+    0.34\left(1.2T + M\right) & = E^{0.34}E^{0.66} + \left( T - E - M \right)^{0.2}E^{0.66} \\
+    & = E + \left( T - E - M \right)^{0.2}E^{0.66} \\
+  \end{split}
+\end{equation}
+
+This doesn't seem fruitful, and by symmetry of E and O, it seems unlikely that analysis over $O$ and $M$ would be any different.
+
+\end{document}
