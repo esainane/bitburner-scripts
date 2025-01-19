@@ -4,6 +4,8 @@ import { panic } from '/lib/panic';
 import { PriorityQueue } from '/lib/priority-queue';
 import { format_currency } from '/lib/format-money';
 
+const do_check_clog = false;
+
 /**
  * Corporation management script
  *
@@ -601,6 +603,9 @@ export async function main(ns: NS): Promise<void> {
     ))]));
 
     const check_clog = (material_data: Material, city: CityName) => {
+      if (do_check_clog) {
+        return false;
+      }
       const clogged_entry = clogged_tracker.get(material_data.name);
       // If it's not an output we're tracking, ignore it
       if (clogged_entry === undefined) {
