@@ -211,10 +211,6 @@ Gather like terms:
 
 There is no general solution for a sixth degree polynomial. We could use Newton-Raphson to iteratively solve for $E$ and $O$.
 
-\hrulefill
-
-TODO: Analyze an $f(E, M)$ form instead.
-
 \begin{comment}
 Substitute $k = \left(\frac{0.2}{0.34}\right)^{1.25}$:
 \begin{equation}\label{eq:dfde0r4}
@@ -249,7 +245,7 @@ f(E, M) = \left( E^{0.34} + \left( T - E - M \right)^{0.2} \right) \left( 1 + \f
 
 Take the partial derivatives with respect to $E$ and $M$.
 
-\subsection{Find partial derivatives}
+\subsubsection{Find partial derivatives}
 
 First, $\frac{\partial f}{\partial E}$:
 \begin{equation}\label{eq:2dfde}
@@ -302,7 +298,7 @@ Substitute \eqref{eq:2dudm}, \eqref{eq:2v}, \eqref{eq:2u}, and \eqref{eq:2dvdm} 
   \end{split}
 \end{equation}
 
-\subsection{Find critical points}
+\subsubsection{Find critical points}
 
 Set the partial derivatives \eqref{eq:2dfde} and \eqref{eq:2dfdm} to zero:
 
@@ -338,5 +334,229 @@ Rearrange \eqref{eq:2dfde0} and \eqref{eq:2dfdm0}, and dropping the common secon
 \end{equation}
 
 This doesn't seem fruitful, and by symmetry of E and O, it seems unlikely that analysis over $O$ and $M$ would be any different.
+
+\section{Analysis over O, E, and M}
+
+Analysing all three variables simultaneously is more work at the end. However, for calculating the partial derivatives, it means fewer terms depend on the variable being differentiated.
+
+\subsection{Optimization}
+
+Take the partial derivatives with respect to $O$, $E$, and $M$.
+
+\subsubsection{Find partial derivatives}
+
+First, $\frac{\partial f}{\partial O}$:
+
+\begin{equation}\label{eq:3dfdo}
+  \begin{aligned}
+    f(O, E, M) & = \left( E^{0.34} + O^{0.2} \right) \left( 1 + \frac{M}{1.2 T} \right) \\
+    \frac{\partial f}{\partial O} & = \frac{\partial}{\partial O}\left[\left( E^{0.34} + O^{0.2} \right) \left( 1 + \frac{M}{1.2 T} \right)\right] \\
+    & = \frac{\partial}{\partial O}\left[
+      \left( 1 + \frac{M}{1.2 T} \right) E^{0.34} + \left( 1 + \frac{M}{1.2 T} \right) O^{0.2}
+    \right] \\
+    & = 0.2\left( 1 + \frac{M}{1.2 T} \right)O^{-0.8} \\
+  \end{aligned}
+\end{equation}
+
+Then $\frac{\partial f}{\partial E}$:
+
+\begin{equation}\label{eq:3dfde}
+  \begin{aligned}
+    f(O, E, M) & = \left( E^{0.34} + O^{0.2} \right) \left( 1 + \frac{M}{1.2 T} \right) \\
+    \frac{\partial f}{\partial E} & = \frac{\partial}{\partial E}\left[\left( E^{0.34} + O^{0.2} \right) \left( 1 + \frac{M}{1.2 T} \right)\right] \\
+    & = \frac{\partial}{\partial E}\left[
+      \left( 1 + \frac{M}{1.2 T} \right) E^{0.34} + \left( 1 + \frac{M}{1.2 T} \right) O^{0.2}
+    \right] \\
+    & = 0.34\left( 1 + \frac{M}{1.2 T} \right)E^{-0.66} \\
+  \end{aligned}
+\end{equation}
+
+Finally, $\frac{\partial f}{\partial M}$:
+
+\begin{equation}\label{eq:3dfdm}
+  \begin{aligned}
+    f(O, E, M) & = \left( E^{0.34} + O^{0.2} \right) \left( 1 + \frac{M}{1.2 T} \right) \\
+    \frac{\partial f}{\partial M} & = \frac{\partial}{\partial M}\left[\left( E^{0.34} + O^{0.2} \right) \left( 1 + \frac{M}{1.2 T} \right)\right] \\
+    & = \frac{1}{1.2 T}\left( E^{0.34} + O^{0.2} \right) \\
+  \end{aligned}
+\end{equation}
+
+\subsubsection{Find critical points}
+
+Unlike the earlier attempts, we can't just set the partial derivates to 0, as all parameters are free variables which do not encode the constraint function in any way. There is no point at which the partial derivatives are 0, as the solution is (currently) unconstrained.
+
+To solve this, we use the Lagrange multiplier method. We introduce a new variable $\lambda$ and solve the system of equations:
+
+\begin{equation}\label{eq:3lagrange}
+  \begin{aligned}
+    \frac{\partial f}{\partial O} & = \lambda \frac{\partial g}{\partial O} \\
+    \frac{\partial f}{\partial E} & = \lambda \frac{\partial g}{\partial E} \\
+    \frac{\partial f}{\partial M} & = \lambda \frac{\partial g}{\partial M} \\
+    g(O, E, M) & = O + E + M - T \\
+  \end{aligned}
+\end{equation}
+
+The constraint partial derivatives are trivial:
+\begin{gather}
+  \frac{\partial g}{\partial O} = 1 \\
+  \frac{\partial g}{\partial E} = 1 \\
+  \frac{\partial g}{\partial M} = 1
+\end{gather}
+
+Substitute \eqref{eq:3dfdo}, \eqref{eq:3dfde}, and \eqref{eq:3dfdm} into \eqref{eq:3lagrange}:
+
+\begin{equation}\label{eq:3lagrange2}
+  \begin{aligned}
+    0.2\left( 1 + \frac{M}{1.2 T} \right)O^{-0.8} & = \lambda \\
+    0.34\left( 1 + \frac{M}{1.2 T} \right)E^{-0.66} & = \lambda \\
+    \frac{1}{1.2 T}\left( E^{0.34} + O^{0.2} \right) & = \lambda \\
+    O + E + M - T & = 0 \\
+  \end{aligned}
+\end{equation}
+
+\subsubsection{Solve the system}
+
+From the first two equations in \eqref{eq:3lagrange2}:
+\begin{equation}\label{eq:3lagrange3}
+  0.2\left( 1 + \frac{M}{1.2 T} \right)O^{-0.8} = 0.34\left( 1 + \frac{M}{1.2 T} \right)E^{-0.66}
+\end{equation}
+
+Divide both sides by $0.2\left( 1 + \frac{M}{1.2 T} \right)$:
+\begin{equation}\label{eq:3lagrange4}
+  O^{-0.8} = \frac{0.34E^{-0.66}}{0.2}
+\end{equation}
+
+Raise both sides to the power of $-1/0.8$, then simplify:
+\begin{equation}\label{eq:3lagrange5}
+  \begin{split}
+    O & = \left(\frac{0.34E^{-0.66}}{0.2}\right)^{-1/0.8} \\
+      & = \left(\frac{0.34}{0.2E^{0.66}}\right)^{-1/0.8} \\
+      & = \left(\frac{0.34}{0.2E^{0.66}}\right)^{-1.25} \\
+      & = \left(\frac{0.2E^{0.66}}{0.34}\right)^{1.25} \\
+      & = \left(\frac{0.2}{0.34}\right)^{1.25}E^{0.825} \\
+      & = kE^{0.825} \\ % Oh hi, welcome back. We rediscovered eq:dfdo0r4, which leads some confidence to 5:50am hyperfocus calculus
+  \end{split}
+\end{equation}
+
+We rediscovered \eqref{eq:dfdo0r4}, so reused $k = \left(\frac{0.2}{0.34}\right)^{1.25}$.
+
+\hrulefill
+
+Repeat this process to define $M$ in terms of $E$:
+
+\begin{equation}\label{eq:3lagrange6}
+  \begin{split}
+    0.34\left( 1 + \frac{M}{1.2 T} \right)E^{-0.66} & = \frac{1}{1.2 T}\left( E^{0.34} + O^{0.2} \right) \\
+    & = \frac{1}{1.2 T}\left( E^{0.34} + (kE^{0.825})^{0.2} \right) \\
+    & = \frac{1}{1.2 T}\left( E^{0.34} + k^{0.2}E^{0.165} \right) \\
+    0.34E^{-0.66} + \frac{0.34}{1.2 T}M E^{-0.66} & = \frac{1}{1.2 T}\left( E^{0.34} + k^{0.2}E^{0.165} \right) \\
+    \frac{0.34}{1.2 T}M E^{-0.66} & = \frac{1}{1.2 T}\left( E^{0.34} + k^{0.2}E^{0.165} \right) - 0.34E^{-0.66} \\
+  \end{split}
+\end{equation}
+
+Multiply both sides by $\frac{1.2 T E^{0.66}}{0.34}$ and simplify:
+
+\begin{equation}\label{eq:3lagrange7}
+  \begin{split}
+    M & = \frac{E^{0.66}}{0.34}\left( E^{0.34} + k^{0.2}E^{0.165} \right) - 1.2 T \\
+    & = \frac{1}{0.34}\left( E + k^{0.2}E^{0.825} \right) - 1.2 T \\
+  \end{split}
+\end{equation}
+
+\hrulefill
+
+Substitute into the constraint function:
+
+\begin{equation}\label{eq:3lagrange8}
+  \begin{split}
+    0 & = O + E + M - T \\
+    & = \left( kE^{0.825} \right) + \left( E \right) + \left( \frac{1}{0.34}\left( E + k^{0.2}E^{0.825} \right) - 1.2 T \right) - T \\
+    & = kE^{0.825} + E + \frac{1}{0.34}\left( E + k^{0.2}E^{0.825} \right) - 1.2 T - T \\
+    & = kE^{0.825} + E + \frac{1}{0.34}E + \frac{1}{0.34}k^{0.2}E^{0.825} - 1.2 T - T \\
+    & = \left( 1 + \frac{1}{0.34} \right)E + (k + \frac{1}{0.34}k^{0.2})E^{0.825} - 2.2 T \\
+    & = \left( 1 + \frac{50}{17} \right)E + (k + \frac{50}{17}k^{0.2})E^{0.825} - 2.2 T \\
+    & = \frac{67}{17}E + (k + \frac{50}{17}k^{0.2})E^{0.825} - 2.2 T \\
+  \end{split}
+\end{equation}
+
+Rearrange and divide through by 2.2
+
+\begin{equation}\label{eq:3lagrange9}
+  \begin{split}
+    0 & = \frac{67}{17}E + (k + \frac{50}{17}k^{0.2})E^{0.825} - 2.2 T \\
+    2.2 T & = \frac{67}{17}E + (k + \frac{50}{17}k^{0.2})E^{0.825} \\
+    T & = \frac{67}{17 * 2.2}E + (\frac{k}{2.2} + \frac{50}{17 * 2.2}k^{0.2})E^{0.825} \\
+    T & = \frac{335}{187}E + (\frac{5k}{11} + \frac{250}{187}k^{0.2})E^{0.825} \\
+  \end{split}
+\end{equation}
+
+Let $C_1 = \frac{335}{187}$, $C_2 = \frac{5}{11}k + \frac{250}{187}k^{0.2}$:
+
+\begin{equation}\label{eq:3lagrange10}
+  T = C_1E + C_2E^{0.825}
+\end{equation}
+
+\subsection{Closed form approximation of $E$}
+
+With terms of $E$ including the linear $E$ and a non-linear $E^{0.825}$, a closed form finite expression for $E$ is not immediately obvious, or likely feasible. However, we can use a recurrence relation to approximate $E$.
+
+\subsubsection{Recurrence relation analysis}
+
+We can rearrange \eqref{eq:3lagrange10} to express $E$ in terms of $T$ and a diminishing term $E^{0.825}$:
+
+\begin{equation}
+  E = \frac{T - C_2E^{0.825}}{C_1}
+\end{equation}
+
+Expressed as a recurrence relation starting with $E_0 = 0$, $E_1 = \frac{T}{C_1}$, and $E_n = \frac{T - C_2E_{n-1}^{0.825}}{C_1}$, ...:
+
+\begin{gather}
+  E_0 = 0 \\
+  E_{n+1} = \frac{T - C_2E_n^{0.825}}{C_1}
+\end{gather}
+
+Illustrating the recurrence by examining $E$ at $n=3$:
+
+\begin{equation}
+  E_3 = \frac{T - C_2\left(\frac{T - C_2\left(\frac{T - 0}{C_1}\right)^{0.825}}{C_1}\right)^{0.825}}{C_1}
+\end{equation}
+
+Or as a series of terms:
+
+\begin{equation}
+  \begin{split}
+    E_3 & = \frac{T}{C_1} - \frac{C_2T^{0.825}}{C_1^{1.825}} + \frac{C_2^{1.825}T^{0.825^{2}}}{C_1^{2.65}} \\
+        \span \text{As in:} \\
+        & = \frac{T^{0.825^{0}}}{C_1^{1+0.825*0}} - \frac{C_2T^{0.825^{1}}}{C_1^{1+0.825*1}} + \frac{C_2^{1.825}T^{0.825^{2}}}{C_1^{1+0.825*2}} \\
+  \end{split}
+\end{equation}
+
+More generally, the exact solution for $E$ is the infinite series:
+
+\begin{equation}\label{eq:infiniteE}
+  E = \frac{T}{C_1} + \sum_{i=1}^{\infty} \frac{(-1)^i C_2^{1+(i-1)0.825}T^{0.825^i}}{C_1^{1+0.825i}}
+\end{equation}
+
+\subsubsection{Solution through infinite series truncation}
+
+\eqref{eq:infiniteE} yields a closed form solution through infinite series truncation. In practice, five terms are sufficient to maintain absolute error $e=\left| E-E_5 \right| < 0.1$, $\forall T : 1 \leq T \leq 10^7$. Empirically, $e$ is decreasing as $T$ increases, so the maximum error is at $T=1$ where $e \approx 0.0950103610107\dots$
+
+\newpage
+
+Define closed form solutions for all parameters, starting with $E$, then use $E$ to define $O$ and $M$:
+
+\begin{gather}
+  E = \frac{T}{C_1} + \sum_{i=1}^{5} \frac{(-1)^i C_2^{1+(i-1)0.825}T^{0.825^i}}{C_1^{1+0.825i}} \\
+  O = kE^{0.825} \\
+  M = T - O - E
+\end{gather}
+
+The final set of constants used:
+
+\begin{gather}
+  C_1 = \frac{335}{187} \\
+  C_2 = \frac{5}{11}k + \frac{250}{187}k^{0.2} \\
+  k = \left(\frac{0.2}{0.34}\right)^{1.25}
+\end{gather}
 
 \end{document}
