@@ -375,8 +375,9 @@ export async function main(ns: NS): Promise<void> {
 
   // TODO: Special handling for neuroflux
   // TODO: Special handling for Shadows of Anarchy
-  for (const priority of priorities) {
+  for (const [prioritiy_level, priority] of priorities.entries()) {
     // Determine all augmentations available at this priority level
+    ns.tprint(`INFO Selecting augmentations at priority level ${prioritiy_level + 1}: (${priority.map(d => format_servername(d)).join(', ')})`);
     const available_augmentations = [];
     for (const aug of new Set(priority.reduce((acc: AugData[], category_or_augname: string) => {
       // If this is a category, add everything in it
@@ -562,9 +563,9 @@ export async function main(ns: NS): Promise<void> {
       }
       // DEBUG: Annouce the changes.
       if (insertion_point === selected.length) {
-        // ns.tprint('INFO Appending ', format_servername(aug.name), ' at ', insertion_point, '; new cost: ', format_currency(next_cost));
+        ns.tprint('INFO Appending ', format_servername(aug.name), ' at ', insertion_point, '; new cost: ', format_currency(next_cost));
       } else {
-        // ns.tprint('INFO Inserting ', format_servername(aug.name), ' at ', insertion_point, ' of ', selected.length, '; new cost: ', format_currency(next_cost));
+        ns.tprint('INFO Inserting ', format_servername(aug.name), ' at ', insertion_point, ' of ', selected.length, '; new cost: ', format_currency(next_cost));
       }
       // Finally, apply the changes.
       selected = next_selected;
