@@ -38,18 +38,11 @@ interface DepTree {
   total_cost: number;
 }
 
-// Represents a single specific augmentation
-interface AugData {
-  /// For pattrern matching as a PlanEntry
-  deptree: false;
+export interface AugBaseData {
   /// Augmentation name
   name: string;
-  /// List of factions which supply this augmentation, to be sorted by most suitable first
-  supplier_factions: FactionData[];
   /// Base cost of this augmentation, ignoring all scaling factors
   price: number;
-  /// Reputation before this can be purchased from a faction
-  rep: number;
   /// Augmentations required before this augmentation can be installed
   prereqs: string[];
   /// Augmentations required before this augmentation can be installed, simplified where possible
@@ -62,6 +55,16 @@ interface AugData {
   categories: string[];
 }
 
+// Represents a single specific augmentation
+interface AugData extends AugBaseData {
+  /// For pattrern matching as a PlanEntry
+  deptree: false;
+  /// List of factions which supply this augmentation, to be sorted by most suitable first
+  supplier_factions: FactionData[];
+  /// Reputation before this can be purchased from a faction
+  rep: number;
+}
+
 interface FactionData {
   name: string;
   rep: number;
@@ -69,7 +72,7 @@ interface FactionData {
   supplied_augs: string[];
 }
 
-const aug_categories: Map<string, (a: AugData) => boolean> = new Map([
+export const aug_categories: Map<string, (a: AugBaseData) => boolean> = new Map([
   // Augmentations which respectively boost raw hacking skill, hacking experience gain, and hacking performance
   ['hskill', (a) => a.mults.hacking > 1],
   ['hexp', (a) => a.mults.hacking_exp > 1],
@@ -91,7 +94,10 @@ const aug_categories: Map<string, (a: AugData) => boolean> = new Map([
   // Augmentations which improve job payout
   ['job', (a) => a.mults.work_money > 1],
   // TODO: Handling for Shadows of Anarchy
-  ['ALL', (a) => a.supplier_factions.length !== 1 || a.supplier_factions[0].name !== 'Shadows of Anarchy'],
+  ['ALL', (a) => Object.hasOwn(a, 'supplier_factions')
+    ? (a as AugData).supplier_factions.length !== 1 || (a as AugData).supplier_factions[0].name !== 'Shadows of Anarchy'
+    : true
+  ],
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -101,7 +107,7 @@ export function autocomplete(data : AutocompleteData, args : string[]) : string[
 
 const plus = `${colors.fg_red}+${colors.reset}`;
 
-function categorize(ns: NS, aug_data: AugData, categories: Map<string, AugData[]>) {
+export function categorize_aug<T extends AugBaseData>(ns: NS, aug_data: T, categories: Map<string, T[]>) {
   aug_data.categories = [...aug_categories.entries().filter(([_, f]) => f(aug_data)).map(([k, _]) => k)];
   for (const cat of aug_data.categories) {
     categories.get(cat)?.push(aug_data);
@@ -133,7 +139,7 @@ export async function main(ns: NS): Promise<void> {
         categories: [],
         deptree: false,
       };
-      categorize(ns, aug_data, categories);
+      categorize_aug(ns, aug_data, categories);
       augmentations.set(aug, aug_data);
     }
     for (const faction of joined_factions) {
@@ -163,7 +169,7 @@ export async function main(ns: NS): Promise<void> {
             categories: [],
             deptree: false,
           };
-          categorize(ns, aug_data, categories);
+          categorize_aug(ns, aug_data, categories);
           augmentations.set(aug, aug_data);
         }
       }
