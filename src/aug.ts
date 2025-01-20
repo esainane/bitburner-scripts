@@ -245,9 +245,9 @@ export async function main(ns: NS): Promise<void> {
     const favor_have = fac_data.favor;
     if (favor_have >= 150) {
       const money_needed = money_for_rep(ns, rep_shortfall);
-      return `${colors.fg_cyan}${fac_data.name}${colors.reset}[${format_currency(money_needed)}/${plus}${format_number(rep_shortfall)} rep]`;
+      return `${colors.fg_cyan}${fac_data.name}${colors.reset}[${format_currency(money_needed)}/${plus}${format_number(rep_shortfall)}r]`;
     }
-    return `${colors.fg_yellow}${fac_data.name}${colors.reset}[${plus}${format_number(rep_shortfall, { round: 1 })} rep]`;
+    return `${colors.fg_yellow}${fac_data.name}${colors.reset}[${plus}${format_number(rep_shortfall, { round: 1 })}r]`;
   };
   // Print out the information we've gathered
   const opts = [];
@@ -268,7 +268,9 @@ export async function main(ns: NS): Promise<void> {
           : `[${aug_data.supplier_factions.map(d=>`${format_aug_faction(d, aug_data.rep)}`).join(', ')}]`,
         aug_data.prereqs_simple.map(d => format_servername(d)).join(', '),
         categories.length > 0
-          ? `(${categories.map(d=>`${colors.fg_magenta}${d}${colors.reset}`).join(', ')})`
+          ? aug_data.name === 'NeuroFlux Governor'
+            ? `(${colors.fg_cyan}ALL${colors.reset})`
+            :`(${categories.map(d=>`${colors.fg_magenta}${d}${colors.reset}`).join(', ')})`
           : `(${colors.fg_red}???${colors.reset})`,
       );
     }
