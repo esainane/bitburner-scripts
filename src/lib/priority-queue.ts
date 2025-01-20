@@ -64,6 +64,10 @@ export class PriorityQueue<T> {
     return this.heap.length;
   }
 
+  public clear(): void {
+    this.heap = [];
+  }
+
   private parent = (i: number): number => ((i+1) >>> 1) - 1;
   private leftChild = (i: number): number => (i << 1) + 1;
   private rightChild = (i: number): number => (i + 1) << 1;

@@ -79,6 +79,11 @@ export class BladeburnerUpgrader {
 
   constructor(ns: NS) {
     this.queue = new PriorityQueue<UpgradeEntry>((l, r) => l.priority - r.priority);
+    this.init(ns);
+  }
+
+  private init(ns: NS) {
+    this.queue.clear();
     const skills = ns.bladeburner.getSkillNames();
     for (const skill of skills) {
       const new_entry = this.calculate_upgrade_priority(ns, skill);
@@ -106,6 +111,9 @@ export class BladeburnerUpgrader {
       const success = ns.bladeburner.upgradeSkill(skill);
       if (!success) {
         ns.tprint(`WARNING: Failed to upgrade ${skill} when we expected to (did the player perform manual upgrades?)`);
+        // State is broken, rebuild
+        this.init(ns);
+        continue;
       }
       const new_entry = this.calculate_upgrade_priority(ns, skill);
       if (!new_entry) {
