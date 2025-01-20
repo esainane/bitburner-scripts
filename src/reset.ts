@@ -1,6 +1,11 @@
-import { FilenameOrPID, NS, ScriptArg } from '@ns'
+import { AutocompleteData, FilenameOrPID, NS, ScriptArg } from '@ns'
 import { ThreadAllocator } from '/lib/thread-allocator';
 import { singularity_async } from '/lib/singu';
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
+  return ['--aug-strategy='];
+}
 
 async function wait_for_script_finish(ns: NS, script: FilenameOrPID, host?: string, ...args: ScriptArg[]) {
   while (ns.isRunning(script, host, ...args)) {
@@ -8,10 +13,63 @@ async function wait_for_script_finish(ns: NS, script: FilenameOrPID, host?: stri
   }
 }
 
+const default_aug_args = [
+  // Prioritizing special augmentations first
+  'CashRoot Starter Kit', 'Neuroreceptor Management Implant', ';',
+  // Then anything which improves hacking skill
+  'hskill', ';',
+  // Then anything which improves hacking experience or hacking effectiveness
+  'hexp', 'hack', ';',
+  // Then anything which improves faction reputation gain
+  'frep', ';',
+  // Then anything which improves combat
+  'cskill', 'cexp', ';',
+  // Then everything else
+  'ALL'
+];
+const bladeburner_aug_args = [
+  // Prioritizing special augmentations first
+  // TBS is so critical it gets its own priority phase
+  "The Blade's Simulacrum", ';',
+  'CashRoot Starter Kit', 'Neuroreceptor Management Implant', ';',
+  // Then all bladeburner augmentations
+  'bladeburner', ';',
+  // Then all combat augmentations
+  'cskill', 'cexp', ';',
+  // Then anything which improves faction reputation gain
+  'frep', ';',
+  // Hacking skill and performance is sometimes relevant
+  'hskill', 'hexp', 'hack', ';',
+  // Then everything else
+  'ALL'
+];
+const aug_args_by_bn = new Map<number, string[]>([
+  [3, [
+    'CashRoot Starter Kit', 'Neuroreceptor Management Implant', ';',
+    // Hashes are the only way we can externally influence our corporation; 1k RP at a time for EVERY division is OP,
+    // and +1b corp funds is pretty big too until the very lategame
+    'hacknet', ';',
+    // Faction reputation is still relevant, and hacking skill is our victory condition
+    'frep', 'hskill', ';',
+    // Hacking skill and power is still somewhat relevant
+    'hexp', 'hack', ';',
+    // Combat skill and exp is sometimes relevant
+    'cskill', 'cexp', ';',
+    // Everything else
+    'ALL'
+  ]],
+  [6, bladeburner_aug_args],
+  [7, bladeburner_aug_args],
+]);
+
+function get_aug_args(bn: number): string[] {
+  return aug_args_by_bn.get(bn) ?? default_aug_args;
+}
 
 export async function main(ns: NS): Promise<void> {
   ns.ramOverride(6.05);
   const skip_finalize = ns.args.includes('--skip-finalize');
+  const override_strategy = ns.args.map(String).filter(d => d.startsWith('--aug-strategy=')).map(d => d.split('=', 1)[0])[0];
 
   const singu = singularity_async(ns);
 
@@ -29,18 +87,7 @@ export async function main(ns: NS): Promise<void> {
       // Spend all available money
       ['sleeve-augs.js'], // Buy any augmentations available for sleeves
       ['aug.js', '--live', // Buy any augmentations for the player; priorities determine which augmentations are selected, but the script will buy them in optimal order
-        // Prioritizing special augmentations first
-        'CashRoot Starter Kit', 'Neuroreceptor Management Implant', ';',
-        // Then anything which improves hacking skill
-        'hskill', ';',
-        // Then anything which improves hacking experience or hacking effectiveness
-        'hexp', 'hack', ';',
-        // Then anything which improves faction reputation gain
-        'frep', ';',
-        // Then anything which improves combat
-        'cskill', 'cexp', ';',
-        // Then everything else
-        'ALL'
+        ...get_aug_args(override_strategy !== undefined ? parseInt(override_strategy) : ns.getResetInfo().currentNode)
         // TODO: When Neuroflux Governer handling is added, add it here, and finish with The Red Pill.
         // We currently may be reducing the number of Neuroflux Governors we could be buying by buying
         // The Red Pill (which, while important, has no monetary cost) early.
