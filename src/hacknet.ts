@@ -5,7 +5,7 @@ import { range } from '/lib/range';
 import { format_duration } from '/lib/format-duration';
 
 export function autocomplete(data: string[], args: string[]): string[] {
-  return ['--no-sell', '--no-buy', '--sell', '--corp', '--cct', '--hack'];
+  return ['--no-sell', '--no-buy', '--sell', '--corp', '--cct', '--hack', '--bladeburner'];
 }
 
 /**
@@ -147,6 +147,39 @@ function sell_money(ns: NS): boolean {
   return false;
 }
 
+function sell_bladeburner(ns: NS): boolean {
+  const max_hashes = ns.hacknet.hashCapacity();
+
+  const rank_upgrade = 'Exchange for Bladeburner Rank';
+  const sp_upgrade = 'Exchange for Bladeburner SP';
+
+  // Buying bladeburner ranks also gives 33 bladeburner skill points, while buying SP directly gives 10
+  const rank_bias = 33 / 10;
+
+  let rank_cost = ns.hacknet.hashCost(rank_upgrade);
+  let sp_cost = ns.hacknet.hashCost(sp_upgrade);
+
+
+  do {
+    const rank_selected = rank_cost * rank_bias < sp_cost;
+    const cost = ns.hacknet.hashCost(rank_selected ? rank_upgrade : sp_upgrade);
+    if (cost > max_hashes) {
+      return true;
+    }
+    if (cost > ns.hacknet.numHashes()) {
+      return false;
+    }
+    if (rank_selected) {
+      ns.hacknet.spendHashes(rank_upgrade);
+      rank_cost = ns.hacknet.hashCost(rank_upgrade);
+    } else {
+      ns.hacknet.spendHashes(sp_upgrade);
+      sp_cost = ns.hacknet.hashCost(sp_upgrade);
+    }
+    // eslint-disable-next-line no-constant-condition
+  } while(true);
+}
+
 function sell_upgrades(upgrades: string[][]) {
   return (ns: NS): boolean => {
     const max_hashes = ns.hacknet.hashCapacity();
@@ -190,7 +223,9 @@ export async function main(ns: NS): Promise<void> {
       ? sell_ccts
       : ns.args.includes('--corp')
         ? sell_corp
-        : sell_money;
+        : ns.args.includes('--bladeburner')
+          ? sell_bladeburner
+          : sell_money;
   // Greedy algorithm go!
   // Work out the step with the greatest cost efficiency available, and make it, if possible.
   // If the best move cannot be afforded yet, sleep and retry later.
@@ -212,7 +247,7 @@ export async function main(ns: NS): Promise<void> {
     if (do_sell) {
       // If we cannot spend anything due to a lack of capacity, we must upgrade it.
       // No other upgrades should be considered in this case.
-      must_upgrade_capacity = sell_strategy(ns);
+      must_upgrade_capacity = await sell_strategy(ns);
     }
 
     if (only_sell) {
