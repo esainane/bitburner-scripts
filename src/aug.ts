@@ -63,6 +63,8 @@ interface AugData extends AugBaseData {
   supplier_factions: FactionData[];
   /// Reputation before this can be purchased from a faction
   rep: number;
+  /// Is this augmentation graftable?
+  graftable: boolean;
 }
 
 interface FactionData {
@@ -115,10 +117,17 @@ export function categorize_aug<T extends AugBaseData>(ns: NS, aug_data: T, categ
 }
 
 export async function main(ns: NS): Promise<void> {
-  ns.ramOverride(4.75);
+  ns.ramOverride(9.75);
   const factions: Map<string, FactionData> = new Map();
   const augmentations: Map<string, AugData> = new Map();
   const categories: Map<string, AugData[]> = new Map(aug_categories.keys().map(d => [d, []]));
+
+  let graftable;
+  try {
+    graftable = new Set(ns.grafting.getGraftableAugmentations());
+  } catch (e) {
+    graftable = new Set<string>();
+  }
 
   const sing: SingularityAsync = singularity_async(ns);
   // Fill out factions/augmentations data
@@ -138,6 +147,7 @@ export async function main(ns: NS): Promise<void> {
         owned: true,
         categories: [],
         deptree: false,
+        graftable: graftable.has(aug),
       };
       categorize_aug(ns, aug_data, categories);
       augmentations.set(aug, aug_data);
@@ -168,6 +178,7 @@ export async function main(ns: NS): Promise<void> {
             owned: owned_by_player.has(aug),
             categories: [],
             deptree: false,
+            graftable: graftable.has(aug),
           };
           categorize_aug(ns, aug_data, categories);
           augmentations.set(aug, aug_data);
@@ -259,10 +270,13 @@ export async function main(ns: NS): Promise<void> {
         continue;
       }
       const categories = aug_data.categories.filter(d => d !== 'ALL');
-      ns.tprintf(`%s${colors.reset} %s %s rep; via %s %s %s`,
+      ns.tprintf(`%s${colors.reset} %s %s rep; via %s%s %s %s`,
         `${aug_data.price > ns.getPlayer().money ? colors.fg_red : ''}${aug_data.name}`,
         format_currency(aug_data.price),
         format_number(aug_data.rep, { round: 0 }),
+        aug_data.graftable ?
+          `${colors.combine(colors.bright,colors.fg_green)}G${colors.reset},` :
+          '',
         aug_data.supplier_factions.length > 1 && aug_data.supplier_factions[0].rep > aug_data.rep
           ? `[${format_aug_faction(aug_data.supplier_factions[0], aug_data.rep)}, +${format_number(aug_data.supplier_factions.length - 1)} more...]`
           : `[${aug_data.supplier_factions.map(d=>`${format_aug_faction(d, aug_data.rep)}`).join(', ')}]`,
