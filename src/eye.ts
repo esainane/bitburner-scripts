@@ -30,43 +30,22 @@ function act(ns: NS, type: BladeburnerActionType | `${BladeburnerActionType}`, n
   ns.bladeburner.startAction(type, name);
 }
 
-function bonus_adjust(ns: NS, time: number) {
-  const bonus_time = ns.bladeburner.getBonusTime();
-  const bonusable_time = Math.min(bonus_time, time);
-  const unbonusable_time = time - bonusable_time;
-  return bonusable_time / 5 + unbonusable_time;
-}
-
-function bonus_adjust_inverse(ns: NS, time: number) {
-  const bonus_time = ns.bladeburner.getBonusTime();
-  const bonusable_time = Math.min(bonus_time, time);
-  const unbonusable_time = time - bonusable_time;
-  return bonusable_time * 5 + unbonusable_time;
-}
-
 export async function main(ns: NS): Promise<void> {
-  const cycle_sleep = 500;
-  const jitter_padding = 20;
-  const jitter_tolerance = 50;
+  const bonus_time_multiplier = 5;
+  const bladeburner_base_interval = 1000;
+  const jitter_tolerance = 20;
+  const upgrader = new BladeburnerUpgrader(ns);
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    // If our current action is well underway, wait until it finishes
-    let time_remaining = 0;
-    const current_action = ns.bladeburner.getCurrentAction();
-    const current_elapsed = ns.bladeburner.getActionCurrentTime();
-    if (current_action) {
-      const total_time_needed = ns.bladeburner.getActionTime(current_action.type as BladeburnerActionType, current_action.name as BladeburnerActionName);
-      time_remaining = total_time_needed - current_elapsed;
-      ns.print("Elapsed ", current_elapsed, 'ms out of ', total_time_needed, 'ms; ', time_remaining, 'ms remaining');
-    }
-    await ns.asleep(bonus_adjust(ns, Math.max(cycle_sleep, time_remaining + jitter_padding)));
-    const new_current_elapsed = ns.bladeburner.getActionCurrentTime();
-    if (new_current_elapsed >= bonus_adjust_inverse(ns, 1000) + jitter_tolerance) {
-      ns.print('Overshot by ', new_current_elapsed, 'ms, retrying.');
+    await ns.bladeburner.nextUpdate();
+
+    // If we just started our action, evaluate whether it's the one we want to be taking
+    const threshold = bladeburner_base_interval + (ns.bladeburner.getBonusTime() > 0 ? bonus_time_multiplier : 1) + jitter_tolerance;
+    if (ns.bladeburner.getActionCurrentTime() < threshold) {
+      // If not, wait until we wouldn't be interrupting something we have already sunk non-trivial time into
       continue;
     }
 
-    ns.print('Current action only ', new_current_elapsed, 'ms underway. Running selection logic.');
     // If our combat stats are very low, improve them
     const player = ns.getPlayer();
     const skills = [
