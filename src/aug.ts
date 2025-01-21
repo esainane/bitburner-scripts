@@ -485,7 +485,7 @@ export async function main(ns: NS): Promise<void> {
       acc.push(aug);
       return acc;
     }, []).filter(d => d && !d.owned && !selected_set.has(d)))) {
-      if (ignore_rep || aug.rep <= (aug.supplier_factions[0]?.rep ?? 0)) {
+      if (ignore_rep || (aug.supplier_factions.length && aug.rep <= (aug.supplier_factions[0]?.rep ?? 0))) {
         available_augmentations.push(aug);
       } else {
         if (!unpurchasable_augmentations_set.has(aug)) {
