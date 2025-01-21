@@ -1,7 +1,7 @@
 import { AutocompleteData, Multipliers, NS } from '@ns'
 import { SingularityAsync } from '/lib/singu-interface';
 import { singularity_async as singularity_async } from './lib/singu';
-import { colors, format_data, format_number, format_servername, print_table } from '/lib/colors';
+import { colors, format_number, format_servername, print_table } from '/lib/colors';
 import { format_currency } from '/lib/format-money';
 import { binary_search } from '/lib/binary-search';
 import { async_filter } from '/lib/collection-async';
@@ -73,6 +73,7 @@ interface FactionData {
   rep: number;
   favor: number;
   supplied_augs: string[];
+  joined: boolean;
 }
 
 export const aug_categories: Map<string, (a: AugBaseData) => boolean> = new Map([
@@ -118,7 +119,7 @@ export function categorize_aug<T extends AugBaseData>(ns: NS, aug_data: T, categ
 }
 
 export async function main(ns: NS): Promise<void> {
-  ns.ramOverride(9.75);
+  ns.ramOverride(12.75);
   const factions: Map<string, FactionData> = new Map();
   const augmentations: Map<string, AugData> = new Map();
   const categories: Map<string, AugData[]> = new Map(aug_categories.keys().map(d => [d, []]));
@@ -131,10 +132,21 @@ export async function main(ns: NS): Promise<void> {
   }
 
   const sing: SingularityAsync = singularity_async(ns);
+
+  // Find all factions which exist
+  // All factions offers Neuroflux Governor except for Bladeburners, Shadows of Anarchy, and your gang
+  const all_factions = [
+    ...await sing.getAugmentationFactions('NeuroFlux Governor'),
+    'Bladeburners',
+    'Shadows of Anarchy',
+    ...ns.gang.inGang() ? [ns.gang.getGangInformation().faction] : [],
+  ];
+
   // Fill out factions/augmentations data
   {
     const joined_factions = ns.getPlayer().factions;
     const owned_by_player: Set<string> = new Set(await sing.getOwnedAugmentations(true));
+    // First, all player owned augmentations
     for (const aug of owned_by_player.values()) {
       const prereqs = await sing.getAugmentationPrereq(aug);
       const aug_data: AugData = {
@@ -153,13 +165,37 @@ export async function main(ns: NS): Promise<void> {
       categorize_aug(ns, aug_data, categories);
       augmentations.set(aug, aug_data);
     }
-    for (const faction of joined_factions) {
+    // Then, graftable augmentations
+    for (const aug of graftable.values()) {
+      if (augmentations.has(aug)) {
+        continue;
+      }
+      const prereqs = await sing.getAugmentationPrereq(aug);
+      const aug_data: AugData = {
+        name: aug,
+        supplier_factions: [],
+        price: await sing.getAugmentationBasePrice(aug),
+        rep: await sing.getAugmentationRepReq(aug),
+        prereqs,
+        prereqs_simple: prereqs.slice(),
+        mults: await sing.getAugmentationStats(aug),
+        owned: false,
+        categories: [],
+        deptree: false,
+        graftable: true,
+      };
+      categorize_aug(ns, aug_data, categories);
+      augmentations.set(aug, aug_data);
+    }
+    // Then, add in faction supplied augmentations and their supplier data
+    for (const faction of all_factions) {
       const augs = await sing.getAugmentationsFromFaction(faction);
       const fac_data = {
         name: faction,
         rep: await sing.getFactionRep(faction),
         favor: await sing.getFactionFavor(faction),
         supplied_augs: augs,
+        joined: joined_factions.includes(faction),
       };
       factions.set(faction, fac_data);
       for (const aug of augs) {
@@ -189,15 +225,30 @@ export async function main(ns: NS): Promise<void> {
 
     // Sort suppliers by reputation descending while reputation exceeds what is required. Below that, prioritize
     // supplier factions with enough favor to purchase reputation, then by reputation descending again.
+    // Exact values are tiebroken by whether you've joined them (unlikely to be relevant except where passive
+    // reputation gain is disabled)
     for (const aug_data of augmentations.values()) {
       aug_data.supplier_factions.sort((l, r) => {
+        // Identical rep?
+        if (r.rep === l.rep && r.joined !== l.joined) {
+          // Break by which has favor over the donation threshold, if distinct
+          const [lf, rf] = [l.favor >= 150, r.favor >= 150];
+          if (lf !== rf) {
+            return lf ? -1 : 1;
+          }
+          // Then whichever is joined first
+          return r.joined ? 1 : -1;
+        }
+        // If both have rep over the purchaseable threshold, put the one with the higher rep first.
         if (l.rep > aug_data.rep && r.rep > aug_data.rep) {
           return r.rep - l.rep;
         }
+        // Otherwise, check the favor thresholds. If one is above the donation threshold, put that first.
         const [lf, rf] = [l.favor >= 150, r.favor >= 150];
         if (lf !== rf) {
           return lf ? -1 : 1;
         }
+        // If both are below (or above) the favor donation threshold, high rep first.
         return r.rep - l.rep;
       });
     }
@@ -248,18 +299,22 @@ export async function main(ns: NS): Promise<void> {
     );
   }
 
+  const fg_white_italic = colors.combine(colors.italic, colors.fg_white);
+  const fg_cyan_italic = colors.combine(colors.italic, colors.fg_cyan);
+  const fg_yellow_italic = colors.combine(colors.italic, colors.fg_yellow);
+  // Helper to format faction data
   const format_aug_faction = (fac_data: FactionData, rep_needed: number) => {
     const rep_have = fac_data.rep;
     const rep_shortfall = rep_needed - rep_have;
     if (rep_shortfall <= 0) {
-      return `${colors.fg_white}${fac_data.name}${colors.reset}`;
+      return `${fac_data.joined ? colors.fg_white : fg_white_italic}${fac_data.name}${colors.reset}`;
     }
     const favor_have = fac_data.favor;
     if (favor_have >= 150) {
       const money_needed = money_for_rep(ns, rep_shortfall);
-      return `${colors.fg_cyan}${fac_data.name}${colors.reset}[${format_currency(money_needed)}/${plus}${format_number(rep_shortfall)}r]`;
+      return `${fac_data.joined ? colors.fg_cyan : fg_cyan_italic}${fac_data.name}${colors.reset}[${format_currency(money_needed)}/${plus}${format_number(rep_shortfall)}r]`;
     }
-    return `${colors.fg_yellow}${fac_data.name}${colors.reset}[${plus}${format_number(rep_shortfall, { round: 1 })}r]`;
+    return `${fac_data.joined ? colors.fg_yellow : fg_yellow_italic}${fac_data.name}${colors.reset}[${plus}${format_number(rep_shortfall, { round: 1 })}r]`;
   };
   // Print out the information we've gathered
   const opts = [];
@@ -280,7 +335,9 @@ export async function main(ns: NS): Promise<void> {
           '',
         aug_data.supplier_factions.length > 1 && aug_data.supplier_factions[0].rep > aug_data.rep
           ? `[${format_aug_faction(aug_data.supplier_factions[0], aug_data.rep)}, +${format_number(aug_data.supplier_factions.length - 1)} more...]`
-          : `[${aug_data.supplier_factions.map(d=>`${format_aug_faction(d, aug_data.rep)}`).join(', ')}]`,
+          : aug_data.supplier_factions.length > 3
+            ? `[${aug_data.supplier_factions.slice(0, 3).map(d=>`${format_aug_faction(d, aug_data.rep)}`).join(', ')}, +${format_number(aug_data.supplier_factions.length - 3)} more...]`
+            : `[${aug_data.supplier_factions.map(d=>`${format_aug_faction(d, aug_data.rep)}`).join(', ')}]`,
         aug_data.prereqs_simple.map(d => format_servername(d)).join(', '),
         categories.length > 0
           ? aug_data.name === 'NeuroFlux Governor'
