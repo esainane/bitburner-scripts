@@ -126,7 +126,7 @@ export async function main(ns: NS): Promise<void> {
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    await ns.asleep(5000);
+    await ns.gang.nextUpdate();
     const info: GangGenInfo = ns.gang.getGangInformation();
     if (!info) {
       ns.tprint("No gang information available (has a gang been created?)");
