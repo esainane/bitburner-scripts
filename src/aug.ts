@@ -5,6 +5,7 @@ import { colors, format_data, format_number, format_servername, print_table } fr
 import { format_currency } from '/lib/format-money';
 import { binary_search } from '/lib/binary-search';
 import { async_filter } from '/lib/collection-async';
+import { get_aug_args } from '/lib/aug-bitnode-strategies';
 
 // TODO: lib this
 export function money_for_rep(ns: NS, rep: number) {
@@ -326,15 +327,24 @@ export async function main(ns: NS): Promise<void> {
   const aug_scaling = 1.9;
 
   // Parse and structure priorities
+  // Get all positionl args
   const p_args = ns.args.map(String).filter(d => !d.startsWith('--'));
-  const priorities: string[][] = p_args.reduce((acc: string[][], d: string) => {
+  const process_args = (acc: string[][], d: string): string[][] => {
+    const as_num = parseInt(d);
     if (d === ';') {
+      // Priority separator, start new priority
       acc.push([]);
+    } else if (String(as_num) === d) {
+      // Bitnode number, insert the appropriate strategy
+      return get_aug_args(as_num).reduce(process_args, acc);
     } else {
+      // Augmentation or category
       acc[acc.length - 1].push(d);
     }
     return acc;
-  }, [[]]);
+  };
+  // Process them into priorities
+  const priorities: string[][] = p_args.reduce(process_args, [[]]);
 
   // Perform selections
   let selected: PlanEntry[] = [];
