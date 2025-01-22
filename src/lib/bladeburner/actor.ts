@@ -70,10 +70,25 @@ export class BladeBurnerActor {
       return;
     }
 
+    const raw_actions_data = bladeburner_actions_data(ns, false);
+
+    // If we have no abnormalities, and can progress our main victory condition at ~100% odds, do so
+    const next_black_op = ns.bladeburner.getNextBlackOp();
+    if (next_black_op) {
+      const { name, rank } = next_black_op;
+      if (ns.bladeburner.getRank() >= rank) {
+        const data = raw_actions_data.find(d => d.type === 'Black Operations' && d.action === name);
+        if ((data?.min_chance ?? 0) >= 99) {
+          this.act(ns, 'Black Operations', name);
+          return;
+        }
+      }
+    }
+
     // Select the best available action: We consider an action available if it has >70% success (and contracts/missions
     // remaining where applicable), and define best as highest rep per minute
     // Filter by max chance, so we have a chance to narrow the range if we're just experiencing high uncertainty.
-    const actions_data = bladeburner_actions_data(ns, false).filter(d =>
+    const actions_data = raw_actions_data.filter(d =>
       d.rep_gain_per_minute > 0
       && (d.type !== 'Black Operations' || ns.bladeburner.getBlackOpRank(d.action as BladeburnerBlackOpName) <= ns.bladeburner.getRank())
     );

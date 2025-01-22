@@ -22,10 +22,11 @@ export function bladeburner_actions_data(ns: NS, all_blackops=true): ActionEntry
   const general_actions: ActionList = ns.bladeburner.getGeneralActionNames().map(d => ['General', d]);
   const contract_actions: ActionList = ns.bladeburner.getContractNames().map(d => ['Contracts', d]);
   const operation_actions: ActionList = ns.bladeburner.getOperationNames().map(d => ['Operations', d]);
+  const next_black_op = ns.bladeburner.getNextBlackOp();
   const blackops_actions: ActionList = all_blackops
     ? ns.bladeburner.getBlackOpNames().map(d => ['Black Operations', d])
-    : ns.bladeburner.getNextBlackOp()
-      ? [['Black Operations', ns.bladeburner.getNextBlackOp()!.name]]
+    : next_black_op
+      ? [['Black Operations', next_black_op.name]]
       : [];
   const actions: ActionList = [
     ...general_actions,
