@@ -1,5 +1,6 @@
-import { BladeburnerSkillName, NS } from '@ns'
+import { NS } from '@ns'
 import { PriorityQueue } from '/lib/priority-queue';
+import { BladeburnerSkillName } from '/lib/bladeburner/enums';
 
 
 type UpgradeEntry = {
