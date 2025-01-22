@@ -1,5 +1,5 @@
 import { AutocompleteData, Multipliers, NS } from '@ns'
-import { SingularityAsync } from '/lib/singu-interface';
+import { SingularityAsync } from './lib/dodge-interfaces/singu-interface';
 import { singularity_async as singularity_async } from './lib/singu';
 import { colors, format_number, format_servername, print_table } from '/lib/colors';
 import { format_currency } from '/lib/format-money';

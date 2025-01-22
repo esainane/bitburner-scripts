@@ -1,7 +1,7 @@
 import { NS } from '@ns'
 import { range } from '/lib/range';
 import { singularity_async } from '/lib/singu';
-import { SingularityAsync } from '/lib/singu-interface';
+import { SingularityAsync } from './lib/dodge-interfaces/singu-interface';
 
 async function purchase_key_programs(ns: NS, singu: SingularityAsync): Promise<void> {
   // Purchase key programs, as much as we can
