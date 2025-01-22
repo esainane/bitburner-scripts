@@ -1,5 +1,5 @@
 import { AutocompleteData, NS } from '@ns'
-import { singularity_async } from '/lib/singu';
+import { singularity_async } from './lib/dodge/singu';
 import { format_currency } from '/lib/format-money';
 import { format_servername } from '/lib/colors';
 import { async_map } from '/lib/collection-async';
@@ -24,7 +24,7 @@ async function simple_dump(ns: NS, singu: ReturnType<typeof singularity_async>, 
     // Combat/alternative
     'Speakers for the Dead', 'The Syndicate', 'Tetrads', 'Slum Snakes']) {
     if (donatable_factions.has(faction)) {
-      await singu.donateToFaction(faction, ns.getPlayer().money);
+      await singu.dodge_donateToFaction(faction, ns.getPlayer().money);
       break;
     }
   }
@@ -50,8 +50,8 @@ export async function main(ns: NS): Promise<void> {
     async d => [d,
     {
       name: d,
-      favor: await singu.getFactionFavor(d),
-      rep: await singu.getFactionRep(d),
+      favor: await singu.dodge_getFactionFavor(d),
+      rep: await singu.dodge_getFactionRep(d),
     }
   ]));
 
@@ -85,14 +85,14 @@ export async function main(ns: NS): Promise<void> {
     let gang_supplied = new Set();
 
     // Get a list of all unowned, unqueued augmentations, their rep requirements, and their supplier factions.
-    const player_augs = new Set(await singu.getOwnedAugmentations(true));
+    const player_augs = new Set(await singu.dodge_getOwnedAugmentations(true));
     const missing_augmentations = new Map<string, [number, FactionData[]]>();
     for (const faction of player.factions.filter(d => !undonatable_factions.includes(d))) {
       const faction_data = factions.get(faction);
       if (!faction_data) {
         continue;
       }
-      const augs = await singu.getAugmentationsFromFaction(faction);
+      const augs = await singu.dodge_getAugmentationsFromFaction(faction);
       if (gang_faction === faction) {
         gang_supplied = new Set(augs);
       }
@@ -105,7 +105,7 @@ export async function main(ns: NS): Promise<void> {
           aug_data[1].push(faction_data);
         } else {
           missing_augmentations.set(aug, [
-            await singu.getAugmentationRepReq(aug),
+            await singu.dodge_getAugmentationRepReq(aug),
             [faction_data],
           ]);
         }
@@ -193,7 +193,7 @@ export async function main(ns: NS): Promise<void> {
       }
       const money_donated = (goal_reputation - current) / reputation_from_money;
       ns.tprint(`Donating ${format_currency(money_donated)} to ${format_servername(faction)}`);
-      await singu.donateToFaction(faction, money_donated);
+      await singu.dodge_donateToFaction(faction, money_donated);
     }
 
     const remainder = ns.getPlayer().money;

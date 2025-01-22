@@ -1,6 +1,6 @@
 import { AutocompleteData, Multipliers, NS } from '@ns'
-import { SingularityAsync } from './lib/dodge-interfaces/singu-interface';
-import { singularity_async as singularity_async } from './lib/singu';
+import { SingularityAsync } from './lib/dodge-interfaces/singu';
+import { singularity_async as singularity_async } from './lib/dodge/singu';
 import { colors, format_number, format_servername, print_table } from '/lib/colors';
 import { format_currency } from '/lib/format-money';
 import { binary_search } from '/lib/binary-search';
@@ -119,7 +119,6 @@ export function categorize_aug<T extends AugBaseData>(ns: NS, aug_data: T, categ
 }
 
 export async function main(ns: NS): Promise<void> {
-  ns.ramOverride(12.75);
   const factions: Map<string, FactionData> = new Map();
   const augmentations: Map<string, AugData> = new Map();
   const categories: Map<string, AugData[]> = new Map(aug_categories.keys().map(d => [d, []]));
@@ -136,7 +135,7 @@ export async function main(ns: NS): Promise<void> {
   // Find all factions which exist
   // All factions offers Neuroflux Governor except for Bladeburners, Shadows of Anarchy, and your gang
   const all_factions = [
-    ...await sing.getAugmentationFactions('NeuroFlux Governor'),
+    ...await sing.dodge_getAugmentationFactions('NeuroFlux Governor'),
     'Bladeburners',
     'Shadows of Anarchy',
     ...ns.gang.inGang() ? [ns.gang.getGangInformation().faction] : [],
@@ -145,18 +144,18 @@ export async function main(ns: NS): Promise<void> {
   // Fill out factions/augmentations data
   {
     const joined_factions = ns.getPlayer().factions;
-    const owned_by_player: Set<string> = new Set(await sing.getOwnedAugmentations(true));
+    const owned_by_player: Set<string> = new Set(await sing.dodge_getOwnedAugmentations(true));
     // First, all player owned augmentations
     for (const aug of owned_by_player.values()) {
-      const prereqs = await sing.getAugmentationPrereq(aug);
+      const prereqs = await sing.dodge_getAugmentationPrereq(aug);
       const aug_data: AugData = {
         name: aug,
         supplier_factions: [],
-        price: await sing.getAugmentationBasePrice(aug),
-        rep: await sing.getAugmentationRepReq(aug),
+        price: await sing.dodge_getAugmentationBasePrice(aug),
+        rep: await sing.dodge_getAugmentationRepReq(aug),
         prereqs,
         prereqs_simple: prereqs.slice(),
-        mults: await sing.getAugmentationStats(aug),
+        mults: await sing.dodge_getAugmentationStats(aug),
         owned: true,
         categories: [],
         deptree: false,
@@ -170,15 +169,15 @@ export async function main(ns: NS): Promise<void> {
       if (augmentations.has(aug)) {
         continue;
       }
-      const prereqs = await sing.getAugmentationPrereq(aug);
+      const prereqs = await sing.dodge_getAugmentationPrereq(aug);
       const aug_data: AugData = {
         name: aug,
         supplier_factions: [],
-        price: await sing.getAugmentationBasePrice(aug),
-        rep: await sing.getAugmentationRepReq(aug),
+        price: await sing.dodge_getAugmentationBasePrice(aug),
+        rep: await sing.dodge_getAugmentationRepReq(aug),
         prereqs,
         prereqs_simple: prereqs.slice(),
-        mults: await sing.getAugmentationStats(aug),
+        mults: await sing.dodge_getAugmentationStats(aug),
         owned: false,
         categories: [],
         deptree: false,
@@ -189,11 +188,11 @@ export async function main(ns: NS): Promise<void> {
     }
     // Then, add in faction supplied augmentations and their supplier data
     for (const faction of all_factions) {
-      const augs = await sing.getAugmentationsFromFaction(faction);
+      const augs = await sing.dodge_getAugmentationsFromFaction(faction);
       const fac_data = {
         name: faction,
-        rep: await sing.getFactionRep(faction),
-        favor: await sing.getFactionFavor(faction),
+        rep: await sing.dodge_getFactionRep(faction),
+        favor: await sing.dodge_getFactionFavor(faction),
         supplied_augs: augs,
         joined: joined_factions.includes(faction),
       };
@@ -203,15 +202,15 @@ export async function main(ns: NS): Promise<void> {
         if (aug_data) {
           aug_data.supplier_factions.push(fac_data);
         } else {
-          const prereqs = await sing.getAugmentationPrereq(aug);
+          const prereqs = await sing.dodge_getAugmentationPrereq(aug);
           const aug_data: AugData = {
             name: aug,
             supplier_factions: [fac_data],
-            price: await sing.getAugmentationBasePrice(aug),
-            rep: await sing.getAugmentationRepReq(aug),
+            price: await sing.dodge_getAugmentationBasePrice(aug),
+            rep: await sing.dodge_getAugmentationRepReq(aug),
             prereqs,
             prereqs_simple: prereqs.slice(),
-            mults: await sing.getAugmentationStats(aug),
+            mults: await sing.dodge_getAugmentationStats(aug),
             owned: owned_by_player.has(aug),
             categories: [],
             deptree: false,
@@ -516,7 +515,7 @@ export async function main(ns: NS): Promise<void> {
       // Augs for case 1)
       const to_reorder = (await async_filter(aug.prereqs_simple.map(d => [d, augmentations.get(d)] satisfies [string, AugData?]), async ([name, d]) => {
         if (d === undefined) {
-          ns.tprint(`ERROR Could not find prerequisite ${format_servername(name)} for ${format_servername(aug.name)}. (Perhaps join ${(await sing.getAugmentationFactions(name)).map(d => format_servername(d)).join(', ')}?)`);
+          ns.tprint(`ERROR Could not find prerequisite ${format_servername(name)} for ${format_servername(aug.name)}. (Perhaps join ${(await sing.dodge_getAugmentationFactions(name)).map(d => format_servername(d)).join(', ')}?)`);
           ok = local_ok = false;
           return false;
         }
@@ -785,7 +784,7 @@ export async function main(ns: NS): Promise<void> {
     return;
   }
   for (const [faction, aug] of purchase_queue) {
-    if (await sing.purchaseAugmentation(faction, aug)) {
+    if (await sing.dodge_purchaseAugmentation(faction, aug)) {
       ns.tprint(`Purchased ${format_servername(aug)}`);
     } else {
       ns.tprint(`ERROR Failed to purchase ${format_servername(aug)} from ${format_servername(faction)}`);

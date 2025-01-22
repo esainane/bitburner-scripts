@@ -1,21 +1,20 @@
 import { NS } from '@ns'
 import { range } from '/lib/range';
-import { singularity_async } from '/lib/singu';
-import { SingularityAsync } from './lib/dodge-interfaces/singu-interface';
+import { singularity_async } from './lib/dodge/singu';
+import { SingularityAsync } from './lib/dodge-interfaces/singu';
 
 async function purchase_key_programs(ns: NS, singu: SingularityAsync): Promise<void> {
   // Purchase key programs, as much as we can
-  await singu.purchaseTor();
+  await singu.dodge_purchaseTor();
   for (const prog of ['BruteSSH.exe', 'FTPCrack.exe', 'relaySMTP.exe', 'HTTPWorm.exe', 'SQLInject.exe']) {
-    await singu.purchaseProgram(prog);
+    await singu.dodge_purchaseProgram(prog);
   }
 }
 
 export async function main(ns: NS): Promise<void> {
-  ns.ramOverride(26.25);
   const singu = singularity_async(ns);
   // Set the player to study
-  await singu.universityCourse('Rothman University', 'Algorithms', false);
+  await singu.dodge_universityCourse('Rothman University', 'Algorithms', false);
   // Set all sleeves to study, or Synchronize/Shock recover if applicable
   const sleeve_count = ns.sleeve.getNumSleeves();
   for (const i of range(sleeve_count)) {

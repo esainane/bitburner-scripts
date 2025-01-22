@@ -1,6 +1,6 @@
 import { AutocompleteData, CrimeStats, NS, Person } from '@ns'
 import { format_number, format_servername, print_table, percent, colors } from '/lib/colors';
-import { singularity_async } from '/lib/singu';
+import { singularity_async } from '../lib/dodge/singu';
 import { format_duration } from '/lib/format-duration';
 import { format_currency } from '/lib/format-money';
 import { range } from '/lib/range';
@@ -39,7 +39,6 @@ export function autocomplete(data : AutocompleteData, args : string[]) : string[
 
 export async function main(ns: NS): Promise<void> {
   // RAM dodge
-  ns.ramOverride(8.75);
   const singu = singularity_async(ns);
 
   const has_formulas = ns.fileExists('Formulas.exe');
@@ -71,8 +70,8 @@ export async function main(ns: NS): Promise<void> {
   for (const crime of Object.values(ns.enums.CrimeType)) {
     const odds = has_formulas
       ? ns.formulas.work.crimeSuccessChance(agent, crime)
-      : await singu.getCrimeChance(crime);
-    const stats = await singu.getCrimeStats(crime);
+      : await singu.dodge_getCrimeChance(crime);
+    const stats = await singu.dodge_getCrimeStats(crime);
     crimes.push({
       crime,
       odds,

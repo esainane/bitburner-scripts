@@ -3,10 +3,9 @@ import { find_servers } from 'lib/find-servers';
 import { list_servers } from 'lib/list-servers';
 import { colors, format_number, format_servername } from 'lib/colors';
 import { shortest_route_to } from '/path';
-import { singularity_async } from '/lib/singu';
+import { singularity_async } from './lib/dodge/singu';
 
 export async function main(ns: NS): Promise<void> {
-  ns.ramOverride(7.45);
   ns.disableLog('ALL');
   ns.enableLog('nuke');
   ns.enableLog('brutessh');
@@ -72,10 +71,10 @@ export async function main(ns: NS): Promise<void> {
       continue;
     }
     for (const step of route) {
-      await sing.connect(step);
+      await sing.dodge_connect(step);
       here = step;
     }
-    await sing.installBackdoor();
+    await sing.dodge_installBackdoor();
   }
 
   if (here !== 'home') {
@@ -84,7 +83,7 @@ export async function main(ns: NS): Promise<void> {
       ns.tprint(`WARNING Can't find route back to ${format_servername('home')}, ignoring!`);
     } else {
       for (const step of route) {
-        await sing.connect(step);
+        await sing.dodge_connect(step);
         here = step;
       }
     }

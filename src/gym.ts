@@ -1,5 +1,5 @@
 import { AutocompleteData, GymType, NS } from '@ns'
-import { singularity_async } from '/lib/singu';
+import { singularity_async } from './lib/dodge/singu';
 import { format_number } from '/lib/colors';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -27,7 +27,6 @@ function get_average_player_combat_premult(ns: NS) {
 }
 
 export async function main(ns: NS): Promise<void> {
-  ns.ramOverride(4.75);
   // Simple gym script: level up the combat skill with the lowest unmultiplied level until the passed threshold is met,
   // or the script is killed
   let threshold = Infinity;
@@ -49,7 +48,7 @@ export async function main(ns: NS): Promise<void> {
     const skill_names: `${GymType}`[] = ['str', 'def', 'dex', 'agi'];
     const skill = skill_names[min_skill_index];
     ns.print(`Training ${skill} to ${ns.print(`${threshold}`)}`);
-    await singu.gymWorkout('Powerhouse Gym', skill, false);
+    await singu.dodge_gymWorkout('Powerhouse Gym', skill, false);
     await ns.asleep(5000);
   }
 }

@@ -5,8 +5,8 @@ import { BitNodeOptions, CityName, CompanyName, CompanyPositionInfo, CrimeStats,
  *
  *
  * To update:
-    sed -ie '/^ \*\//q' src/lib/singu-interface.ts
-    sed -ne '/^export interface Singularity {$/,/^}$/{s/Singularity/SingularityAsync/;s/^\(  [^*]*.*): \)\([^()]\+\);$/\1Promise<\2>;/;p}' NetScriptDefinitions.d.ts >> src/lib/singu-interface.ts
+    sed -i -e '/^ \*\//q' src/lib/dodge-interfaces/singu.ts ;
+    sed -ne '/^export interface Singularity {$/,/^}$/{s/Singularity/SingularityAsync/;s/\( *\)\([^* ]*[^(]*(\)/\1dodge_\2/;s/^\( *[^* ]*.*): \)\([^()]\+\);$/\1Promise<\2>;/;p}' NetScriptDefinitions.d.ts >> src/lib/dodge-interfaces/singu.ts
  */
 export interface SingularityAsync {
   /**
@@ -18,7 +18,7 @@ export interface SingularityAsync {
    * This function will automatically open the backup save prompt and claim the free faction favour if available.
    *
    */
-  exportGame(): Promise<void>;
+  dodge_exportGame(): Promise<void>;
 
   /**
    * Returns Backup save bonus availability.
@@ -29,7 +29,7 @@ export interface SingularityAsync {
    * This function will check if there is a bonus for backing up your save.
    *
    */
-  exportGameBonus(): Promise<boolean>;
+  dodge_exportGameBonus(): Promise<boolean>;
 
   /**
    * Take university class.
@@ -39,7 +39,7 @@ export interface SingularityAsync {
    *
    *
    * This function will automatically set you to start taking a course at a university.
-   * If you are already in the middle of some “working” action (such as working at a
+   dodge_* If you are already in the middle of some “working” action (such as working at a
    * company, for a faction, or on a program), then running this function will automatically
    * cancel that action and give you your earnings.
    *
@@ -51,7 +51,7 @@ export interface SingularityAsync {
    * @param focus - Acquire player focus on this class. Optional. Defaults to true.
    * @returns True if action is successfully started, false otherwise.
    */
-  universityCourse(
+  dodge_universityCourse(
     universityName: UniversityLocationName | `${UniversityLocationName}`,
     courseName: UniversityClassType | `${UniversityClassType}`,
     focus?: boolean,
@@ -66,7 +66,7 @@ export interface SingularityAsync {
 
    * This function will automatically set you to start working out at a gym to train
    * a particular stat. If you are already in the middle of some “working” action
-   * (such as working at a company, for a faction, or on a program), then running
+   dodge_* (such as working at a company, for a faction, or on a program), then running
    * this function will automatically cancel that action and give you your earnings.
    *
    * The cost and experience gains for all of these gyms are the same as if you were
@@ -77,7 +77,7 @@ export interface SingularityAsync {
    * @param focus - Acquire player focus on this gym workout. Optional. Defaults to true.
    * @returns True if action is successfully started, false otherwise.
    */
-  gymWorkout(gymName: GymLocationName | `${GymLocationName}`, stat: GymType | `${GymType}`, focus?: boolean): Promise<boolean>;
+  dodge_gymWorkout(gymName: GymLocationName | `${GymLocationName}`, stat: GymType | `${GymType}`, focus?: boolean): Promise<boolean>;
 
   /**
    * Travel to another city.
@@ -91,7 +91,7 @@ export interface SingularityAsync {
    * @param city - City to travel to.
    * @returns True if action is successful, false otherwise.
    */
-  travelToCity(city: CityName | `${CityName}`): Promise<boolean>;
+  dodge_travelToCity(city: CityName | `${CityName}`): Promise<boolean>;
 
   /**
    * Purchase the TOR router.
@@ -105,7 +105,7 @@ export interface SingularityAsync {
    *
    * @returns True if action is successful or if you already own TOR router, false otherwise.
    */
-  purchaseTor(): Promise<boolean>;
+  dodge_purchaseTor(): Promise<boolean>;
 
   /**
    * Purchase a program from the dark web.
@@ -121,13 +121,13 @@ export interface SingularityAsync {
    * @example
    * ```js
    * const programName = "BruteSSH.exe";
-   * const success = ns.singularity.purchaseProgram(programName);
-   * if (!success) ns.tprint(`ERROR: Failed to purchase ${programName}`);
+   dodge_* const success = ns.singularity.purchaseProgram(programName);
+   dodge_* if (!success) ns.tprint(`ERROR: Failed to purchase ${programName}`);
    * ```
    * @param programName - Name of program to purchase.
    * @returns True if the specified program is purchased, and false otherwise.
    */
-  purchaseProgram(programName: string): Promise<boolean>;
+  dodge_purchaseProgram(programName: string): Promise<boolean>;
 
   /**
    * Check if the player is busy.
@@ -141,7 +141,7 @@ export interface SingularityAsync {
    *
    * @returns True if the player is currently performing an ‘action’, false otherwise.
    */
-  isBusy(): Promise<boolean>;
+  dodge_isBusy(): Promise<boolean>;
 
   /**
    * Stop the current action.
@@ -165,7 +165,7 @@ export interface SingularityAsync {
    *
    * @returns True if the player’s action was ended, false if the player was not performing an action.
    */
-  stopAction(): Promise<boolean>;
+  dodge_stopAction(): Promise<boolean>;
 
   /**
    * Upgrade home computer RAM.
@@ -180,7 +180,7 @@ export interface SingularityAsync {
    *
    * @returns True if the player’s home computer RAM is successfully upgraded, and false otherwise.
    */
-  upgradeHomeRam(): Promise<boolean>;
+  dodge_upgradeHomeRam(): Promise<boolean>;
 
   /**
    * Upgrade home computer cores.
@@ -195,7 +195,7 @@ export interface SingularityAsync {
    *
    * @returns True if the player’s home computer cores is successfully upgraded, and false otherwise.
    */
-  upgradeHomeCores(): Promise<boolean>;
+  dodge_upgradeHomeCores(): Promise<boolean>;
 
   /**
    * Get the price of upgrading home RAM.
@@ -207,7 +207,7 @@ export interface SingularityAsync {
    *
    * @returns Cost of upgrading the player’s home computer RAM.
    */
-  getUpgradeHomeRamCost(): Promise<number>;
+  dodge_getUpgradeHomeRamCost(): Promise<number>;
 
   /**
    * Get the price of upgrading home cores.
@@ -219,7 +219,7 @@ export interface SingularityAsync {
    *
    * @returns Cost of upgrading the player’s home computer cores.
    */
-  getUpgradeHomeCoresCost(): Promise<number>;
+  dodge_getUpgradeHomeCoresCost(): Promise<number>;
 
   /**
    * Get Requirements for Company Position.
@@ -235,13 +235,13 @@ export interface SingularityAsync {
    * const companyName = "ECorp";
    * const position = "Chief Executive Officer";
    *
-   * let requirements = ns.singularity.getCompanyPositionInfo(companyName, position);
+   dodge_* let requirements = ns.singularity.getCompanyPositionInfo(companyName, position);
    * ```
    * @param companyName - Name of company to get the requirements for. Must be an exact match.
    * @param positionName - Name of position to get the requirements for. Must be an exact match.
    * @returns CompanyPositionInfo object.
    */
-  getCompanyPositionInfo(
+  dodge_getCompanyPositionInfo(
     companyName: CompanyName | `${CompanyName}`,
     positionName: JobName | `${JobName}`,
   ): Promise<CompanyPositionInfo>;
@@ -259,12 +259,12 @@ export interface SingularityAsync {
    * @example
    * ```js
    * const companyName = "Noodle Bar";
-   * const jobList = ns.singularity.getCompanyPositions(companyName);
+   dodge_* const jobList = ns.singularity.getCompanyPositions(companyName);
    * ```
    * @param companyName - Name of company to get the position list for. Must be an exact match.
    * @returns The position list if the company name is valid.
    */
-  getCompanyPositions(companyName: CompanyName | `${CompanyName}`): Promise<JobName[]>;
+  dodge_getCompanyPositions(companyName: CompanyName | `${CompanyName}`): Promise<JobName[]>;
 
   /**
    * Work for a company.
@@ -273,7 +273,7 @@ export interface SingularityAsync {
    *
    *
    * This function will set you to start working at your current job at a specified company at which you are employed.
-   * If you are already in the middle of some “working” action (such as working for a faction, training at a gym, or
+   dodge_* If you are already in the middle of some “working” action (such as working for a faction, training at a gym, or
    * creating a program), then running this function will cancel that action.
    *
    * This function will return true if the player starts working, and false otherwise.
@@ -281,15 +281,15 @@ export interface SingularityAsync {
    * @example
    * ```js
    * const companyName = "Noodle Bar";
-   * const success = ns.singularity.workForCompany(companyName);
-   * if (!success) ns.tprint(`ERROR: Failed to start work at ${companyName}.`);
+   dodge_* const success = ns.singularity.workForCompany(companyName);
+   dodge_* if (!success) ns.tprint(`ERROR: Failed to start work at ${companyName}.`);
    * ```
    * @param companyName - Name of company to work for. Must be an exact match. Optional. If not specified, this
    *   argument defaults to the last job that you worked.
    * @param focus - Acquire player focus on this work operation. Optional. Defaults to true.
    * @returns True if the player starts working, and false otherwise.
    */
-  workForCompany(companyName: CompanyName, focus?: boolean): Promise<boolean>;
+  dodge_workForCompany(companyName: CompanyName, focus?: boolean): Promise<boolean>;
 
   /**
    * Quit jobs by company.
@@ -301,7 +301,7 @@ export interface SingularityAsync {
    *
    * @param companyName - Name of the company.
    */
-  quitJob(companyName?: CompanyName | `${CompanyName}`): Promise<void>;
+  dodge_quitJob(companyName?: CompanyName | `${CompanyName}`): Promise<void>;
 
   /**
    * Apply for a job at a company.
@@ -322,7 +322,7 @@ export interface SingularityAsync {
    * @param field - Field to which you want to apply.
    * @returns Job name if the player successfully get a job/promotion, and null otherwise.
    */
-  applyToCompany(companyName: CompanyName | `${CompanyName}`, field: JobField | `${JobField}`): Promise<JobName | null>;
+  dodge_applyToCompany(companyName: CompanyName | `${CompanyName}`, field: JobField | `${JobField}`): Promise<JobName | null>;
 
   /**
    * Get company reputation.
@@ -336,7 +336,7 @@ export interface SingularityAsync {
    * @param companyName - Name of the company.
    * @returns Amount of reputation you have at the specified company.
    */
-  getCompanyRep(companyName: CompanyName | `${CompanyName}`): Promise<number>;
+  dodge_getCompanyRep(companyName: CompanyName | `${CompanyName}`): Promise<number>;
 
   /**
    * Get company favor.
@@ -350,7 +350,7 @@ export interface SingularityAsync {
    * @param companyName - Name of the company.
    * @returns Amount of favor you have at the specified company.
    */
-  getCompanyFavor(companyName: CompanyName | `${CompanyName}`): Promise<number>;
+  dodge_getCompanyFavor(companyName: CompanyName | `${CompanyName}`): Promise<number>;
 
   /**
    * Get company favor gain.
@@ -364,7 +364,7 @@ export interface SingularityAsync {
    * @param companyName - Name of the company.
    * @returns Amount of favor you gain at the specified company when you reset by installing Augmentations.
    */
-  getCompanyFavorGain(companyName: CompanyName | `${CompanyName}`): Promise<number>;
+  dodge_getCompanyFavorGain(companyName: CompanyName | `${CompanyName}`): Promise<number>;
 
   /**
    * List conditions for being invited to a faction.
@@ -376,7 +376,7 @@ export interface SingularityAsync {
    *
    * @example
    * ```js
-   * ns.singularity.getFactionInviteRequirements("The Syndicate");
+   dodge_* ns.singularity.getFactionInviteRequirements("The Syndicate");
    *
    * [
    *   { "type": "someCondition", "conditions": [
@@ -402,7 +402,7 @@ export interface SingularityAsync {
    * ]
    * ```
    */
-  getFactionInviteRequirements(faction: string): Promise<PlayerRequirement[]>;
+  dodge_getFactionInviteRequirements(faction: string): Promise<PlayerRequirement[]>;
 
   /**
    * Get a list of enemies of a faction.
@@ -410,13 +410,13 @@ export interface SingularityAsync {
    * RAM cost: 3 GB * 16/4/1
    *
    *
-   * Returns an array containing the names (as strings) of all factions
+   dodge_* Returns an array containing the names (as strings) of all factions
    * that are enemies of the specified faction.
    *
    * @param faction - Name of faction.
    * @returns Array containing the names of all enemies of the faction.
    */
-  getFactionEnemies(faction: string): Promise<string[]>;
+  dodge_getFactionEnemies(faction: string): Promise<string[]>;
 
   /**
    * List all current faction invitations.
@@ -429,7 +429,7 @@ export interface SingularityAsync {
    *
    * @returns Array with the name of all Factions you currently have outstanding invitations from.
    */
-  checkFactionInvitations(): Promise<string[]>;
+  dodge_checkFactionInvitations(): Promise<string[]>;
 
   /**
    * Join a faction.
@@ -442,7 +442,7 @@ export interface SingularityAsync {
    * @param faction - Name of faction to join.
    * @returns True if player joined the faction, and false otherwise.
    */
-  joinFaction(faction: string): Promise<boolean>;
+  dodge_joinFaction(faction: string): Promise<boolean>;
 
   /**
    * Work for a faction.
@@ -452,7 +452,7 @@ export interface SingularityAsync {
    *
    * This function will set you to start working for the specified faction. You must be a member of the faction and
    * that faction must have the specified work type, or else this function will fail. If you are already in the
-   * middle of some “working” action (such as working for a company, training at a gym, or creating a program), then
+   dodge_* middle of some “working” action (such as working for a company, training at a gym, or creating a program), then
    * running this function will cancel that action.
    *
    * This function will return true if you successfully start working for the specified faction, and false otherwise.
@@ -462,15 +462,15 @@ export interface SingularityAsync {
    * const factionName = "CyberSec";
    * const workType = "hacking";
    *
-   * let success = ns.singularity.workForFaction(factionName, workType);
-   * if (!success) ns.tprint(`ERROR: Failed to start work for ${factionName} with work type ${workType}.`);
+   dodge_* let success = ns.singularity.workForFaction(factionName, workType);
+   dodge_* if (!success) ns.tprint(`ERROR: Failed to start work for ${factionName} with work type ${workType}.`);
    * ```
    * @param faction - Name of faction to work for.
    * @param workType - Type of work to perform for the faction.
    * @param focus - Acquire player focus on this work operation. Optional. Defaults to true.
    * @returns True if the player starts working, and false otherwise.
    */
-  workForFaction(faction: string, workType: FactionWorkType | `${FactionWorkType}`, focus?: boolean): Promise<boolean>;
+  dodge_workForFaction(faction: string, workType: FactionWorkType | `${FactionWorkType}`, focus?: boolean): Promise<boolean>;
 
   /**
    * Get the work types of a faction.
@@ -482,7 +482,7 @@ export interface SingularityAsync {
    * @param faction - Name of the faction.
    * @returns The work types of the faction.
    */
-  getFactionWorkTypes(faction: string): Promise<FactionWorkType[]>;
+  dodge_getFactionWorkTypes(faction: string): Promise<FactionWorkType[]>;
 
   /**
    * Get faction reputation.
@@ -495,7 +495,7 @@ export interface SingularityAsync {
    * @param faction - Name of faction to work for.
    * @returns Amount of reputation you have for the specified faction.
    */
-  getFactionRep(faction: string): Promise<number>;
+  dodge_getFactionRep(faction: string): Promise<number>;
 
   /**
    * Get faction favor.
@@ -508,7 +508,7 @@ export interface SingularityAsync {
    * @param faction - Name of faction.
    * @returns Amount of favor you have for the specified faction.
    */
-  getFactionFavor(faction: string): Promise<number>;
+  dodge_getFactionFavor(faction: string): Promise<number>;
 
   /**
    * Get faction favor gain.
@@ -522,7 +522,7 @@ export interface SingularityAsync {
    * @param faction - Name of faction.
    * @returns Amount of favor you will gain for the specified faction when you reset by installing Augmentations.
    */
-  getFactionFavorGain(faction: string): Promise<number>;
+  dodge_getFactionFavorGain(faction: string): Promise<number>;
 
   /**
    * Donate to a faction.
@@ -541,7 +541,7 @@ export interface SingularityAsync {
    * @param amount - Amount of money to donate.
    * @returns True if the money was donated, and false otherwise.
    */
-  donateToFaction(faction: string, amount: number): Promise<boolean>;
+  dodge_donateToFaction(faction: string, amount: number): Promise<boolean>;
 
   /**
    * Create a program.
@@ -551,7 +551,7 @@ export interface SingularityAsync {
    *
    * This function will automatically set you to start working on creating the
    * specified program. If you are already in the middle of some “working” action
-   * (such as working for a company, training at a gym, or taking a course), then
+   dodge_* (such as working for a company, training at a gym, or taking a course), then
    * running this function will automatically cancel that action and give you your
    * earnings.
    *
@@ -572,14 +572,14 @@ export interface SingularityAsync {
    * @example
    * ```js
    * const programName = "BruteSSH.exe";
-   * const success = ns.singularity.createProgram(programName);
-   * if (!success) ns.tprint(`ERROR: Failed to start working on ${programName}`);
+   dodge_* const success = ns.singularity.createProgram(programName);
+   dodge_* if (!success) ns.tprint(`ERROR: Failed to start working on ${programName}`);
    * ```
    * @param program - Name of program to create.
    * @param focus - Acquire player focus on this program creation. Optional. Defaults to true.
    * @returns True if you successfully start working on the specified program, and false otherwise.
    */
-  createProgram(program: string, focus?: boolean): Promise<boolean>;
+  dodge_createProgram(program: string, focus?: boolean): Promise<boolean>;
 
   /**
    * Commit a crime.
@@ -588,20 +588,20 @@ export interface SingularityAsync {
    *
    *
    * This function is used to automatically attempt to commit crimes.
-   * If you are already in the middle of some ‘working’ action (such
+   dodge_* If you are already in the middle of some ‘working’ action (such
    * as working for a company or training at a gym), then running this
    * function will automatically cancel that action and give you your
    * earnings.
    *
    * This function returns the number of milliseconds it takes to attempt the
-   * specified crime (e.g. It takes 60 seconds to attempt the ‘Rob Store’ crime,
-   * so running `commitCrime('Rob Store')` will return 60,000).
+   dodge_* specified crime (e.g. It takes 60 seconds to attempt the ‘Rob Store’ crime,
+   dodge_* so running `commitCrime('Rob Store')` will return 60,000).
    *
    * @param crime - Name of crime to attempt.
    * @param focus - Acquire player focus on this crime. Optional. Defaults to true.
    * @returns The number of milliseconds it takes to attempt the specified crime.
    */
-  commitCrime(crime: CrimeType | `${CrimeType}`, focus?: boolean): Promise<number>;
+  dodge_commitCrime(crime: CrimeType | `${CrimeType}`, focus?: boolean): Promise<number>;
 
   /**
    * Get chance to successfully commit a crime.
@@ -614,7 +614,7 @@ export interface SingularityAsync {
    * @param crime - Name of crime.
    * @returns Chance of success at committing the specified crime.
    */
-  getCrimeChance(crime: CrimeType | `${CrimeType}`): Promise<number>;
+  dodge_getCrimeChance(crime: CrimeType | `${CrimeType}`): Promise<number>;
 
   /**
    * Get stats related to a crime.
@@ -627,7 +627,7 @@ export interface SingularityAsync {
    * @param crime - Name of crime.
    * @returns The stats of the crime.
    */
-  getCrimeStats(crime: CrimeType | `${CrimeType}`): Promise<CrimeStats>;
+  dodge_getCrimeStats(crime: CrimeType | `${CrimeType}`): Promise<CrimeStats>;
 
   /**
    * Get a list of owned augmentation.
@@ -635,14 +635,14 @@ export interface SingularityAsync {
    * RAM cost: 5 GB * 16/4/1
    *
    *
-   * This function returns an array containing the names (as strings) of all Augmentations you have.
+   dodge_* This function returns an array containing the names (as strings) of all Augmentations you have.
    *
    * @param purchased - Specifies whether the returned array should include Augmentations you have purchased but not
    *   yet installed. By default, this argument is false which means that the return value will NOT have the purchased
    *   Augmentations.
-   * @returns Array containing the names (as strings) of all Augmentations you have.
+   dodge_* @returns Array containing the names (as strings) of all Augmentations you have.
    */
-  getOwnedAugmentations(purchased?: boolean): Promise<string[]>;
+  dodge_getOwnedAugmentations(purchased?: boolean): Promise<string[]>;
 
   /**
    * Get a list of acquired Source-Files.
@@ -659,22 +659,22 @@ export interface SingularityAsync {
    *
    * @returns Array containing an object with number and level of the source file.
    */
-  getOwnedSourceFiles(): Promise<SourceFileLvl[]>;
+  dodge_getOwnedSourceFiles(): Promise<SourceFileLvl[]>;
 
   /**
-   * Get a list of faction(s) that have a specific Augmentation.
+   dodge_* Get a list of faction(s) that have a specific Augmentation.
    * @remarks
    * RAM cost: 5 GB * 16/4/1
    *
    *
-   * Returns an array containing the names (as strings) of all factions
+   dodge_* Returns an array containing the names (as strings) of all factions
    * that offer the specified Augmentation.
    * If no factions offer the Augmentation, a blank array is returned.
    *
    * @param augName - Name of Augmentation.
    * @returns Array containing the names of all factions.
    */
-  getAugmentationFactions(augName: string): Promise<string[]>;
+  dodge_getAugmentationFactions(augName: string): Promise<string[]>;
 
   /**
    * Get a list of augmentation available from a faction.
@@ -682,13 +682,13 @@ export interface SingularityAsync {
    * RAM cost: 5 GB * 16/4/1
    *
    *
-   * Returns an array containing the names (as strings) of all Augmentations
+   dodge_* Returns an array containing the names (as strings) of all Augmentations
    * that are available from the specified faction.
    *
    * @param faction - Name of faction.
    * @returns Array containing the names of all Augmentations.
    */
-  getAugmentationsFromFaction(faction: string): Promise<string[]>;
+  dodge_getAugmentationsFromFaction(faction: string): Promise<string[]>;
 
   /**
    * Get the pre-requisite of an augmentation.
@@ -696,13 +696,13 @@ export interface SingularityAsync {
    * RAM cost: 5 GB * 16/4/1
    *
    *
-   * This function returns an array with the names of the prerequisite Augmentation(s) for the specified Augmentation.
+   dodge_* This function returns an array with the names of the prerequisite Augmentation(s) for the specified Augmentation.
    * If there are no prerequisites, a blank array is returned.
    *
    * @param augName - Name of Augmentation.
-   * @returns Array with the names of the prerequisite Augmentation(s) for the specified Augmentation.
+   dodge_* @returns Array with the names of the prerequisite Augmentation(s) for the specified Augmentation.
    */
-  getAugmentationPrereq(augName: string): Promise<string[]>;
+  dodge_getAugmentationPrereq(augName: string): Promise<string[]>;
 
   /**
    * Get price of an augmentation.
@@ -713,7 +713,7 @@ export interface SingularityAsync {
    * @param augName - Name of Augmentation.
    * @returns Price of the augmentation.
    */
-  getAugmentationPrice(augName: string): Promise<number>;
+  dodge_getAugmentationPrice(augName: string): Promise<number>;
 
   /**
    * Get base price of an augmentation.
@@ -724,7 +724,7 @@ export interface SingularityAsync {
    * @param augName - Name of Augmentation.
    * @returns Base price of the augmentation, before price multiplier.
    */
-  getAugmentationBasePrice(augName: string): Promise<number>;
+  dodge_getAugmentationBasePrice(augName: string): Promise<number>;
 
   /**
    * Get reputation requirement of an augmentation.
@@ -735,7 +735,7 @@ export interface SingularityAsync {
    * @param augName - Name of Augmentation.
    * @returns Reputation requirement of the augmentation.
    */
-  getAugmentationRepReq(augName: string): Promise<number>;
+  dodge_getAugmentationRepReq(augName: string): Promise<number>;
 
   /**
    * Purchase an augmentation
@@ -751,7 +751,7 @@ export interface SingularityAsync {
    * @param augmentation - Name of Augmentation to purchase.
    * @returns True if the Augmentation is successfully purchased, and false otherwise.
    */
-  purchaseAugmentation(faction: string, augmentation: string): Promise<boolean>;
+  dodge_purchaseAugmentation(faction: string, augmentation: string): Promise<boolean>;
 
   /**
    * Get the stats of an augmentation.
@@ -764,7 +764,7 @@ export interface SingularityAsync {
    * @param name - Name of Augmentation. CASE-SENSITIVE.
    * @returns Augmentation stats.
    */
-  getAugmentationStats(name: string): Promise<Multipliers>;
+  dodge_getAugmentationStats(name: string): Promise<Multipliers>;
 
   /**
    * Install your purchased augmentations.
@@ -774,16 +774,16 @@ export interface SingularityAsync {
    *
    * This function will automatically install your Augmentations, resetting the game as usual. If you do not own uninstalled Augmentations then the game will not reset.
    *
-   * @param cbScript - This is a script that will automatically be run after Augmentations are installed (after the reset). This script will be run with no arguments and 1 thread. It must be located on your home computer.
+   dodge_* @param cbScript - This is a script that will automatically be run after Augmentations are installed (after the reset). This script will be run with no arguments and 1 thread. It must be located on your home computer.
    */
-  installAugmentations(cbScript?: string): Promise<void>;
+  dodge_installAugmentations(cbScript?: string): Promise<void>;
 
   /**
    * Hospitalize the player.
    * @remarks
    * RAM cost: 0.25 GB * 16/4/1
    */
-  hospitalize(): Promise<void>;
+  dodge_hospitalize(): Promise<void>;
 
   /**
    * Soft reset the game.
@@ -793,9 +793,9 @@ export interface SingularityAsync {
    *
    * This function will perform a reset even if you don’t have any augmentation installed.
    *
-   * @param cbScript - This is a script that will automatically be run after Augmentations are installed (after the reset). This script will be run with no arguments and 1 thread. It must be located on your home computer.
+   dodge_* @param cbScript - This is a script that will automatically be run after Augmentations are installed (after the reset). This script will be run with no arguments and 1 thread. It must be located on your home computer.
    */
-  softReset(cbScript: string): Promise<void>;
+  dodge_softReset(cbScript: string): Promise<void>;
 
   /**
    * Go to a location.
@@ -808,7 +808,7 @@ export interface SingularityAsync {
    * @param locationName - Name of the location.
    * @returns True if the player was moved there, false otherwise.
    */
-  goToLocation(locationName: LocationName | `${LocationName}`): Promise<boolean>;
+  dodge_goToLocation(locationName: LocationName | `${LocationName}`): Promise<boolean>;
 
   /**
    * Get the current server.
@@ -818,7 +818,7 @@ export interface SingularityAsync {
    *
    * @returns Name of the current server.
    */
-  getCurrentServer(): Promise<string>;
+  dodge_getCurrentServer(): Promise<string>;
 
   /**
    * Connect to a server.
@@ -830,7 +830,7 @@ export interface SingularityAsync {
    *
    * @returns True if the connect command was successful, false otherwise.
    */
-  connect(hostname: string): Promise<boolean>;
+  dodge_connect(hostname: string): Promise<boolean>;
 
   /**
    * Run the hack command in the terminal.
@@ -840,7 +840,7 @@ export interface SingularityAsync {
    *
    * @returns Amount of money stolen by manual hacking.
    */
-  manualHack(): Promise<Promise<number>>;
+  dodge_manualHack(): Promise<Promise<number>>;
 
   /**
    * Run the backdoor command in the terminal.
@@ -850,7 +850,7 @@ export interface SingularityAsync {
    *
    * @returns Promise waiting for the installation to finish.
    */
-  installBackdoor(): Promise<Promise<void>>;
+  dodge_installBackdoor(): Promise<Promise<void>>;
 
   /**
    * Check if the player is focused.
@@ -860,7 +860,7 @@ export interface SingularityAsync {
    *
    * @returns True if the player is focused.
    */
-  isFocused(): Promise<boolean>;
+  dodge_isFocused(): Promise<boolean>;
 
   /**
    * Set the players focus.
@@ -869,7 +869,7 @@ export interface SingularityAsync {
    *
    * @returns True if the focus was changed.
    */
-  setFocus(focus: boolean): Promise<boolean>;
+  dodge_setFocus(focus: boolean): Promise<boolean>;
 
   /**
    * Get a list of programs offered on the dark web.
@@ -884,13 +884,13 @@ export interface SingularityAsync {
    *
    * @example
    * ```js
-   * const programs = ns.singularity.getDarkwebPrograms();
-   * ns.tprint(`Available programs are: ${programs}`);
+   dodge_* const programs = ns.singularity.getDarkwebPrograms();
+   dodge_* ns.tprint(`Available programs are: ${programs}`);
    * ```
    * @returns - a list of programs available for purchase on the dark web, or [] if Tor has not
    * been purchased
    */
-  getDarkwebPrograms(): Promise<string[]>;
+  dodge_getDarkwebPrograms(): Promise<string[]>;
 
   /**
    * Check the price of an exploit on the dark web
@@ -902,7 +902,7 @@ export interface SingularityAsync {
    * You MUST have a TOR router in order to use this function. The price returned
    * by this function is the same price you would see with buy -l from the terminal.
    * Returns the cost of the program if it has not been purchased yet, 0 if it
-   * has already been purchased, or -1 if Tor has not been purchased (and thus
+   dodge_* has already been purchased, or -1 if Tor has not been purchased (and thus
    * the program/exploit is not available for purchase).
    *
    * If the program does not exist, an error is thrown.
@@ -911,15 +911,15 @@ export interface SingularityAsync {
    * @example
    * ```js
    * const programName = "BruteSSH.exe";
-   * const cost = ns.singularity.getDarkwebProgramCost(programName);
-   * if (cost > 0) ns.tprint(`${programName} costs $${ns.formatNumber(cost)}`);
+   dodge_* const cost = ns.singularity.getDarkwebProgramCost(programName);
+   dodge_* if (cost > 0) ns.tprint(`${programName} costs $${ns.formatNumber(cost)}`);
    * ```
    * @param programName - Name of program to check the price of
    * @returns Price of the specified darkweb program
-   * (if not yet purchased), 0 if it has already been purchased, or -1 if Tor has not been
+   dodge_* (if not yet purchased), 0 if it has already been purchased, or -1 if Tor has not been
    * purchased. Throws an error if the specified program/exploit does not exist
    */
-  getDarkwebProgramCost(programName: string): Promise<number>;
+  dodge_getDarkwebProgramCost(programName: string): Promise<number>;
 
   /**
    * b1t_flum3 into a different BN.
@@ -930,7 +930,7 @@ export interface SingularityAsync {
    * @param callbackScript - Name of the script to launch in the next BN.
    * @param bitNodeOptions - BitNode options for the next BN.
    */
-  b1tflum3(nextBN: number, callbackScript?: string, bitNodeOptions?: BitNodeOptions): Promise<void>;
+  dodge_b1tflum3(nextBN: number, callbackScript?: string, bitNodeOptions?: BitNodeOptions): Promise<void>;
 
   /**
    * Destroy the w0r1d_d43m0n and move on to the next BN.
@@ -945,7 +945,7 @@ export interface SingularityAsync {
    * @param callbackScript - Name of the script to launch in the next BN.
    * @param bitNodeOptions - BitNode options for the next BN.
    */
-  destroyW0r1dD43m0n(nextBN: number, callbackScript?: string, bitNodeOptions?: BitNodeOptions): Promise<void>;
+  dodge_destroyW0r1dD43m0n(nextBN: number, callbackScript?: string, bitNodeOptions?: BitNodeOptions): Promise<void>;
 
   /**
    * Get the current work the player is doing.
@@ -954,5 +954,5 @@ export interface SingularityAsync {
    *
    * @returns - An object representing the current work. Fields depend on the kind of work.
    */
-  getCurrentWork(): Promise<Task | null>;
+  dodge_getCurrentWork(): Promise<Task | null>;
 }

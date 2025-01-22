@@ -1,6 +1,6 @@
 import { AutocompleteData, FilenameOrPID, NS, ScriptArg } from '@ns'
 import { ThreadAllocator } from '/lib/thread-allocator';
-import { singularity_async } from '/lib/singu';
+import { singularity_async } from './lib/dodge/singu';
 import { get_aug_args } from '/lib/aug-bitnode-strategies';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -15,7 +15,6 @@ async function wait_for_script_finish(ns: NS, script: FilenameOrPID, host?: stri
 }
 
 export async function main(ns: NS): Promise<void> {
-  ns.ramOverride(6.05);
   const skip_finalize = ns.args.includes('--skip-finalize');
   const override_strategy = ns.args.map(String).filter(d => d.startsWith('--aug-strategy=')).map(d => d.split('=', 1)[0])[0];
 
@@ -61,10 +60,10 @@ export async function main(ns: NS): Promise<void> {
     // We get a modest intelligence boost from accepting faction invites over API, so make sure we take advantage of
     // that before we reset. The usual downsides of joining useless factions (diluting coding contract reputation gain)
     // are irrelevant, because we're about to reset.
-    const invites = await singu.checkFactionInvitations();
+    const invites = await singu.dodge_checkFactionInvitations();
     for (const faction of invites) {
       await ns.asleep(500);
-      await singu.joinFaction(faction);
+      await singu.dodge_joinFaction(faction);
     }
   }
   // Remove volatile data
@@ -74,6 +73,6 @@ export async function main(ns: NS): Promise<void> {
   ns.tprint('SUCCESS See you on the other side!');
   await ns.asleep(3000);
   // Prestige
-  await singu.softReset('init.js');
+  await singu.dodge_softReset('init.js');
   ns.tprint('ERROR Script still running after reset?');
 }

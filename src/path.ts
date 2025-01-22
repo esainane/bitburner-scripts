@@ -1,5 +1,5 @@
 import { AutocompleteData, NS, Server } from '@ns'
-import { singularity_async } from '/lib/singu';
+import { singularity_async } from './lib/dodge/singu';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function autocomplete(data : AutocompleteData, args : string[]) : string[] {
@@ -60,7 +60,6 @@ export function shortest_route_to(ns: NS, target_hostname: string, start: string
 }
 
 export async function main(ns: NS): Promise<void> {
-  ns.ramOverride(6.25);
   if (ns.args.length < 1) {
     ns.tprint("WARNING: Usage: ./path.js SERVER [--go]");
     return;
@@ -81,6 +80,6 @@ export async function main(ns: NS): Promise<void> {
 
   const singu = singularity_async(ns);
   for (const step of route) {
-    await singu.connect(step);
+    await singu.dodge_connect(step);
   }
 }
