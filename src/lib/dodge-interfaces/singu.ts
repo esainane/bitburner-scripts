@@ -1,7 +1,7 @@
 import { BitNodeOptions, CityName, CompanyName, CompanyPositionInfo, CrimeStats, CrimeType, FactionWorkType, GymLocationName, GymType, JobField, JobName, LocationName, Multipliers, PlayerRequirement, SourceFileLvl, Task, UniversityClassType, UniversityLocationName } from "@ns";
 
 /**
- * Singularity API, but all functions are async
+ * Singularity API, but all functions are async worker-launchers
  *
  *
  * To update:
