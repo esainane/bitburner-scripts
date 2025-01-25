@@ -6,7 +6,7 @@ import { BitNodeOptions, CityName, CompanyName, CompanyPositionInfo, CrimeStats,
  *
  * To update:
     sed -i -e '/^ \*\//q' src/lib/dodge-interfaces/singu.ts ;
-    sed -ne '/^export interface Singularity {$/,/^}$/{s/Singularity/SingularityAsync/;s/\( *\)\([^* ]*[^(]*(\)/\1dodge_\2/;s/^\( *[^* ]*.*): \)\([^()]\+\);$/\1Promise<\2>;/;p}' NetScriptDefinitions.d.ts >> src/lib/dodge-interfaces/singu.ts
+    sed -ne '/^export interface Singularity {$/,/^}$/{s/\bSingularity\b/SingularityAsync/;s/\( *\)\([^* ]*[^(]*(\)/\1dodge_\2/;s/^\( *[^* ]*.*): \)\([^()]\+\);$/\1Promise<\2>;/;p}' NetScriptDefinitions.d.ts >> src/lib/dodge-interfaces/singu.ts
  */
 export interface SingularityAsync {
   /**

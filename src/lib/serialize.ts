@@ -16,6 +16,12 @@ export function encode_data(data: any): string {
         data: value.toString()
       }
     }
+    if (typeof value === 'undefined') {
+      return {
+        '@@constructor@@': 'undefined',
+        data: 'undefined'
+      }
+    }
     return value;
   });
 }
@@ -27,6 +33,8 @@ export function decode_data(data: string): any {
         return new Map(value.data);
       case 'BigInt':
         return BigInt(value.data);
+      case 'undefined':
+        return undefined;
       default:
         return value;
     }

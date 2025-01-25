@@ -9,6 +9,14 @@ export async function main(ns: NS): Promise<void> {
   ns.tprint(await worker_dispatch(ns, 'getCurrentServer'));
 }
 
+/**
+ * Create an object which mimics the Singularity API, but is asynchronous.
+ *
+ * Names are prefixed with dodge_ to avoid false positives by the static ram analyzer.
+ * Note that you must still have the real singularity API unlocked (so the workers can use it) and enough RAM to
+ * perform the call; this just means that you only need enough RAM to perform one call at a time, rather than enough
+ * RAM to perform all calls which a script might use simultaneously.
+ */
 export function singularity_async(ns: NS): SingularityAsync {
   const singularity_async: SingularityAsync = {
     dodge_applyToCompany: async (companyName, field) => await worker_dispatch(ns, 'singularity.applyToCompany', companyName, field),

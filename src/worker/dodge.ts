@@ -1,4 +1,5 @@
-import { NS, ScriptArg, Singularity } from '@ns'
+import { NS } from '@ns'
+import { encode_data } from '/lib/serialize';
 
 export async function main(ns: NS): Promise<void> {
   const [fifo, name, ...args] = ns.args as [number, string, ...string[]];
@@ -12,7 +13,7 @@ export async function main(ns: NS): Promise<void> {
   // This is both typewise extremely messy and easy to verify, so static verification gets Condo's Razor
   const func = lookup as CallableFunction;
   const result = await func(...args.map(d => JSON.parse(d)));
-  while (!handle.tryWrite(JSON.stringify(result))) {
+  while (!handle.tryWrite(encode_data(result))) {
     await ns.asleep(200);
   }
 }

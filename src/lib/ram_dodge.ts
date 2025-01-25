@@ -1,6 +1,7 @@
 import { NS } from '@ns';
 import { mkfifo } from '/lib/mkfifo';
 import { ThreadAllocator } from '/lib/thread-allocator';
+import { decode_data } from '/lib/serialize';
 
 // Small helper for offloading extremely high ram cost functions to serially distinct scripts:
 // - exec a helper script
@@ -33,11 +34,5 @@ export async function worker_dispatch(ns: NS, name: string, ...args: any[]) {
   if (data === undefined) {
     return data;
   }
-  return JSON.parse(data, (key: string, value: any): any => {
-    // Return undefined as undefined
-    if (value === 'undefined') {
-      return undefined;
-    }
-    return value;
-  });
+  return decode_data(data);
 }
