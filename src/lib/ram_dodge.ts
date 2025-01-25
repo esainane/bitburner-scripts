@@ -31,8 +31,9 @@ export async function worker_dispatch(ns: NS, name: string, ...args: any[]) {
     await handle.nextWrite();
   }
   const data = await handle.read();
-  if (data === undefined) {
-    return data;
+  const result = decode_data(data);
+  if (result instanceof Error) {
+    throw result;
   }
-  return decode_data(data);
+  return result;
 }

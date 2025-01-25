@@ -22,6 +22,12 @@ export function encode_data(data: any): string {
         data: 'undefined'
       }
     }
+    if (value instanceof Error) {
+      return {
+        '@@constructor@@': 'Error',
+        data: JSON.stringify(value, Object.getOwnPropertyNames(value))
+      }
+    }
     return value;
   });
 }
@@ -35,6 +41,8 @@ export function decode_data(data: string): any {
         return BigInt(value.data);
       case 'undefined':
         return undefined;
+      case 'Error':
+        return Object.assign(new Error(), JSON.parse(value.data));
       default:
         return value;
     }
